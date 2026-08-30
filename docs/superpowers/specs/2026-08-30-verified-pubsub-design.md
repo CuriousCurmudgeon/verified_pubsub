@@ -80,8 +80,8 @@ inherit no dep tree, which was the main argument against it.
 
 Spark earns its place on the registry specifically: nested `topic do message ... end`
 is the canonical section/entity shape; option schema validation and error messages
-with source locations come free; **Verifiers** are the natural home for registry-level
-checks; and `Spark.InfoGenerator` supplies the introspection API. Because payload
+with source locations come free; and `Spark.InfoGenerator` supplies the introspection
+API. Because payload
 shape enforcement is a stated goal, the registry will grow nested `field` entities
 with types, defaults, and required flags — exactly where hand-rolled schema
 validation becomes tedious.
@@ -105,7 +105,7 @@ lib/verified_pubsub/dsl/field.ex
 lib/verified_pubsub/info.ex                     # InfoGenerator + richer accessors
 lib/verified_pubsub/transformers/parse_params.ex
 lib/verified_pubsub/transformers/define_functions.ex
-lib/verified_pubsub/verifiers/validate_topics.ex
+lib/verified_pubsub/transformers/validate_topics.ex
 lib/verified_pubsub/subscriber.ex               # __using__, handle_message, before_compile
 lib/verified_pubsub/adapter.ex                  # behaviour
 lib/verified_pubsub/adapter/phoenix_pub_sub.ex
@@ -287,16 +287,31 @@ emitted last. Elixir's own grouping warning surfaces this in practice.
 
 | Check | Mechanism |
 |---|---|
-| Duplicate topics or events; malformed `%{param}` syntax; unknown options | Spark **Verifier** raising `Spark.Error.DslError` with `path:` and source annotation |
+| Duplicate topics or events; malformed `%{param}` syntax; unknown options | Spark **Transformer** returning `{:error, Spark.Error.DslError}`, with `path:` and source annotation |
 | Unknown topic or event on broadcast | Undefined function |
 | Missing param key on broadcast | `FunctionClauseError` from the destructuring function head; Dialyzer-detectable for literal maps via generated `@spec` |
 | Subscriber exhaustiveness and undeclared events | Hand-rolled `@before_compile` diff |
 
-The split is deliberate. Spark's documentation is explicit that Verifiers run
-post-compilation specifically to avoid creating compile-time dependencies between
-modules — the opposite of what the subscriber needs. The subscriber calls
-`VerifiedPubsub.Info.events/2` at compile time, which creates a compile-time
-dependency on the registry, so **editing the registry recompiles every subscriber**.
+**Registry checks use Transformers, not Verifiers — verified empirically.** Spark's
+documentation advises preferring Verifiers for pure validation, but a Verifier that
+returns `{:error, _}` does **not** fail compilation: it runs via `@after_verify`, so
+the error is printed as a *warning*, the module is still defined, and
+`Kernel.ParallelCompiler.compile/1` returns `:ok`. A Transformer returning
+`{:error, Spark.Error.DslError}` raises a hard compile error and the module is never
+defined, which is what "is a compile error" in the Goals requires. Spark's advice
+exists to avoid cross-module compile-time dependencies; our registry checks reference
+no other modules, so a Transformer carries no such risk.
+
+The same finding means **Spark's built-in duplicate detection is not sufficient**.
+`Spark.Dsl.Verifiers.VerifyEntityUniqueness` catches duplicate top-level entities
+(two `topic :campaigns`) but, being a Verifier, only warns — and it does not check
+nested entities at all, so two `message :created` blocks inside one topic pass
+silently. Both duplicate topics and duplicate events must be checked in our own
+Transformer.
+
+The subscriber side is separate: it calls `VerifiedPubsub.Info.events/2` at compile
+time, which creates a compile-time dependency on the registry, so **editing the
+registry recompiles every subscriber**.
 
 That is the property we want: deleting an event immediately breaks its handlers. The
 accepted cost is recompilation fan-out, the same bargain the old Phoenix router
@@ -376,8 +391,11 @@ in-process and captures raised errors and emitted warnings.
 
 1. **DSL parsing** — build registries, assert `Info` returns the expected topics,
    events, params, and fields.
-2. **Registry verifiers** — compile deliberately-broken registries, assert
-   `Spark.Error.DslError` and message content (duplicate event, malformed param).
+2. **Registry transformers** — compile deliberately-broken registries with
+   `Code.compile_string/1` and `assert_raise Spark.Error.DslError`, checking message
+   content (duplicate topic, duplicate event, malformed param). This works precisely
+   because the checks are Transformers; the same assertions against a Verifier would
+   silently pass while only emitting a warning.
 3. **Subscriber verification** — the crux. Assert `CompileError` for a missing event
    and for an undeclared event; assert `ignore_message` satisfies coverage; assert
    `on_missing: :warn` warns rather than raises.
