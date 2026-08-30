@@ -1,10 +1,11 @@
 defmodule VerifiedPubSub.SubscriberTest do
   use ExUnit.Case, async: true
 
+  use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+
   import VerifiedPubSub.CompileHelper
 
   alias VerifiedPubSub.Message
-  alias VerifiedPubSub.TestRegistries.Basic
 
   defmodule Worker do
     use GenServer
@@ -17,7 +18,7 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe_campaigns(%{account_id: opts[:account_id]})
+      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
@@ -48,7 +49,7 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe_campaigns(%{account_id: opts[:account_id]})
+      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
@@ -78,7 +79,7 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe_campaigns(%{account_id: opts[:account_id]})
+      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
@@ -104,19 +105,19 @@ defmodule VerifiedPubSub.SubscriberTest do
   end
 
   test "the payload form receives the payload", %{account_id: id} do
-    Basic.broadcast_campaigns_created!(%{account_id: id}, %{id: "c1"})
+    broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c1"})
 
     assert_receive {:created, %{id: "c1"}}
   end
 
   test "the Message form can match on topic params", %{account_id: id} do
-    Basic.broadcast_campaigns_updated!(%{account_id: id}, %{id: "c2"})
+    broadcast!(:campaigns, :updated, %{account_id: id}, %{id: "c2"})
 
     assert_receive {:updated, ^id, %{id: "c2"}}
   end
 
   test "an ignored event is received without crashing", %{account_id: id, worker: pid} do
-    Basic.broadcast_campaigns_deleted!(%{account_id: id}, %{id: "c3"})
+    broadcast!(:campaigns, :deleted, %{account_id: id}, %{id: "c3"})
 
     refute_receive {:created, _}, 50
     refute_receive {:updated, _, _}, 50
@@ -150,7 +151,7 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     # The generated clause is emitted at the `use` site, so it is matched before the
     # user's catch-all and verified messages still dispatch correctly.
-    Basic.broadcast_campaigns_created!(%{account_id: id}, %{id: "c7"})
+    broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c7"})
     assert_receive {:created, %{id: "c7"}}
   end
 
@@ -161,7 +162,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     send(pid, :tick)
     assert_receive :ticked
 
-    Basic.broadcast_campaigns_created!(%{account_id: id}, %{id: "c9"})
+    broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c9"})
     assert_receive {:created, %{id: "c9"}}
 
     assert Process.alive?(pid)

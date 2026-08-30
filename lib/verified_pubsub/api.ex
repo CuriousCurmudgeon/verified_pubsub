@@ -22,6 +22,7 @@ defmodule VerifiedPubSub.Api do
   @doc "Subscribes the calling process to a topic."
   defmacro subscribe(topic, params \\ quote(do: %{})) do
     {registry, topic_struct} = resolve!(__CALLER__, topic)
+    validate_params!(__CALLER__, topic_struct, params)
 
     quote do
       unquote(bind_topic(registry, topic_struct, params))
@@ -32,6 +33,7 @@ defmodule VerifiedPubSub.Api do
   @doc "Unsubscribes the calling process from a topic."
   defmacro unsubscribe(topic, params \\ quote(do: %{})) do
     {registry, topic_struct} = resolve!(__CALLER__, topic)
+    validate_params!(__CALLER__, topic_struct, params)
 
     quote do
       unquote(bind_topic(registry, topic_struct, params))
@@ -42,6 +44,7 @@ defmodule VerifiedPubSub.Api do
   @doc "Returns the wire topic string."
   defmacro topic(topic, params \\ quote(do: %{})) do
     {registry, topic_struct} = resolve!(__CALLER__, topic)
+    validate_params!(__CALLER__, topic_struct, params)
 
     quote do
       unquote(bind_topic(registry, topic_struct, params))
@@ -74,6 +77,7 @@ defmodule VerifiedPubSub.Api do
   defp build(caller, topic, event, params, payload, from, bang?) do
     {registry, topic_struct} = resolve!(caller, topic)
     event = validate_event!(caller, registry, topic_struct, event)
+    validate_params!(caller, topic_struct, params)
 
     call =
       if from do
@@ -196,6 +200,49 @@ defmodule VerifiedPubSub.Api do
       Declared events: #{inspect(declared)}#{hint}
       """)
     end
+  end
+
+  # Only a literal map can be checked at compile time. Anything else (a variable, a
+  # function call) is left to `Map.fetch!/2` at runtime, which raises KeyError naming the
+  # missing key.
+  defp validate_params!(caller, topic_struct, {:%{}, _, pairs}) when is_list(pairs) do
+    keys = Enum.map(pairs, &elem(&1, 0))
+
+    if Enum.all?(keys, &is_atom/1) do
+      expected = topic_struct.params
+      missing = expected -- keys
+      unexpected = keys -- expected
+
+      cond do
+        missing == [] and unexpected == [] ->
+          :ok
+
+        true ->
+          raise_compile_error(caller, params_message(topic_struct, missing, unexpected))
+      end
+    else
+      :ok
+    end
+  end
+
+  defp validate_params!(_caller, _topic_struct, _params), do: :ok
+
+  defp params_message(topic_struct, missing, unexpected) do
+    detail =
+      [
+        if(missing != [], do: "  missing: #{inspect(missing)}"),
+        if(unexpected != [], do: "  unexpected: #{inspect(unexpected)}")
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n")
+
+    """
+    wrong params for topic #{inspect(topic_struct.name)}.
+
+    #{detail}
+
+    #{inspect(topic_struct.name)} is #{inspect(topic_struct.pattern)}, so it takes exactly #{inspect(topic_struct.params)}.
+    """
   end
 
   defp literal_atom!(caller, ast, role) when is_atom(ast) and not is_nil(ast) do

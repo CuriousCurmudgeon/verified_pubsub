@@ -95,13 +95,6 @@ defmodule VerifiedPubSub.ApiTest do
 
       assert_receive %Message{params: %{account_id: ^id}}
     end
-
-    test "it interoperates with the generated functions", %{account_id: id} do
-      assert :ok = VerifiedPubSub.TestRegistries.Basic.subscribe_campaigns(%{account_id: id})
-      assert :ok = Broadcaster.created(id, %{id: "c1"})
-
-      assert_receive %Message{event: :created}
-    end
   end
 
   describe "compile-time verification" do
@@ -141,6 +134,47 @@ defmodule VerifiedPubSub.ApiTest do
       message = Exception.message(error)
       assert message =~ "unknown event :alert"
       assert message =~ "declared on [:system]"
+    end
+
+    test "a literal params map missing a required key is a hard compile error" do
+      error = compile_error(source(~s|broadcast!(:campaigns, :created, %{}, %{})|))
+
+      assert %CompileError{} = error
+      message = Exception.message(error)
+      assert message =~ "account_id"
+      assert message =~ ":campaigns"
+    end
+
+    test "a literal params map with an unexpected key is a hard compile error" do
+      error =
+        compile_error(
+          source(~s|broadcast!(:campaigns, :created, %{account_id: "1", extra: 2}, %{})|)
+        )
+
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ "extra"
+    end
+
+    test "a literal params map with a misspelled key names both sides" do
+      error =
+        compile_error(source(~s|broadcast!(:campaigns, :created, %{acount_id: "1"}, %{})|))
+
+      assert %CompileError{} = error
+      message = Exception.message(error)
+      assert message =~ "acount_id"
+      assert message =~ "account_id"
+    end
+
+    test "params built at runtime skip the compile check and are not an error" do
+      assert is_atom(
+               compile!(
+                 source(~s|broadcast!(:campaigns, :created, Map.new([{:account_id, "1"}]), %{})|)
+               )
+             )
+    end
+
+    test "a param-free topic accepts an empty literal map" do
+      assert is_atom(compile!(source(~s|broadcast!(:system, :alert, %{}, %{})|)))
     end
 
     test "a non-literal topic is a hard compile error" do

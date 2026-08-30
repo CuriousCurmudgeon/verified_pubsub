@@ -55,7 +55,6 @@ defmodule VerifiedPubSub.Dsl do
     sections: [@topics],
     transformers: [
       VerifiedPubSub.Transformers.ParseParams,
-      VerifiedPubSub.Transformers.ValidateTopics,
-      VerifiedPubSub.Transformers.DefineFunctions
+      VerifiedPubSub.Transformers.ValidateTopics
     ]
 end

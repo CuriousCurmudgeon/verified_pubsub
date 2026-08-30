@@ -8,7 +8,7 @@ defmodule VerifiedPubSub.Subscriber do
         use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
         def mount(_params, _session, socket) do
-          if connected?(socket), do: subscribe_campaigns(%{account_id: socket.assigns.id})
+          if connected?(socket), do: subscribe(:campaigns, %{account_id: socket.assigns.id})
           {:ok, socket}
         end
 
@@ -22,6 +22,9 @@ defmodule VerifiedPubSub.Subscriber do
   Every event declared on a subscribed topic must be either handled by
   `handle_message/5` or dismissed by `ignore_message/2`, or the module does not
   compile.
+
+  `use` also imports `VerifiedPubSub.Api`, so `subscribe/2`, `broadcast!/4` and the rest
+  are available without a separate `use VerifiedPubSub, registry: ...`.
 
   ## Generated code
 
@@ -83,7 +86,7 @@ defmodule VerifiedPubSub.Subscriber do
 
     # Reading the registry here creates a compile-time dependency on it, so editing the
     # registry recompiles every subscriber. That is deliberate.
-    imports = subscribe_imports(registry, topics)
+    Enum.each(topics, &VerifiedPubSub.Info.topic!(registry, &1))
     module = __CALLER__.module
 
     # These MUST be set during expansion rather than from inside the quote below.
@@ -99,7 +102,7 @@ defmodule VerifiedPubSub.Subscriber do
     Module.put_attribute(module, :verified_pubsub_on_missing, on_missing)
 
     quote do
-      import unquote(registry), only: unquote(imports)
+      import VerifiedPubSub.Api
       import VerifiedPubSub.Subscriber, only: [handle_message: 5, ignore_message: 2]
 
       @before_compile VerifiedPubSub.Subscriber
@@ -113,13 +116,6 @@ defmodule VerifiedPubSub.Subscriber do
         __verified_pubsub_dispatch__(message.topic, message.event, message, state)
       end
     end
-  end
-
-  defp subscribe_imports(registry, topics) do
-    Enum.flat_map(topics, fn topic ->
-      arity = if VerifiedPubSub.Info.params(registry, topic) == [], do: 0, else: 1
-      [{:"subscribe_#{topic}", arity}, {:"unsubscribe_#{topic}", arity}]
-    end)
   end
 
   @doc """
