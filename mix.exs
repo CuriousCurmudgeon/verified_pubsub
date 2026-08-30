@@ -26,7 +26,8 @@ defmodule VerifiedPubsub.MixProject do
   defp deps do
     [
       {:spark, "~> 2.7"},
-      {:phoenix_pubsub, "~> 2.1", optional: true}
+      {:phoenix_pubsub, "~> 2.1", optional: true},
+      {:phoenix_live_view, "~> 1.0", only: :test}
     ]
   end
 end
