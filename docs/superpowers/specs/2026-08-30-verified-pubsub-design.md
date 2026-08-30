@@ -306,12 +306,41 @@ The `@before_compile` diff, per subscribed topic:
 
 - `declared` — from `Info.events/2`
 - `accounted_for` — accumulated from `handle_message` and `ignore_message`
-- `declared -- accounted_for` → missing, reported per `on_missing`
-- `accounted_for -- declared` → undeclared, always an error
+- `MapSet.difference(declared, accounted_for)` → missing, reported per `on_missing`
+- `MapSet.difference(accounted_for, declared)` → undeclared, always an error
+
+**Set semantics, not list subtraction.** Multiple `handle_message` clauses for the
+same `{topic, event}` are legal and expected (see param matching below), so Elixir's
+`--`, which removes only one occurrence per element, would leave a residue and report
+a correctly-handled event as undeclared.
 
 `on_missing: :error | :warn | :ignore` defaults to `:error`. Errors are raised as
 `CompileError` naming the module, the missing events, and the `ignore_message` escape
 hatch.
+
+**Matching on param values, and what verification does not cover.** Because
+`handle_message` expands to a real `handle_info/2` clause, the `%Message{}` pattern
+form can match `params` at runtime like any other pattern, including several clauses
+per `{topic, event}` with different param patterns:
+
+```elixir
+handle_message :campaigns, :created,
+               %VerifiedPubsub.Message{params: %{account_id: "7"}, payload: p},
+               state do
+```
+
+This is strictly more than plain Phoenix PubSub offers, where the topic string is not
+carried in the message at all and params must be hand-copied into the payload.
+
+The limit is that **coverage is tracked per `{topic, event}` pair, not per param
+value.** If every clause for an event matches a narrow param value, the event counts
+as covered while a message with any other param value falls through to a
+`FunctionClauseError`. This gap is inherent — it is value coverage, not name coverage,
+and no static check closes it. It is rarely felt in practice, since a process
+subscribes with concrete params and therefore already knows them; it matters only when
+one process subscribes to several instances of a parameterized topic. Documentation
+should recommend a final param-agnostic clause when a subscriber does match on param
+values.
 
 ### 6. Adapters
 
