@@ -51,5 +51,7 @@ defmodule VerifiedPubsub.Dsl do
           )
           |> Section.build!()
 
-  use Spark.Dsl.Extension, sections: [@topics]
+  use Spark.Dsl.Extension,
+    sections: [@topics],
+    transformers: [VerifiedPubsub.Transformers.ParseParams]
 end
