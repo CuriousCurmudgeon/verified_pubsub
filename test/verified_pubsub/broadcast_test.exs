@@ -61,9 +61,38 @@ defmodule VerifiedPubsub.BroadcastTest do
     assert_receive %Message{topic: :system, event: :alert, params: %{}}
   end
 
-  test "a missing param key raises FunctionClauseError" do
+  test "a wrong param key in a literal map is flagged at compile time" do
+    # The generated head destructures the topic's params, so Elixir's type inference
+    # catches a literal map with the wrong keys without any Dialyzer run.
+    {_result, diagnostics} =
+      Code.with_diagnostics(fn ->
+        Code.compile_string("""
+        defmodule #{unique_module("VPTest.BadParams")} do
+          def go do
+            VerifiedPubsub.TestRegistries.Basic.broadcast_campaigns_created!(
+              %{wrong: "7"},
+              %{id: "c1"}
+            )
+          end
+        end
+        """)
+      end)
+
+    assert diagnostic =
+             Enum.find(diagnostics, &(&1.message =~ "broadcast_campaigns_created!")),
+           "expected a diagnostic for the wrong param key, got: #{inspect(diagnostics)}"
+
+    assert diagnostic.message =~ "incompatible types"
+    assert diagnostic.message =~ "account_id"
+  end
+
+  test "a missing param key raises FunctionClauseError at runtime" do
+    # Built so the type checker cannot see the keys, which is the dynamic case the
+    # compile-time check above cannot cover.
+    params = Map.new([{String.to_atom("wrong"), "7"}])
+
     assert_raise FunctionClauseError, fn ->
-      Basic.broadcast_campaigns_created!(%{wrong: "7"}, %{id: "c1"})
+      Basic.broadcast_campaigns_created!(params, %{id: "c1"})
     end
   end
 

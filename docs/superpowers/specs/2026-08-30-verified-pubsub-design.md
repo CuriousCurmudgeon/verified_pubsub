@@ -185,8 +185,16 @@ fails immediately and legibly rather than producing a malformed topic string:
 def broadcast_campaigns_created!(%{account_id: account_id}, payload) do
 ```
 
-Each generated function also gets a `@spec` with `required(:account_id)`, which lets
-Dialyzer flag a wrong-keyed literal map statically. These deliberately stay
+Better still, and verified on Elixir 1.20.4: the destructured head means the compiler's
+own type inference flags a wrong-keyed **literal** map at compile time, with no Dialyzer
+run required —
+
+    warning: incompatible types given to broadcast_campaigns_created!/2
+        given types:    %{wrong: binary()}, %{id: binary()}
+        but expected:   %{..., account_id: term()}, term()
+
+so the common case is caught statically after all. A dynamically-built map still fails
+at runtime with `FunctionClauseError`. These deliberately stay
 **functions, not macros**: catching a bad literal map at compile time would require a
 macro, and a remote macro call would force every caller to `require MyApp.Topics`.
 That cost is not worth converting a loud, immediate `FunctionClauseError` into a
@@ -310,7 +318,7 @@ emitted last. Elixir's own grouping warning surfaces this in practice.
 |---|---|
 | Duplicate topics or events; malformed `%{param}` syntax; unknown options | Spark **Transformer** returning `{:error, Spark.Error.DslError}`, with `path:` and source annotation |
 | Unknown topic or event on broadcast | Undefined function — compile *warning* listing valid alternatives; hard error under `--warnings-as-errors` |
-| Missing param key on broadcast | `FunctionClauseError` from the destructuring function head; Dialyzer-detectable for literal maps via generated `@spec` |
+| Wrong param key on broadcast | Compile-time type warning for a literal map (Elixir's own inference, via the destructuring head); `FunctionClauseError` for a dynamic map |
 | Subscriber exhaustiveness and undeclared events | Hand-rolled `@before_compile` diff |
 
 **Registry checks use Transformers, not Verifiers — verified empirically.** Spark's
