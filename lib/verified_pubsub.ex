@@ -114,5 +114,50 @@ defmodule VerifiedPubSub do
   adapter behaviour — that is where PG2, Redis, and anything else are configured — so
   wrapping it would duplicate an extension point one layer down, and leave you
   configuring transport in two places.
+
+  ## Atom-first macros (experimental)
+
+  `use VerifiedPubSub, registry: MyApp.Topics` imports an alternative call-site API in
+  which the topic and event are arguments rather than part of the function name:
+
+      defmodule MyApp.Campaigns do
+        use VerifiedPubSub, registry: MyApp.Topics
+
+        def create(attrs) do
+          # ...
+          broadcast!(:campaigns, :created, %{account_id: attrs.account_id}, payload)
+        end
+      end
+
+  See `VerifiedPubSub.Api` for the trade-offs. The two styles currently coexist so they
+  can be compared; only one should ship.
   """
+
+  @doc """
+  Imports the atom-first macros in `VerifiedPubSub.Api`, bound to `registry`.
+  """
+  defmacro __using__(opts) do
+    registry = opts |> Keyword.fetch!(:registry) |> Macro.expand(__CALLER__)
+    module = __CALLER__.module
+
+    # Set during expansion, not from inside the quote: Elixir expands the macros in a
+    # module body before the body's runtime calls execute, so an assignment in the quote
+    # would not be visible to a `broadcast!` further down the same module.
+    case Module.get_attribute(module, :verified_pubsub_registry) do
+      nil ->
+        Module.put_attribute(module, :verified_pubsub_registry, registry)
+
+      ^registry ->
+        :ok
+
+      other ->
+        raise ArgumentError,
+              "#{inspect(module)} is already bound to registry #{inspect(other)}, " <>
+                "cannot also bind #{inspect(registry)}"
+    end
+
+    quote do
+      import VerifiedPubSub.Api
+    end
+  end
 end
