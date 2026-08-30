@@ -8,7 +8,42 @@ defmodule VerifiedPubsub.MixProject do
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      name: "VerifiedPubsub",
+      description: "Compile-time verified PubSub: verified routes, but for topics and events.",
+      package: package(),
+      docs: docs()
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
+      links: %{}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "VerifiedPubsub",
+      extras: ["README.md"],
+      groups_for_modules: [
+        Registry: [
+          VerifiedPubsub.Registry,
+          VerifiedPubsub.Dsl,
+          VerifiedPubsub.Info
+        ],
+        Subscribing: [
+          VerifiedPubsub.Subscriber,
+          VerifiedPubsub.Message
+        ],
+        Adapters: [
+          VerifiedPubsub.Adapter,
+          VerifiedPubsub.Adapter.Local,
+          VerifiedPubsub.Adapter.PhoenixPubSub
+        ]
+      ]
     ]
   end
 

@@ -1,43 +1,106 @@
 defmodule VerifiedPubsub do
   @moduledoc """
-  Defines macros for verified PubSub. This provides compile-time support for PubSub
-  so you know that you are using valid topics and handling all possible messages on that topic.
+  Compile-time verified PubSub.
 
-  ## Examples
-  ```
-  topic "campaigns" do
-    message :created, %{id: :string, account_id: :string, name: String.t()}},
-    message :updated, %{id: :string, account_id: :string, name: String.t()}},
-    message :deleted, %{id: :string, account_id: :string}}
-  end
-  ```
+  A broadcast and its handler are normally two string literals in two files with
+  nothing tying them together, so renaming or deleting an event leaves dead handlers
+  and unhandled messages behind, silently. `VerifiedPubsub` makes a registry the single
+  source of truth and turns that drift into compile-time failures.
+
+  ## The registry
+
+      defmodule MyApp.Topics do
+        use VerifiedPubsub.Registry,
+          adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
+          pubsub: MyApp.PubSub
+
+        topic :campaigns, "accounts:%{account_id}:campaigns" do
+          message :created do
+            field :id, :string
+            field :name, :string
+          end
+
+          message :deleted do
+            field :id, :string
+          end
+        end
+      end
+
+  `:campaigns` is an alias used to build function names; the string is the wire topic.
+  `%{account_id}` marks a parameter, and the parameter list is derived from the pattern
+  rather than declared twice.
+
+  ## Broadcasting
+
+      MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: c.id, name: c.name})
+
+  Params are passed as a map, which the generated function head destructures. A topic
+  with no params takes only a payload: `MyApp.Topics.broadcast_system_alert!(payload)`.
+
+  ## Subscribing
+
+      defmodule MyApp.Worker do
+        use GenServer
+        use VerifiedPubsub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+
+        def init(account_id) do
+          :ok = subscribe_campaigns(%{account_id: account_id})
+          {:ok, account_id}
+        end
+
+        handle_message :campaigns, :created, payload, state do
+          {:noreply, state}
+        end
+
+        ignore_message :campaigns, :deleted
+      end
+
+  Every event declared on a subscribed topic must be handled or explicitly dismissed.
+  `ignore_message/2` exists because subscribers routinely care about a subset of a
+  topic's events; without it, exhaustiveness would be unusable rather than merely
+  strict.
+
+  To match on topic params, pattern match the whole message instead of the payload:
+
+      handle_message :campaigns, :created,
+                     %VerifiedPubsub.Message{params: %{account_id: id}, payload: p},
+                     state do
+        {:noreply, state}
+      end
+
+  ## What is and is not checked
+
+  Enforced as a hard compile error:
+
+    * a subscriber that does not account for every event on a topic it subscribes to
+    * a subscriber that handles an event the registry does not declare, or a topic not
+      in its `:topics` list
+    * duplicate topics, duplicate events on one topic, and malformed topic patterns
+
+  Enforced as a compile *warning*, promoted to an error by
+  `mix compile --warnings-as-errors`:
+
+    * broadcasting an unknown topic or event. This works by the generated function not
+      existing, and Elixir reports an undefined remote function as a warning — one that
+      helpfully lists the valid alternatives. Run `--warnings-as-errors` in CI to make
+      it binding.
+    * a params map with the wrong keys, when the map is a literal. Elixir's type
+      inference catches it against the destructured function head. A dynamically-built
+      map raises `FunctionClauseError` at runtime instead.
+
+  Not checked:
+
+    * **Payload shapes.** `field` declarations are parsed and introspectable via
+      `VerifiedPubsub.Info`, but nothing validates a payload against them yet.
+    * **Topic param values.** Coverage is tracked per `{topic, event}` pair, so if
+      every clause for an event matches a narrow param value, the event still counts as
+      covered and a message with a different value raises `FunctionClauseError`. End
+      with a param-agnostic clause when matching on param values.
+
+  ## Transports
+
+  `VerifiedPubsub.Adapter.PhoenixPubSub` is the usual choice, and `:phoenix_pubsub` is
+  an optional dependency — the library and its test suite run without Phoenix.
+  `VerifiedPubsub.Adapter.Local` delivers in-VM with `send/2` and is useful in tests.
   """
-
-  defmacro __using__(_opts) do
-    quote do
-      Module.register_attribute(__MODULE__, :topics, accumulate: true)
-
-      import unquote(__MODULE__), only: [topic: 1, message: 2]
-      @before_compile unquote(__MODULE__)
-    end
-  end
-
-  defmacro __before_compile__(env) do
-    compile(Module.get_attribute(env.module, :topics))
-  end
-
-  defmacro topic(name, fun) do
-    quote bind_quoted: [name: name, fun: fun] do
-      @topics {name, fun}
-    end
-  end
-
-  defmacro message(name, schema) do
-    quote bind_quoted: [name: name, schema: schema] do
-      @messages {name, schema}
-    end
-  end
-
-  def compile(_topics) do
-  end
 end
