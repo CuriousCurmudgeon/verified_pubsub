@@ -31,7 +31,7 @@ defmodule VerifiedPubSub.Registry do
   def handle_opts(opts) do
     quote do
       @doc false
-      def __verified_pubsub_pubsub__, do: unquote(opts[:pubsub])
+      def __verified_pubsub_name__, do: unquote(opts[:pubsub])
     end
   end
 end

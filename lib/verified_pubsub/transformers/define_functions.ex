@@ -58,7 +58,7 @@ defmodule VerifiedPubSub.Transformers.DefineFunctions do
       @doc "Subscribes the calling process to `#{unquote(inspect(name))}`."
       def unquote(subscribe_fn)(unquote_splicing(args)) do
         Phoenix.PubSub.subscribe(
-          __verified_pubsub_pubsub__(),
+          __verified_pubsub_name__(),
           unquote(topic_fn)(unquote_splicing(args))
         )
       end
@@ -66,7 +66,7 @@ defmodule VerifiedPubSub.Transformers.DefineFunctions do
       @doc "Unsubscribes the calling process from `#{unquote(inspect(name))}`."
       def unquote(unsubscribe_fn)(unquote_splicing(args)) do
         Phoenix.PubSub.unsubscribe(
-          __verified_pubsub_pubsub__(),
+          __verified_pubsub_name__(),
           unquote(topic_fn)(unquote_splicing(args))
         )
       end
@@ -93,7 +93,7 @@ defmodule VerifiedPubSub.Transformers.DefineFunctions do
       @doc "Broadcasts `#{unquote(inspect(event))}` on `#{unquote(inspect(topic_name))}`."
       def unquote(fn_name)(unquote_splicing(all_args)) do
         Phoenix.PubSub.broadcast(
-          __verified_pubsub_pubsub__(),
+          __verified_pubsub_name__(),
           unquote(topic_fn)(unquote_splicing(args)),
           unquote(message_ast(topic_name, event, params_map, payload))
         )
@@ -119,7 +119,7 @@ defmodule VerifiedPubSub.Transformers.DefineFunctions do
       """
       def unquote(from_name)(unquote_splicing(from_args)) do
         Phoenix.PubSub.broadcast_from(
-          __verified_pubsub_pubsub__(),
+          __verified_pubsub_name__(),
           unquote(from),
           unquote(topic_fn)(unquote_splicing(args)),
           unquote(message_ast(topic_name, event, params_map, payload))

@@ -36,7 +36,7 @@ defmodule VerifiedPubSub.DslTest do
   end
 
   test "the registry records its Phoenix.PubSub name" do
-    assert Basic.__verified_pubsub_pubsub__() == VerifiedPubSub.TestPubSub
+    assert Basic.__verified_pubsub_name__() == VerifiedPubSub.TestPubSub
   end
 
   test "the :pubsub option is required" do
