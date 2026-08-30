@@ -53,5 +53,8 @@ defmodule VerifiedPubsub.Dsl do
 
   use Spark.Dsl.Extension,
     sections: [@topics],
-    transformers: [VerifiedPubsub.Transformers.ParseParams]
+    transformers: [
+      VerifiedPubsub.Transformers.ParseParams,
+      VerifiedPubsub.Transformers.ValidateTopics
+    ]
 end
