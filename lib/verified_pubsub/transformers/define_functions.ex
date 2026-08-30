@@ -74,24 +74,24 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
   defp broadcast_functions(topic_name, event, args, params_map, topic_fn) do
     fn_name = :"broadcast_#{topic_name}_#{event}"
     bang_name = :"broadcast_#{topic_name}_#{event}!"
+    from_name = :"broadcast_#{topic_name}_#{event}_from"
+    from_bang_name = :"broadcast_#{topic_name}_#{event}_from!"
+
     payload = Macro.var(:payload, __MODULE__)
+    from = Macro.var(:from, __MODULE__)
+
     all_args = args ++ [payload]
+    # `from` leads, mirroring Phoenix.PubSub.broadcast_from/4 where it precedes the
+    # topic -- and the params map is the topic here.
+    from_args = [from | all_args]
 
     quote do
       @doc "Broadcasts `#{unquote(inspect(event))}` on `#{unquote(inspect(topic_name))}`."
       def unquote(fn_name)(unquote_splicing(all_args)) do
-        message = %VerifiedPubsub.Message{
-          registry: __MODULE__,
-          topic: unquote(topic_name),
-          event: unquote(event),
-          params: unquote(params_map),
-          payload: unquote(payload)
-        }
-
         __verified_pubsub_adapter__().broadcast(
           __verified_pubsub_config__(),
           unquote(topic_fn)(unquote_splicing(args)),
-          message
+          unquote(message_ast(topic_name, event, params_map, payload))
         )
       end
 
@@ -103,6 +103,45 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
           unquote(event)
         )
       end
+
+      @doc """
+      Broadcasts `#{unquote(inspect(event))}` on `#{unquote(inspect(topic_name))}` to
+      every subscriber except `from`.
+
+      Mirrors `Phoenix.PubSub.broadcast_from/4`, including its semantics: `from` is
+      whichever pid you pass, so `self()` is the calling process. Beware that when the
+      broadcast happens inside a context function, a `Task`, or a job, `self()` is that
+      process rather than the one that started the request.
+      """
+      def unquote(from_name)(unquote_splicing(from_args)) do
+        __verified_pubsub_adapter__().broadcast_from(
+          __verified_pubsub_config__(),
+          unquote(from),
+          unquote(topic_fn)(unquote_splicing(args)),
+          unquote(message_ast(topic_name, event, params_map, payload))
+        )
+      end
+
+      @doc "Same as `#{unquote(from_name)}/#{unquote(length(from_args))}` but raises on failure."
+      def unquote(from_bang_name)(unquote_splicing(from_args)) do
+        VerifiedPubsub.Broadcast.bang!(
+          unquote(from_name)(unquote_splicing(from_args)),
+          unquote(topic_name),
+          unquote(event)
+        )
+      end
+    end
+  end
+
+  defp message_ast(topic_name, event, params_map, payload) do
+    quote do
+      %VerifiedPubsub.Message{
+        registry: __MODULE__,
+        topic: unquote(topic_name),
+        event: unquote(event),
+        params: unquote(params_map),
+        payload: unquote(payload)
+      }
     end
   end
 

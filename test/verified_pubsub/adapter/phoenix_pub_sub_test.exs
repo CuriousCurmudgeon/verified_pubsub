@@ -44,6 +44,13 @@ defmodule VerifiedPubsub.Adapter.PhoenixPubSubTest do
     refute_receive %Message{}, 50
   end
 
+  test "broadcast_from excludes the sender", %{pubsub: pubsub} do
+    assert :ok = PhoenixPubSub.subscribe(pubsub, "t")
+    assert :ok = PhoenixPubSub.broadcast_from(pubsub, self(), "t", message())
+
+    refute_receive %Message{}, 50
+  end
+
   test "a registry can use the Phoenix adapter end to end", %{pubsub: pubsub} do
     module =
       compile!("""

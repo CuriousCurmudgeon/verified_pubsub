@@ -37,6 +37,14 @@ defmodule VerifiedPubsub do
   Params are passed as a map, which the generated function head destructures. A topic
   with no params takes only a payload: `MyApp.Topics.broadcast_system_alert!(payload)`.
 
+  To skip the sender, use the `_from` variants, which mirror
+  `Phoenix.PubSub.broadcast_from/4` (`from` leads, as it does there):
+
+      MyApp.Topics.broadcast_campaigns_created_from!(self(), %{account_id: id}, payload)
+
+  Each event generates `broadcast_*`, `broadcast_*!`, `broadcast_*_from`, and
+  `broadcast_*_from!`.
+
   ## Subscribing
 
       defmodule MyApp.Worker do

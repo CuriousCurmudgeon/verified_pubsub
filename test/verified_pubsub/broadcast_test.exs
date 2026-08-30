@@ -96,6 +96,72 @@ defmodule VerifiedPubsub.BroadcastTest do
     end
   end
 
+  test "broadcast_*_from! excludes the sender", %{account_id: id} do
+    assert :ok = Basic.subscribe_campaigns(%{account_id: id})
+
+    assert :ok =
+             Basic.broadcast_campaigns_created_from!(self(), %{account_id: id}, %{id: "c1"})
+
+    refute_receive %Message{}, 50
+  end
+
+  test "broadcast_*_from! still delivers to other subscribers", %{account_id: id} do
+    test_pid = self()
+
+    other =
+      spawn_link(fn ->
+        Basic.subscribe_campaigns(%{account_id: id})
+        send(test_pid, :ready)
+        receive do: (%Message{payload: p} -> send(test_pid, {:other_got, p}))
+      end)
+
+    assert_receive :ready
+    Basic.subscribe_campaigns(%{account_id: id})
+    Basic.broadcast_campaigns_created_from!(self(), %{account_id: id}, %{id: "c1"})
+
+    assert_receive {:other_got, %{id: "c1"}}
+    refute_receive %Message{}, 50
+    Process.exit(other, :kill)
+  end
+
+  test "the non-bang from variant returns :ok", %{account_id: id} do
+    assert :ok = Basic.broadcast_campaigns_created_from(self(), %{account_id: id}, %{id: "c1"})
+  end
+
+  test "a param-free topic's from variant takes only from and payload" do
+    assert :ok = Basic.subscribe_system()
+    assert :ok = Basic.broadcast_system_alert_from!(self(), %{text: "hi"})
+
+    refute_receive %Message{topic: :system}, 50
+  end
+
+  test "the from variant carries the same message shape as the base variant", %{
+    account_id: id
+  } do
+    test_pid = self()
+
+    other =
+      spawn_link(fn ->
+        Basic.subscribe_campaigns(%{account_id: id})
+        send(test_pid, :ready)
+        receive do: (m -> send(test_pid, {:got, m}))
+      end)
+
+    assert_receive :ready
+    Basic.broadcast_campaigns_created_from!(self(), %{account_id: id}, %{id: "c1"})
+
+    assert_receive {:got,
+                    %Message{
+                      registry: Basic,
+                      topic: :campaigns,
+                      event: :created,
+                      params: %{account_id: ^id},
+                      payload: %{id: "c1"}
+                    }}
+
+    Process.exit(other, :kill)
+  end
+
   test "no function is generated for an undeclared event" do
     refute function_exported?(Basic, :broadcast_campaigns_exploded!, 2)
   end

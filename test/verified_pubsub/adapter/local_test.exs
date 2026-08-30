@@ -48,6 +48,34 @@ defmodule VerifiedPubsub.Adapter.LocalTest do
     assert :ok = Local.broadcast(registry, "accounts:7:campaigns", message(%{id: "c1"}))
   end
 
+  test "broadcast_from excludes the sender", %{registry: registry} do
+    assert :ok = Local.subscribe(registry, "accounts:7:campaigns")
+
+    assert :ok =
+             Local.broadcast_from(registry, self(), "accounts:7:campaigns", message(%{id: "c1"}))
+
+    refute_receive %Message{}, 50
+  end
+
+  test "broadcast_from still delivers to other subscribers", %{registry: registry} do
+    test_pid = self()
+
+    other =
+      spawn_link(fn ->
+        Local.subscribe(registry, "accounts:7:campaigns")
+        send(test_pid, :ready)
+        receive do: (%Message{payload: p} -> send(test_pid, {:other_got, p}))
+      end)
+
+    assert_receive :ready
+    Local.subscribe(registry, "accounts:7:campaigns")
+    Local.broadcast_from(registry, self(), "accounts:7:campaigns", message(%{id: "c1"}))
+
+    assert_receive {:other_got, %{id: "c1"}}
+    refute_receive %Message{}, 50
+    Process.exit(other, :kill)
+  end
+
   test "every subscriber to a topic receives the message", %{registry: registry} do
     test_pid = self()
 

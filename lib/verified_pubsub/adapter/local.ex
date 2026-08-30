@@ -44,8 +44,20 @@ defmodule VerifiedPubsub.Adapter.Local do
 
   @impl true
   def broadcast(config, topic, message) when is_binary(topic) do
+    dispatch(config, topic, message, nil)
+  end
+
+  @impl true
+  def broadcast_from(config, from, topic, message) when is_binary(topic) and is_pid(from) do
+    dispatch(config, topic, message, from)
+  end
+
+  defp dispatch(config, topic, message, except) do
     Registry.dispatch(registry(config), topic, fn entries ->
-      Enum.each(entries, fn {pid, _} -> send(pid, message) end)
+      Enum.each(entries, fn
+        {^except, _} -> :ok
+        {pid, _} -> send(pid, message)
+      end)
     end)
   end
 

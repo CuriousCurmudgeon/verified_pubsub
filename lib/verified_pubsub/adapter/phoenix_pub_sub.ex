@@ -24,5 +24,10 @@ if Code.ensure_loaded?(Phoenix.PubSub) do
     def broadcast(pubsub, topic, message) when is_binary(topic) do
       Phoenix.PubSub.broadcast(pubsub, topic, message)
     end
+
+    @impl true
+    def broadcast_from(pubsub, from, topic, message) when is_binary(topic) and is_pid(from) do
+      Phoenix.PubSub.broadcast_from(pubsub, from, topic, message)
+    end
   end
 end

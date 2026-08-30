@@ -55,6 +55,23 @@ MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: c.id, name: c
 
 A topic with no params takes only a payload: `MyApp.Topics.broadcast_system_alert!(payload)`.
 
+To skip the sender — the usual fix for a LiveView that both writes to a topic and
+subscribes to it, and would otherwise apply its own change twice — use the `_from`
+variants:
+
+```elixir
+MyApp.Topics.broadcast_campaigns_created_from!(self(), %{account_id: id}, payload)
+```
+
+These mirror `Phoenix.PubSub.broadcast_from/4`, with `from` leading for the same reason
+it does there, and they carry the same semantics: `from` is whichever pid you pass, so
+`self()` is the calling process. If the broadcast happens inside a context function, a
+`Task`, or an Oban job, `self()` is *that* process, not the one that started the
+request — pass the pid explicitly in those cases.
+
+Each event therefore generates four broadcast functions: `broadcast_*`,
+`broadcast_*!`, `broadcast_*_from`, and `broadcast_*_from!`.
+
 ## Subscribe, and account for every event
 
 ```elixir
