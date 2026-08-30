@@ -37,6 +37,21 @@ the registry the single source of truth turns both failures into compile-time er
 - Phoenix Channels as a subscriber target.
 - Import-style broadcaster functions (`broadcast_x!` unqualified).
 - Runtime topic registration.
+- **Phoenix's custom-dispatch cluster**: the `dispatcher` argument on broadcasts,
+  `subscribe/3`'s `:metadata` option, and `unsubscribe_match/3`. These three exist
+  together to support Channel and Presence fan-out, so they are omitted as a group —
+  adding any one alone yields an argument nothing can consume. If Channels come into
+  scope, they arrive together.
+
+  One consequence to know when picking this up: `subscribe_*` currently accepts no
+  options, so `VerifiedPubsub.Adapter.subscribe/2` would have to become `subscribe/3`.
+  That is a **breaking change for custom adapters**, unlike most additions here. It is
+  cheap while the library is unreleased and gets more expensive after.
+- `local_broadcast` / `local_broadcast_from`. Deliberately deferred: they appear mostly
+  inside Phoenix itself (Presence, Channel internals) rather than in application code,
+  and adding them would take the generated broadcast functions per event from four to
+  eight (local × from × bang). Purely additive if wanted later.
+- `direct_broadcast` (targeting a named node).
 
 ## Audience and constraints
 
