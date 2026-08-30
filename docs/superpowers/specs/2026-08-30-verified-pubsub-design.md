@@ -203,14 +203,24 @@ implementation cost. This is the same mechanism verified routes relies on.
   topic: :campaigns,
   event: :created,
   params: %{account_id: "7"},
-  payload: %{id: "c_1", name: "Fall drive"},
-  meta: %{}
+  payload: %{id: "c_1", name: "Fall drive"}
 }
 ```
 
 A struct rather than a tagged tuple, because topics are parameterized: a process
-subscribed to several accounts must know which one fired. `meta` leaves room for
-broadcast metadata without breaking existing matches.
+subscribed to several accounts must know which one fired.
+
+**No `meta` field in pass 1.** Struct fields are additive — adding one later does not
+break patterns that never mentioned it — so there is no forward-compatibility reason
+to reserve a speculative open map now, and shipping one empty would invite consumers
+to put app data in an unvalidated field. Candidates for if and when a concrete need
+arrives: origin pid or node (so a subscriber can ignore its own broadcasts), trace
+context propagation, and a payload version tag for rolling-deploy skew.
+
+Of these, **origin-based self-filtering is the only one that would change the
+broadcast API** rather than just the struct, since the caller must be able to identify
+itself. It remains deferrable as an optional argument to `broadcast_*`, but it is the
+one to decide deliberately rather than discover late.
 
 ### 4. Subscriber
 
