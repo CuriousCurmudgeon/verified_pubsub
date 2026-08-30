@@ -19,7 +19,10 @@ the registry the single source of truth turns both failures into compile-time er
 ## Goals
 
 1. **Valid topic and event on broadcast.** Broadcasting an unknown topic, or an event
-   not declared on that topic, is a compile error.
+   not declared on that topic, is flagged at compile time. Because this works by the
+   function not existing, Elixir reports it as a *warning* naming the valid
+   alternatives; `mix compile --warnings-as-errors` promotes it to a hard failure.
+   See "Broadcast verification is a warning by default" below.
 2. **Subscriber exhaustiveness.** A module subscribing to a topic must account for
    every event declared on it, either by handling it or by explicitly ignoring it.
 3. **No handling of undeclared events.** Handling an event that does not exist on a
@@ -192,8 +195,26 @@ compile error, especially since topic and event names — the things that actual
 
 Bang variants raise on adapter failure; non-bang variants return `:ok | {:error, term}`.
 
-A typo'd topic or event produces an undefined function, which is a compile error at no
-implementation cost. This is the same mechanism verified routes relies on.
+A typo'd topic or event produces an undefined function at no implementation cost.
+
+**Broadcast verification is a warning by default.** Verified empirically on Elixir
+1.20.4: an undefined *remote* function is a compile-time warning, not an error. The
+message is good — it names the function and lists every valid `broadcast_*` on that
+topic — and `mix compile --warnings-as-errors` makes it fail the build, which is the
+documented way to enforce this in CI. But by default the failure surfaces at runtime as
+`UndefinedFunctionError`.
+
+Making it a hard error unconditionally would require the broadcast surface to be
+**macros**, which would force every call site to `require MyApp.Topics`. That trade was
+rejected in the params discussion above and is rejected here for the same reason: the
+`require` burden falls on every caller in the application, while the warning already
+names the mistake and its fix at the exact call site. The README must state this plainly
+rather than claim a guarantee the library does not deliver.
+
+Note this is strictly weaker than verified routes, which raises from a sigil macro at
+compile time. The subscriber-side guarantees (Goals 2 and 3) are *not* affected — those
+raise `CompileError` from `@before_compile` and are hard errors regardless of warning
+settings.
 
 ### 3. Wire format
 
@@ -288,7 +309,7 @@ emitted last. Elixir's own grouping warning surfaces this in practice.
 | Check | Mechanism |
 |---|---|
 | Duplicate topics or events; malformed `%{param}` syntax; unknown options | Spark **Transformer** returning `{:error, Spark.Error.DslError}`, with `path:` and source annotation |
-| Unknown topic or event on broadcast | Undefined function |
+| Unknown topic or event on broadcast | Undefined function — compile *warning* listing valid alternatives; hard error under `--warnings-as-errors` |
 | Missing param key on broadcast | `FunctionClauseError` from the destructuring function head; Dialyzer-detectable for literal maps via generated `@spec` |
 | Subscriber exhaustiveness and undeclared events | Hand-rolled `@before_compile` diff |
 

@@ -17,6 +17,15 @@ defmodule VerifiedPubsub.CompileHelper do
     exception -> exception
   end
 
+  @doc """
+  A unique account id.
+
+  The suite shares one `VerifiedPubsub.Adapter.Local` registry, so any test that
+  subscribes must use a unique param value or a concurrent test broadcasting on the
+  same topic string will deliver to it.
+  """
+  def unique_account_id, do: "acct#{System.unique_integer([:positive])}"
+
   @doc "A unique module name, so generated test modules never collide."
   def unique_module(prefix) do
     "#{prefix}#{System.unique_integer([:positive])}"
