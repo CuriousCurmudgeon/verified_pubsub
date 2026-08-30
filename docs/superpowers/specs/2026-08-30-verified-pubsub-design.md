@@ -19,10 +19,9 @@ the registry the single source of truth turns both failures into compile-time er
 ## Goals
 
 1. **Valid topic and event on broadcast.** Broadcasting an unknown topic, or an event
-   not declared on that topic, is flagged at compile time. Because this works by the
-   function not existing, Elixir reports it as a *warning* naming the valid
-   alternatives; `mix compile --warnings-as-errors` promotes it to a hard failure.
-   See "Broadcast verification is a warning by default" below.
+   not declared on that topic, is a hard compile error. (An earlier revision of this
+   spec downgraded this to a warning, which was true of the generated-function design
+   it then described; the atom-first macros restored it.)
 2. **Subscriber exhaustiveness.** A module subscribing to a topic must account for
    every event declared on it, either by handling it or by explicitly ignoring it.
 3. **No handling of undeclared events.** Handling an event that does not exist on a
@@ -122,7 +121,7 @@ lib/verified_pubsub/dsl/message.ex
 lib/verified_pubsub/dsl/field.ex
 lib/verified_pubsub/info.ex                     # InfoGenerator + richer accessors
 lib/verified_pubsub/transformers/parse_params.ex
-lib/verified_pubsub/transformers/define_functions.ex
+lib/verified_pubsub/api.ex                       # the call-site macros
 lib/verified_pubsub/transformers/validate_topics.ex
 lib/verified_pubsub/subscriber.ex               # __using__, handle_message, before_compile
 lib/verified_pubsub/broadcast.ex                 # bang! helper, keeps generated code clean
@@ -170,71 +169,65 @@ verbose, but it is the Spark idiom, gets option validation free, and has room fo
 `required: true` and `default:` when enforcement lands. Pass 1 parses and exposes
 these without enforcing them.
 
-### 2. Generated broadcast surface
-
-Functions are defined **on the registry module**. No imports, so no ambiguity and no
-question about what is in scope.
+### 2. Call-site API: atom-first macros
 
 ```elixir
-MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: c.id, name: c.name})
-MyApp.Topics.broadcast_campaigns_created(%{account_id: id}, payload)  # :ok | {:error, term}
-MyApp.Topics.subscribe_campaigns(%{account_id: id})
-MyApp.Topics.unsubscribe_campaigns(%{account_id: id})
-MyApp.Topics.topic_campaigns(%{account_id: id})   #=> "accounts:7:campaigns"
+defmodule MyApp.Campaigns do
+  use VerifiedPubSub, registry: MyApp.Topics
+
+  def create(attrs) do
+    broadcast!(:campaigns, :created, %{account_id: attrs.account_id}, payload)
+  end
+end
 ```
 
-For a topic with no params, the params argument is omitted entirely:
-`MyApp.Topics.broadcast_system_alert!(payload)`.
+Seven macros — `subscribe/2`, `unsubscribe/2`, `topic/2`, `broadcast/4`, `broadcast!/4`,
+`broadcast_from/5`, `broadcast_from!/5` — imported by `use VerifiedPubSub, registry: ...`
+and by `use VerifiedPubSub.Subscriber`.
 
-**Params are passed as a map, not positional arguments.** Positional reads terser with
-one param but invites silent ordering bugs at two or more, and a map is
-self-documenting at the call site.
+**This replaces an earlier design in this spec**, which generated
+`broadcast_campaigns_created!/2` and friends onto the registry module. That design was
+built, tested, and then reversed. The reasons:
 
-The generated function head **destructures the topic's params**, so a missing key
-fails immediately and legibly rather than producing a malformed topic string:
+1. **Verification is a hard error rather than a warning.** The generated design relied
+   on the function not existing, and Elixir reports an undefined remote function as a
+   *warning* — binding only under `--warnings-as-errors`. A macro raises `CompileError`.
+2. **The errors are better.** Elixir's suggester does string similarity on function
+   names, capped at five and mixing arities. A macro knows the registry, so it can list
+   a topic's declared events exactly, and say where a misplaced event actually lives:
+   `:alert is declared on [:system], not :campaigns`. That second diagnostic is
+   structurally impossible in the generated design.
+3. **Surface area.** 22 generated functions for a two-topic, four-event registry; ~95
+   for five topics and twenty events. Now a fixed seven macros, and the registry
+   generates one function (`__verified_pubsub_name__/0`).
+4. **Consistency.** `handle_message :campaigns, :created` was already atom-first, so the
+   same pair of identifiers was expressed two different ways.
 
-```elixir
-def broadcast_campaigns_created!(%{account_id: account_id}, payload) do
-```
+Why plain functions taking atoms cannot work — verified empirically on Elixir 1.20.4:
+given `def broadcast(:campaigns, :created, %{account_id: id}, payload)`, a call to
+`broadcast(:campaigns, :creatd, ...)` produces **no diagnostic at all**. Type inference
+does not narrow across clause heads on a remote call. The same check gives up on the
+params map too, which the single-shaped generated head had caught. So atom-first
+requires macros; there is no function-based version that verifies anything.
 
-Better still, and verified on Elixir 1.20.4: the destructured head means the compiler's
-own type inference flags a wrong-keyed **literal** map at compile time, with no Dialyzer
-run required —
+The costs, accepted:
 
-    warning: incompatible types given to broadcast_campaigns_created!/2
-        given types:    %{wrong: binary()}, %{id: binary()}
-        but expected:   %{..., account_id: term()}, term()
+- Every calling module needs `use VerifiedPubSub, registry: ...`. Smaller in practice
+  than it looks: modules that `use VerifiedPubSub.Subscriber` already have the import.
+- Macros cannot be piped into, captured with `&`, or called via `apply/3`.
+- A module binds exactly one registry; a second `use` with a different registry raises.
+- No autocomplete-driven discovery of the event catalog. The registry is one file and is
+  the actual source of truth, which softens this.
+- Macro expansion failures are harder to debug than undefined functions.
 
-so the common case is caught statically after all. A dynamically-built map still fails
-at runtime with `FunctionClauseError`. These deliberately stay
-**functions, not macros**: catching a bad literal map at compile time would require a
-macro, and a remote macro call would force every caller to `require MyApp.Topics`.
-That cost is not worth converting a loud, immediate `FunctionClauseError` into a
-compile error, especially since topic and event names — the things that actually drift
-— are already compile-checked.
+**Params.** A map, not positional arguments: positional reads terser with one param but
+invites ordering bugs at two or more, and a map is self-documenting. A **literal** params
+map is validated at expansion time, naming both missing and unexpected keys. A map built
+at runtime cannot be checked, and `Map.fetch!/2` raises `KeyError` for a missing key.
 
-Bang variants raise on adapter failure; non-bang variants return `:ok | {:error, term}`.
-
-A typo'd topic or event produces an undefined function at no implementation cost.
-
-**Broadcast verification is a warning by default.** Verified empirically on Elixir
-1.20.4: an undefined *remote* function is a compile-time warning, not an error. The
-message is good — it names the function and lists every valid `broadcast_*` on that
-topic — and `mix compile --warnings-as-errors` makes it fail the build, which is the
-documented way to enforce this in CI. But by default the failure surfaces at runtime as
-`UndefinedFunctionError`.
-
-Making it a hard error unconditionally would require the broadcast surface to be
-**macros**, which would force every call site to `require MyApp.Topics`. That trade was
-rejected in the params discussion above and is rejected here for the same reason: the
-`require` burden falls on every caller in the application, while the warning already
-names the mistake and its fix at the exact call site. The README must state this plainly
-rather than claim a guarantee the library does not deliver.
-
-Note this is strictly weaker than verified routes, which raises from a sigil macro at
-compile time. The subscriber-side guarantees (Goals 2 and 3) are *not* affected — those
-raise `CompileError` from `@before_compile` and are hard errors regardless of warning
-settings.
+**Literal atoms required.** Topic and event must be literal atoms; anything else is a
+`CompileError` explaining why. A topic chosen at runtime is therefore not supported —
+the same restriction the generated functions had, so nothing was lost here.
 
 ### 3. Wire format
 
@@ -329,8 +322,8 @@ emitted last. Elixir's own grouping warning surfaces this in practice.
 | Check | Mechanism |
 |---|---|
 | Duplicate topics or events; malformed `%{param}` syntax; unknown options | Spark **Transformer** returning `{:error, Spark.Error.DslError}`, with `path:` and source annotation |
-| Unknown topic or event on broadcast | Undefined function — compile *warning* listing valid alternatives; hard error under `--warnings-as-errors` |
-| Wrong param key on broadcast | Compile-time type warning for a literal map (Elixir's own inference, via the destructuring head); `FunctionClauseError` for a dynamic map |
+| Unknown topic or event on broadcast | `CompileError` from the macro, listing the topic's declared events |
+| Wrong param key on broadcast | `CompileError` for a literal map, naming missing and unexpected keys; `KeyError` for a dynamic map |
 | Subscriber exhaustiveness and undeclared events | Hand-rolled `@before_compile` diff |
 
 **Registry checks use Transformers, not Verifiers — verified empirically.** Spark's
@@ -460,8 +453,8 @@ in-process and captures raised errors and emitted warnings.
    and for an undeclared event; assert `ignore_message` satisfies coverage; assert
    `on_missing: :warn` warns rather than raises.
 4. **Broadcast param handling** — assert the params map interpolates into the correct
-   topic string, and that a params map missing a required key raises
-   `FunctionClauseError`.
+   topic string, that a literal map with wrong keys fails to compile, and that a map
+   built at runtime with a missing key raises `KeyError`.
 5. **Integration** — a real GenServer subscriber over a real `Phoenix.PubSub`; assert
    delivery and that the right clause runs.
 6. **LiveView smoke test** — one test behind a test-only `phoenix_live_view` dep,
