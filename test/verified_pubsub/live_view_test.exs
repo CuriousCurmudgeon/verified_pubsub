@@ -1,6 +1,9 @@
 defmodule VerifiedPubSub.LiveViewTest do
   use ExUnit.Case, async: true
 
+  import VerifiedPubSub.CompileHelper
+
+  alias VerifiedPubSub.Message
   alias VerifiedPubSub.TestRegistries.Basic
 
   defmodule CampaignsLive do
@@ -16,6 +19,14 @@ defmodule VerifiedPubSub.LiveViewTest do
 
     @impl true
     def render(assigns), do: ~H"<div>{length(@campaigns)}</div>"
+
+    # `use VerifiedPubSub.Subscriber` imports VerifiedPubSub.Api, so the macros are
+    # usable here without a second `use`.
+    def subscribe_to(account_id), do: subscribe(:campaigns, %{account_id: account_id})
+
+    def announce(account_id, payload) do
+      broadcast!(:campaigns, :created, %{account_id: account_id}, payload)
+    end
 
     handle_message :campaigns, :created, payload, socket do
       {:noreply, assign(socket, :campaigns, [payload | socket.assigns.campaigns])}
@@ -51,8 +62,16 @@ defmodule VerifiedPubSub.LiveViewTest do
              CampaignsLive.handle_info(message(:deleted, %{id: "c1"}), socket)
   end
 
-  test "subscribe_* is imported into the LiveView" do
-    assert function_exported?(CampaignsLive, :handle_info, 2)
-    assert function_exported?(CampaignsLive, :mount, 3)
+  test "the API macros are imported into the LiveView, and round-trip a message" do
+    account_id = unique_account_id()
+
+    assert :ok = CampaignsLive.subscribe_to(account_id)
+    assert :ok = CampaignsLive.announce(account_id, %{id: "c1"})
+
+    assert_receive %Message{topic: :campaigns, event: :created, payload: %{id: "c1"}} = message
+
+    {:ok, socket} = CampaignsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    assert {:noreply, updated} = CampaignsLive.handle_info(message, socket)
+    assert updated.assigns.campaigns == [%{id: "c1"}]
   end
 end
