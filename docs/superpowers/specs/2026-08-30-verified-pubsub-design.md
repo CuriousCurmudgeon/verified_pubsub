@@ -107,7 +107,7 @@ validation becomes tedious.
 Spark does **not** help with the subscriber half. `handle_message`, the accumulated
 coverage attribute, and the `@before_compile` diff are hand-rolled regardless.
 
-Consequently the subscriber consumes the registry only through `VerifiedPubsub.Info`,
+Consequently the subscriber consumes the registry only through `VerifiedPubSub.Info`,
 never through Spark internals, so the DSL front-end stays replaceable.
 
 ## Architecture
@@ -138,7 +138,7 @@ subscriber-side codegen and verification, and adapters isolate transport.
 
 ```elixir
 defmodule MyApp.Topics do
-  use VerifiedPubsub.Registry,
+  use VerifiedPubSub.Registry,
     pubsub: MyApp.PubSub
 
   topic :campaigns, "accounts:%{account_id}:campaigns" do
@@ -239,7 +239,7 @@ settings.
 ### 3. Wire format
 
 ```elixir
-%VerifiedPubsub.Message{
+%VerifiedPubSub.Message{
   registry: MyApp.Topics,
   topic: :campaigns,
   event: :created,
@@ -268,7 +268,7 @@ one to decide deliberately rather than discover late.
 ```elixir
 defmodule MyAppWeb.CampaignsLive do
   use MyAppWeb, :live_view
-  use VerifiedPubsub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+  use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -286,7 +286,7 @@ defmodule MyAppWeb.CampaignsLive do
 end
 ```
 
-`use VerifiedPubsub.Subscriber` imports the registry's `subscribe_*`/`unsubscribe_*`
+`use VerifiedPubSub.Subscriber` imports the registry's `subscribe_*`/`unsubscribe_*`
 functions, registers the accumulating coverage attribute, imports `handle_message` and
 `ignore_message`, and installs `@before_compile`.
 
@@ -296,12 +296,12 @@ unusable rather than merely strict. It makes "I know about this event and do not
 a deliberate, greppable statement — the same role `_ => {}` plays in a Rust match.
 
 **Third argument.** Ordinarily a pattern matched against the `payload`. If it is
-syntactically a `%VerifiedPubsub.Message{}` struct pattern, it matches the whole
+syntactically a `%VerifiedPubSub.Message{}` struct pattern, it matches the whole
 message instead, giving access to `params`:
 
 ```elixir
 handle_message :campaigns, :created,
-               %VerifiedPubsub.Message{params: %{account_id: acct}, payload: p},
+               %VerifiedPubSub.Message{params: %{account_id: acct}, payload: p},
                state do
   ...
 end
@@ -312,7 +312,7 @@ Detection is reliable because struct patterns are unmistakable in the AST.
 **Codegen mechanics.** `handle_message` does *not* define `handle_info` inline. It
 accumulates clause AST into a module attribute; `@before_compile` then emits all
 private dispatch clauses grouped together, plus exactly one
-`handle_info(%VerifiedPubsub.Message{} = msg, state)` clause that delegates to them.
+`handle_info(%VerifiedPubSub.Message{} = msg, state)` clause that delegates to them.
 
 Inline definition would interleave generated clauses with the user's own
 `def handle_info`, tripping Elixir's "clauses with the same name and arity should be
@@ -350,7 +350,7 @@ nested entities at all, so two `message :created` blocks inside one topic pass
 silently. Both duplicate topics and duplicate events must be checked in our own
 Transformer.
 
-The subscriber side is separate: it calls `VerifiedPubsub.Info.events/2` at compile
+The subscriber side is separate: it calls `VerifiedPubSub.Info.events/2` at compile
 time, which creates a compile-time dependency on the registry, so **editing the
 registry recompiles every subscriber**.
 
@@ -381,7 +381,7 @@ per `{topic, event}` with different param patterns:
 
 ```elixir
 handle_message :campaigns, :created,
-               %VerifiedPubsub.Message{params: %{account_id: "7"}, payload: p},
+               %VerifiedPubSub.Message{params: %{account_id: "7"}, payload: p},
                state do
 ```
 
@@ -400,11 +400,11 @@ values.
 
 ### 6. No adapter layer
 
-Generated functions call `Phoenix.PubSub` directly. `use VerifiedPubsub.Registry` takes
+Generated functions call `Phoenix.PubSub` directly. `use VerifiedPubSub.Registry` takes
 a required `pubsub:` naming a `Phoenix.PubSub` process; transport is configured there.
 
 This reverses an earlier decision in this spec, which specified a
-`VerifiedPubsub.Adapter` behaviour with `PhoenixPubSub` and `Local` implementations.
+`VerifiedPubSub.Adapter` behaviour with `PhoenixPubSub` and `Local` implementations.
 Three facts killed it:
 
 1. **`Phoenix.PubSub` already has its own adapter behaviour** (`node_name/1`,
@@ -435,7 +435,7 @@ wrapper around the whole of `Phoenix.PubSub`. The objection stands either way.
 - **Registry errors** are `Spark.Error.DslError` with a `path:` such as
   `[:topics, :campaigns, :created]`, carrying Spark's source annotation.
 - **Subscriber errors** are `CompileError` raised from `@before_compile`, located at
-  the `use VerifiedPubsub.Subscriber` call site, listing every missing or undeclared
+  the `use VerifiedPubSub.Subscriber` call site, listing every missing or undeclared
   event and naming `ignore_message/2`.
 - **Broadcast failures** raise from `broadcast_*!` and are returned as
   `{:error, term}` from `broadcast_*`.
@@ -465,7 +465,7 @@ in-process and captures raised errors and emitted warnings.
 5. **Integration** — a real GenServer subscriber over a real `Phoenix.PubSub`; assert
    delivery and that the right clause runs.
 6. **LiveView smoke test** — one test behind a test-only `phoenix_live_view` dep,
-   confirming `use VerifiedPubsub.Subscriber` composes with `use Phoenix.LiveView`
+   confirming `use VerifiedPubSub.Subscriber` composes with `use Phoenix.LiveView`
    and that messages reach the generated `handle_info`.
 
 ## Delivery notes

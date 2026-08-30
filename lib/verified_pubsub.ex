@@ -1,16 +1,16 @@
-defmodule VerifiedPubsub do
+defmodule VerifiedPubSub do
   @moduledoc """
   Compile-time verified PubSub.
 
   A broadcast and its handler are normally two string literals in two files with
   nothing tying them together, so renaming or deleting an event leaves dead handlers
-  and unhandled messages behind, silently. `VerifiedPubsub` makes a registry the single
+  and unhandled messages behind, silently. `VerifiedPubSub` makes a registry the single
   source of truth and turns that drift into compile-time failures.
 
   ## The registry
 
       defmodule MyApp.Topics do
-        use VerifiedPubsub.Registry, pubsub: MyApp.PubSub
+        use VerifiedPubSub.Registry, pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
           message :created do
@@ -47,7 +47,7 @@ defmodule VerifiedPubsub do
 
       defmodule MyApp.Worker do
         use GenServer
-        use VerifiedPubsub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+        use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
         def init(account_id) do
           :ok = subscribe_campaigns(%{account_id: account_id})
@@ -69,7 +69,7 @@ defmodule VerifiedPubsub do
   To match on topic params, pattern match the whole message instead of the payload:
 
       handle_message :campaigns, :created,
-                     %VerifiedPubsub.Message{params: %{account_id: id}, payload: p},
+                     %VerifiedPubSub.Message{params: %{account_id: id}, payload: p},
                      state do
         {:noreply, state}
       end
@@ -97,7 +97,7 @@ defmodule VerifiedPubsub do
   Not checked:
 
     * **Payload shapes.** `field` declarations are parsed and introspectable via
-      `VerifiedPubsub.Info`, but nothing validates a payload against them yet.
+      `VerifiedPubSub.Info`, but nothing validates a payload against them yet.
     * **Topic param values.** Coverage is tracked per `{topic, event}` pair, so if
       every clause for an event matches a narrow param value, the event still counts as
       covered and a message with a different value raises `FunctionClauseError`. End

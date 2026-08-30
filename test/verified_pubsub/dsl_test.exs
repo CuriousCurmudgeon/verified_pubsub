@@ -1,8 +1,8 @@
-defmodule VerifiedPubsub.DslTest do
+defmodule VerifiedPubSub.DslTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.Info
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.Info
+  alias VerifiedPubSub.TestRegistries.Basic
 
   test "topics are parsed at the top level, without a wrapper block" do
     assert [:campaigns, :system] = Info.topics(Basic) |> Enum.map(& &1.name) |> Enum.sort()
@@ -36,14 +36,14 @@ defmodule VerifiedPubsub.DslTest do
   end
 
   test "the registry records its Phoenix.PubSub name" do
-    assert Basic.__verified_pubsub_pubsub__() == VerifiedPubsub.TestPubSub
+    assert Basic.__verified_pubsub_pubsub__() == VerifiedPubSub.TestPubSub
   end
 
   test "the :pubsub option is required" do
     error =
-      VerifiedPubsub.CompileHelper.compile_error("""
-      defmodule #{VerifiedPubsub.CompileHelper.unique_module("VPTest.NoPubSub")} do
-        use VerifiedPubsub.Registry
+      VerifiedPubSub.CompileHelper.compile_error("""
+      defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.NoPubSub")} do
+        use VerifiedPubSub.Registry
 
         topic :campaigns, "campaigns" do
           message :created do

@@ -1,8 +1,8 @@
-defmodule VerifiedPubsub.TestRegistries do
+defmodule VerifiedPubSub.TestRegistries do
   @moduledoc "Registries compiled in the test env and reused across test files."
 
   defmodule Basic do
-    use VerifiedPubsub.Registry, pubsub: VerifiedPubsub.TestPubSub
+    use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
 
     topic :campaigns, "accounts:%{account_id}:campaigns" do
       message :created do

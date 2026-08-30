@@ -1,6 +1,6 @@
-defmodule VerifiedPubsub.Subscriber.Verify do
+defmodule VerifiedPubSub.Subscriber.Verify do
   @moduledoc """
-  Compile-time coverage check for `VerifiedPubsub.Subscriber`.
+  Compile-time coverage check for `VerifiedPubSub.Subscriber`.
 
   Coverage is tracked per `{topic, event}` pair using **set** semantics, because
   several `handle_message` clauses for one event are legal and expected when matching
@@ -13,7 +13,7 @@ defmodule VerifiedPubsub.Subscriber.Verify do
   matching on param values.
   """
 
-  alias VerifiedPubsub.Info
+  alias VerifiedPubSub.Info
 
   @doc false
   def run!(env, clauses, ignored) do
@@ -70,7 +70,7 @@ defmodule VerifiedPubsub.Subscriber.Verify do
     #{detail}
 
     Fix the topic or event name, add the topic to the :topics option of
-    `use VerifiedPubsub.Subscriber`, or declare it in the registry.
+    `use VerifiedPubSub.Subscriber`, or declare it in the registry.
     """
   end
 

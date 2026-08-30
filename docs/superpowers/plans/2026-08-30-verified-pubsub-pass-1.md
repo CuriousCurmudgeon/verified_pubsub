@@ -4,7 +4,7 @@
 
 **Goal:** Ship pass 1 of `verified_pubsub` — a Spark-based registry that makes invalid PubSub broadcasts and incomplete subscribers compile errors.
 
-**Architecture:** A Spark DSL registry module is the single source of truth for topics and events. Spark Transformers derive topic params, validate the registry, and generate `broadcast_*`/`subscribe_*` functions onto the registry module. A separate hand-rolled `VerifiedPubsub.Subscriber` provides a `handle_message` macro that accumulates coverage into a module attribute and, at `@before_compile`, diffs that coverage against the registry and emits one `handle_info/2` clause.
+**Architecture:** A Spark DSL registry module is the single source of truth for topics and events. Spark Transformers derive topic params, validate the registry, and generate `broadcast_*`/`subscribe_*` functions onto the registry module. A separate hand-rolled `VerifiedPubSub.Subscriber` provides a `handle_message` macro that accumulates coverage into a module attribute and, at `@before_compile`, diffs that coverage against the registry and emits one `handle_info/2` clause.
 
 **Tech Stack:** Elixir 1.20.4 (OTP 29), `spark ~> 2.7`, `phoenix_pubsub ~> 2.1` (optional), ExUnit.
 
@@ -15,7 +15,7 @@
 - `elixir: "~> 1.17"` in `mix.exs`. Do not raise the floor.
 - Required deps: `{:spark, "~> 2.7"}` only. `{:phoenix_pubsub, "~> 2.1", optional: true}`.
 - The library and its full test suite must run without Phoenix. Never `alias`, `import`, or call `Phoenix.PubSub` outside `lib/verified_pubsub/adapter/phoenix_pub_sub.ex`.
-- Top-level module namespace is `VerifiedPubsub` (one lowercase `s`, matching the existing `lib/verified_pubsub.ex`).
+- Top-level module namespace is `VerifiedPubSub` (one lowercase `s`, matching the existing `lib/verified_pubsub.ex`).
 - Every entity struct used as a Spark entity target MUST declare both `:__identifier__` and `:__spark_metadata__` fields. Spark raises `"<struct> must have the __identifier__ field!"` at DSL-expansion time otherwise.
 - Registry validation MUST live in Transformers, never Verifiers. A Verifier returning `{:error, _}` only emits a warning and still defines the module; a Transformer returning `{:error, Spark.Error.DslError}` raises and does not define the module.
 - Payload `field` declarations are parsed and exposed but NOT enforced in pass 1.
@@ -35,19 +35,19 @@ The transport foundation. Nothing here depends on Spark, so it is testable in is
 **Interfaces:**
 - Consumes: nothing.
 - Produces:
-  - `%VerifiedPubsub.Message{registry: module(), topic: atom(), event: atom(), params: map(), payload: term()}`
-  - `VerifiedPubsub.Adapter` behaviour: `broadcast(config, topic_string, %Message{})`, `subscribe(config, topic_string)`, `unsubscribe(config, topic_string)`; all return `:ok | {:error, term}`.
-  - `VerifiedPubsub.Adapter.Local` — `config` is ignored; delivers with `send/2` to processes that subscribed in this VM.
+  - `%VerifiedPubSub.Message{registry: module(), topic: atom(), event: atom(), params: map(), payload: term()}`
+  - `VerifiedPubSub.Adapter` behaviour: `broadcast(config, topic_string, %Message{})`, `subscribe(config, topic_string)`, `unsubscribe(config, topic_string)`; all return `:ok | {:error, term}`.
+  - `VerifiedPubSub.Adapter.Local` — `config` is ignored; delivers with `send/2` to processes that subscribed in this VM.
 
 - [ ] **Step 1: Write the failing test**
 
 ```elixir
 # test/verified_pubsub/adapter/local_test.exs
-defmodule VerifiedPubsub.Adapter.LocalTest do
+defmodule VerifiedPubSub.Adapter.LocalTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.Adapter.Local
-  alias VerifiedPubsub.Message
+  alias VerifiedPubSub.Adapter.Local
+  alias VerifiedPubSub.Message
 
   setup do
     start_supervised!(Local)
@@ -115,13 +115,13 @@ end
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `mix test test/verified_pubsub/adapter/local_test.exs`
-Expected: FAIL — `VerifiedPubsub.Adapter.Local` is undefined.
+Expected: FAIL — `VerifiedPubSub.Adapter.Local` is undefined.
 
 - [ ] **Step 3: Write the implementation**
 
 ```elixir
 # lib/verified_pubsub/message.ex
-defmodule VerifiedPubsub.Message do
+defmodule VerifiedPubSub.Message do
   @moduledoc """
   The struct delivered to subscribers for every verified broadcast.
 
@@ -144,15 +144,15 @@ end
 
 ```elixir
 # lib/verified_pubsub/adapter.ex
-defmodule VerifiedPubsub.Adapter do
+defmodule VerifiedPubSub.Adapter do
   @moduledoc """
   Transport behaviour, so `verified_pubsub` does not require Phoenix.
 
   `config` is opaque to the library and comes from the `:pubsub` option given to
-  `use VerifiedPubsub.Registry`.
+  `use VerifiedPubSub.Registry`.
   """
 
-  alias VerifiedPubsub.Message
+  alias VerifiedPubSub.Message
 
   @callback broadcast(config :: term(), topic :: String.t(), message :: Message.t()) ::
               :ok | {:error, term()}
@@ -167,16 +167,16 @@ cleanup on subscriber exit, and no GenServer of our own.
 
 ```elixir
 # lib/verified_pubsub/adapter/local.ex
-defmodule VerifiedPubsub.Adapter.Local do
+defmodule VerifiedPubSub.Adapter.Local do
   @moduledoc """
   In-VM adapter that delivers with `send/2`. Intended for tests and for
   single-node use; it does not cross nodes.
 
   Must be started before use, e.g. in a supervision tree or via
-  `start_supervised!(VerifiedPubsub.Adapter.Local)` in tests.
+  `start_supervised!(VerifiedPubSub.Adapter.Local)` in tests.
   """
 
-  @behaviour VerifiedPubsub.Adapter
+  @behaviour VerifiedPubSub.Adapter
 
   @registry __MODULE__.Registry
 
@@ -241,13 +241,13 @@ Parsing only. No params, no validation, no generated functions.
 - Test: `test/verified_pubsub/dsl_test.exs`
 
 **Interfaces:**
-- Consumes: Task 1's `VerifiedPubsub.Adapter.Local` (used as the test registries' adapter).
+- Consumes: Task 1's `VerifiedPubSub.Adapter.Local` (used as the test registries' adapter).
 - Produces:
-  - `%VerifiedPubsub.Dsl.Topic{name: atom(), pattern: String.t(), params: [atom()], messages: [Message.t()], __identifier__: atom(), __spark_metadata__: term()}`
-  - `%VerifiedPubsub.Dsl.Message{name: atom(), fields: [Field.t()], ...}`
-  - `%VerifiedPubsub.Dsl.Field{name: atom(), type: atom(), ...}`
-  - `VerifiedPubsub.Info.topics/1`, `topic/2`, `topic!/2`, `events/2`, `params/2`
-  - `use VerifiedPubsub.Registry, adapter: module(), pubsub: term()`, which defines
+  - `%VerifiedPubSub.Dsl.Topic{name: atom(), pattern: String.t(), params: [atom()], messages: [Message.t()], __identifier__: atom(), __spark_metadata__: term()}`
+  - `%VerifiedPubSub.Dsl.Message{name: atom(), fields: [Field.t()], ...}`
+  - `%VerifiedPubSub.Dsl.Field{name: atom(), type: atom(), ...}`
+  - `VerifiedPubSub.Info.topics/1`, `topic/2`, `topic!/2`, `events/2`, `params/2`
+  - `use VerifiedPubSub.Registry, adapter: module(), pubsub: term()`, which defines
     `__verified_pubsub_adapter__/0` and `__verified_pubsub_config__/0` on the registry.
 
 - [ ] **Step 1: Add test support paths to mix.exs**
@@ -275,11 +275,11 @@ environment:
 
 ```elixir
 # test/support/registries.ex
-defmodule VerifiedPubsub.TestRegistries do
+defmodule VerifiedPubSub.TestRegistries do
   @moduledoc "Registries compiled in the test env and reused across test files."
 
   defmodule Basic do
-    use VerifiedPubsub.Registry, adapter: VerifiedPubsub.Adapter.Local
+    use VerifiedPubSub.Registry, adapter: VerifiedPubSub.Adapter.Local
 
     topic :campaigns, "accounts:%{account_id}:campaigns" do
       message :created do
@@ -307,11 +307,11 @@ end
 
 ```elixir
 # test/verified_pubsub/dsl_test.exs
-defmodule VerifiedPubsub.DslTest do
+defmodule VerifiedPubSub.DslTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.Info
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.Info
+  alias VerifiedPubSub.TestRegistries.Basic
 
   test "topics are parsed at the top level, without a wrapper block" do
     assert [:campaigns, :system] = Info.topics(Basic) |> Enum.map(& &1.name) |> Enum.sort()
@@ -345,7 +345,7 @@ defmodule VerifiedPubsub.DslTest do
   end
 
   test "the registry records its adapter and config" do
-    assert Basic.__verified_pubsub_adapter__() == VerifiedPubsub.Adapter.Local
+    assert Basic.__verified_pubsub_adapter__() == VerifiedPubSub.Adapter.Local
     assert Basic.__verified_pubsub_config__() == nil
   end
 end
@@ -354,7 +354,7 @@ end
 - [ ] **Step 3: Run test to verify it fails**
 
 Run: `mix test test/verified_pubsub/dsl_test.exs`
-Expected: FAIL — `VerifiedPubsub.Registry` is undefined.
+Expected: FAIL — `VerifiedPubSub.Registry` is undefined.
 
 - [ ] **Step 4: Write the entity structs**
 
@@ -363,7 +363,7 @@ targets. `params` on `Topic` stays empty until Task 3 fills it.
 
 ```elixir
 # lib/verified_pubsub/dsl/field.ex
-defmodule VerifiedPubsub.Dsl.Field do
+defmodule VerifiedPubSub.Dsl.Field do
   @moduledoc "A declared payload field. Parsed in pass 1, not enforced."
 
   @type t :: %__MODULE__{name: atom(), type: atom()}
@@ -374,10 +374,10 @@ end
 
 ```elixir
 # lib/verified_pubsub/dsl/message.ex
-defmodule VerifiedPubsub.Dsl.Message do
+defmodule VerifiedPubSub.Dsl.Message do
   @moduledoc "A declared event on a topic."
 
-  @type t :: %__MODULE__{name: atom(), fields: [VerifiedPubsub.Dsl.Field.t()]}
+  @type t :: %__MODULE__{name: atom(), fields: [VerifiedPubSub.Dsl.Field.t()]}
 
   defstruct [:name, :__identifier__, fields: [], __spark_metadata__: nil]
 end
@@ -385,14 +385,14 @@ end
 
 ```elixir
 # lib/verified_pubsub/dsl/topic.ex
-defmodule VerifiedPubsub.Dsl.Topic do
+defmodule VerifiedPubSub.Dsl.Topic do
   @moduledoc "A declared topic, its wire pattern, and its events."
 
   @type t :: %__MODULE__{
           name: atom(),
           pattern: String.t(),
           params: [atom()],
-          messages: [VerifiedPubsub.Dsl.Message.t()]
+          messages: [VerifiedPubSub.Dsl.Message.t()]
         }
 
   defstruct [:name, :pattern, :__identifier__, params: [], messages: [], __spark_metadata__: nil]
@@ -402,17 +402,17 @@ end
 - [ ] **Step 5: Write the Spark extension**
 
 `top_level?: true` is what allows bare `topic` with no wrapper block. Do not alias
-`Spark.Builder.Field` — it collides with `VerifiedPubsub.Dsl.Field`; use the plain
+`Spark.Builder.Field` — it collides with `VerifiedPubSub.Dsl.Field`; use the plain
 keyword schema syntax instead, which Spark accepts.
 
 ```elixir
 # lib/verified_pubsub/dsl.ex
-defmodule VerifiedPubsub.Dsl do
-  @moduledoc "The Spark DSL extension backing `VerifiedPubsub.Registry`."
+defmodule VerifiedPubSub.Dsl do
+  @moduledoc "The Spark DSL extension backing `VerifiedPubSub.Registry`."
 
   alias Spark.Builder.{Entity, Section}
 
-  @field Entity.new(:field, VerifiedPubsub.Dsl.Field,
+  @field Entity.new(:field, VerifiedPubSub.Dsl.Field,
            describe: "A payload field. Declared in pass 1; not yet enforced.",
            args: [:name, :type],
            identifier: :name,
@@ -423,7 +423,7 @@ defmodule VerifiedPubsub.Dsl do
          )
          |> Entity.build!()
 
-  @message Entity.new(:message, VerifiedPubsub.Dsl.Message,
+  @message Entity.new(:message, VerifiedPubSub.Dsl.Message,
              describe: "An event that can be broadcast on the enclosing topic.",
              args: [:name],
              identifier: :name,
@@ -432,7 +432,7 @@ defmodule VerifiedPubsub.Dsl do
            )
            |> Entity.build!()
 
-  @topic Entity.new(:topic, VerifiedPubsub.Dsl.Topic,
+  @topic Entity.new(:topic, VerifiedPubSub.Dsl.Topic,
            describe: "A topic and the events that may be broadcast on it.",
            args: [:name, :pattern],
            identifier: :name,
@@ -472,13 +472,13 @@ needs the `use` options threaded into it.
 
 ```elixir
 # lib/verified_pubsub/registry.ex
-defmodule VerifiedPubsub.Registry do
+defmodule VerifiedPubSub.Registry do
   @moduledoc """
   Declares the topics and events for an application.
 
       defmodule MyApp.Topics do
-        use VerifiedPubsub.Registry,
-          adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
+        use VerifiedPubSub.Registry,
+          adapter: VerifiedPubSub.Adapter.PhoenixPubSub,
           pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
@@ -490,12 +490,12 @@ defmodule VerifiedPubsub.Registry do
   """
 
   use Spark.Dsl,
-    default_extensions: [extensions: [VerifiedPubsub.Dsl]],
+    default_extensions: [extensions: [VerifiedPubSub.Dsl]],
     opt_schema: [
       adapter: [
-        type: {:behaviour, VerifiedPubsub.Adapter},
+        type: {:behaviour, VerifiedPubSub.Adapter},
         required: true,
-        doc: "The `VerifiedPubsub.Adapter` used to broadcast and subscribe."
+        doc: "The `VerifiedPubSub.Adapter` used to broadcast and subscribe."
       ],
       pubsub: [
         type: :any,
@@ -525,18 +525,18 @@ into Spark internals.
 
 ```elixir
 # lib/verified_pubsub/info.ex
-defmodule VerifiedPubsub.Info do
+defmodule VerifiedPubSub.Info do
   @moduledoc """
   The only supported way to read a registry.
 
-  Everything outside this module — including `VerifiedPubsub.Subscriber` — goes
+  Everything outside this module — including `VerifiedPubSub.Subscriber` — goes
   through these functions rather than Spark internals, so the DSL front-end stays
   replaceable.
   """
 
-  use Spark.InfoGenerator, extension: VerifiedPubsub.Dsl, sections: [:topics]
+  use Spark.InfoGenerator, extension: VerifiedPubSub.Dsl, sections: [:topics]
 
-  alias VerifiedPubsub.Dsl.Topic
+  alias VerifiedPubSub.Dsl.Topic
 
   @doc "Fetches a topic by its alias."
   @spec topic(module(), atom()) :: {:ok, Topic.t()} | :error
@@ -601,9 +601,9 @@ git commit -m "Add registry DSL, Spark extension, and introspection API"
 - Test: `test/verified_pubsub/transformers/parse_params_test.exs`
 
 **Interfaces:**
-- Consumes: `VerifiedPubsub.Dsl.Topic`, `VerifiedPubsub.Info.params/2`.
+- Consumes: `VerifiedPubSub.Dsl.Topic`, `VerifiedPubSub.Info.params/2`.
 - Produces: `topic.params` populated as `[atom()]` in pattern order. Also
-  `VerifiedPubsub.Transformers.ParseParams.parse/1`, a pure function returning
+  `VerifiedPubSub.Transformers.ParseParams.parse/1`, a pure function returning
   `{:ok, [atom()]} | {:error, String.t()}`, reused by Task 4's validation and Task 5's
   interpolation.
 
@@ -611,12 +611,12 @@ git commit -m "Add registry DSL, Spark extension, and introspection API"
 
 ```elixir
 # test/verified_pubsub/transformers/parse_params_test.exs
-defmodule VerifiedPubsub.Transformers.ParseParamsTest do
+defmodule VerifiedPubSub.Transformers.ParseParamsTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.Info
-  alias VerifiedPubsub.TestRegistries.Basic
-  alias VerifiedPubsub.Transformers.ParseParams
+  alias VerifiedPubSub.Info
+  alias VerifiedPubSub.TestRegistries.Basic
+  alias VerifiedPubSub.Transformers.ParseParams
 
   describe "parse/1" do
     test "extracts params in order" do
@@ -662,7 +662,7 @@ end
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `mix test test/verified_pubsub/transformers/parse_params_test.exs`
-Expected: FAIL — `VerifiedPubsub.Transformers.ParseParams` is undefined.
+Expected: FAIL — `VerifiedPubSub.Transformers.ParseParams` is undefined.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -671,7 +671,7 @@ a regex, then check that the number found accounts for every `%{` in the string.
 
 ```elixir
 # lib/verified_pubsub/transformers/parse_params.ex
-defmodule VerifiedPubsub.Transformers.ParseParams do
+defmodule VerifiedPubSub.Transformers.ParseParams do
   @moduledoc """
   Derives each topic's parameter list from its wire pattern, so params are declared
   exactly once.
@@ -685,7 +685,7 @@ defmodule VerifiedPubsub.Transformers.ParseParams do
   @doc """
   Extracts parameter names from a wire pattern.
 
-      iex> VerifiedPubsub.Transformers.ParseParams.parse("accounts:%{account_id}:campaigns")
+      iex> VerifiedPubSub.Transformers.ParseParams.parse("accounts:%{account_id}:campaigns")
       {:ok, [:account_id]}
   """
   @spec parse(String.t()) :: {:ok, [atom()]} | {:error, String.t()}
@@ -750,7 +750,7 @@ Register it in the extension:
 ```elixir
   use Spark.Dsl.Extension,
     sections: [@topics],
-    transformers: [VerifiedPubsub.Transformers.ParseParams]
+    transformers: [VerifiedPubSub.Transformers.ParseParams]
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -781,8 +781,8 @@ git commit -m "Derive topic params from the wire pattern"
 - Test: `test/verified_pubsub/transformers/validate_topics_test.exs`
 
 **Interfaces:**
-- Consumes: `VerifiedPubsub.Transformers.ParseParams` (must run after it).
-- Produces: `VerifiedPubsub.CompileHelper.compile!/1` and `compile_error/1`, used by
+- Consumes: `VerifiedPubSub.Transformers.ParseParams` (must run after it).
+- Produces: `VerifiedPubSub.CompileHelper.compile!/1` and `compile_error/1`, used by
   Tasks 5, 7, and 8 to assert on compile-time failures.
 
 - [ ] **Step 1: Write the compile helper**
@@ -793,7 +793,7 @@ warnings.
 
 ```elixir
 # test/support/compile_helper.ex
-defmodule VerifiedPubsub.CompileHelper do
+defmodule VerifiedPubSub.CompileHelper do
   @moduledoc "Helpers for asserting on compile-time success and failure."
 
   @doc "Compiles `source`, returning the first module defined. Raises on failure."
@@ -829,15 +829,15 @@ end
 
 ```elixir
 # test/verified_pubsub/transformers/validate_topics_test.exs
-defmodule VerifiedPubsub.Transformers.ValidateTopicsTest do
+defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubsub.CompileHelper
+  import VerifiedPubSub.CompileHelper
 
   defp registry_source(body) do
     """
     defmodule #{unique_module("VPTest.Validate")} do
-      use VerifiedPubsub.Registry, adapter: VerifiedPubsub.Adapter.Local
+      use VerifiedPubSub.Registry, adapter: VerifiedPubSub.Adapter.Local
       #{body}
     end
     """
@@ -946,7 +946,7 @@ inspect nested entities. Both checks are re-done here to get a hard error.
 
 ```elixir
 # lib/verified_pubsub/transformers/validate_topics.ex
-defmodule VerifiedPubsub.Transformers.ValidateTopics do
+defmodule VerifiedPubSub.Transformers.ValidateTopics do
   @moduledoc """
   Validates the registry, raising at compile time.
 
@@ -960,7 +960,7 @@ defmodule VerifiedPubsub.Transformers.ValidateTopics do
   alias Spark.Dsl.Transformer
 
   @impl true
-  def after?(VerifiedPubsub.Transformers.ParseParams), do: true
+  def after?(VerifiedPubSub.Transformers.ParseParams), do: true
   def after?(_), do: false
 
   @impl true
@@ -1028,8 +1028,8 @@ Register it after `ParseParams`:
   use Spark.Dsl.Extension,
     sections: [@topics],
     transformers: [
-      VerifiedPubsub.Transformers.ParseParams,
-      VerifiedPubsub.Transformers.ValidateTopics
+      VerifiedPubSub.Transformers.ParseParams,
+      VerifiedPubSub.Transformers.ValidateTopics
     ]
 ```
 
@@ -1077,16 +1077,16 @@ git commit -m "Validate registry with hard compile errors via a transformer"
 
 ```elixir
 # test/verified_pubsub/broadcast_test.exs
-defmodule VerifiedPubsub.BroadcastTest do
+defmodule VerifiedPubSub.BroadcastTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubsub.CompileHelper
+  import VerifiedPubSub.CompileHelper
 
-  alias VerifiedPubsub.Message
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.Message
+  alias VerifiedPubSub.TestRegistries.Basic
 
   setup do
-    start_supervised!(VerifiedPubsub.Adapter.Local)
+    start_supervised!(VerifiedPubSub.Adapter.Local)
     :ok
   end
 
@@ -1155,7 +1155,7 @@ defmodule VerifiedPubsub.BroadcastTest do
     error =
       compile_error("""
       defmodule #{unique_module("VPTest.BadBroadcast")} do
-        def go, do: VerifiedPubsub.TestRegistries.Basic.broadcast_campaigns_exploded!(%{account_id: "7"}, %{})
+        def go, do: VerifiedPubSub.TestRegistries.Basic.broadcast_campaigns_exploded!(%{account_id: "7"}, %{})
       end
       """)
 
@@ -1179,7 +1179,7 @@ module being compiled.
 
 ```elixir
 # lib/verified_pubsub/transformers/define_functions.ex
-defmodule VerifiedPubsub.Transformers.DefineFunctions do
+defmodule VerifiedPubSub.Transformers.DefineFunctions do
   @moduledoc """
   Generates the `topic_*`, `subscribe_*`, `unsubscribe_*`, and `broadcast_*` functions
   onto the registry module.
@@ -1194,8 +1194,8 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
   alias Spark.Dsl.Transformer
 
   @impl true
-  def after?(VerifiedPubsub.Transformers.ParseParams), do: true
-  def after?(VerifiedPubsub.Transformers.ValidateTopics), do: true
+  def after?(VerifiedPubSub.Transformers.ParseParams), do: true
+  def after?(VerifiedPubSub.Transformers.ValidateTopics), do: true
   def after?(_), do: false
 
   @impl true
@@ -1263,7 +1263,7 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
     quote do
       @doc "Broadcasts `#{unquote(inspect(event))}` on `#{unquote(inspect(topic_name))}`."
       def unquote(fn_name)(unquote_splicing(all_args)) do
-        message = %VerifiedPubsub.Message{
+        message = %VerifiedPubSub.Message{
           registry: __MODULE__,
           topic: unquote(topic_name),
           event: unquote(event),
@@ -1329,9 +1329,9 @@ Register it last:
   use Spark.Dsl.Extension,
     sections: [@topics],
     transformers: [
-      VerifiedPubsub.Transformers.ParseParams,
-      VerifiedPubsub.Transformers.ValidateTopics,
-      VerifiedPubsub.Transformers.DefineFunctions
+      VerifiedPubSub.Transformers.ParseParams,
+      VerifiedPubSub.Transformers.ValidateTopics,
+      VerifiedPubSub.Transformers.DefineFunctions
     ]
 ```
 
@@ -1362,19 +1362,19 @@ git commit -m "Generate broadcast and subscribe functions on the registry"
 - Test: `test/verified_pubsub/adapter/phoenix_pub_sub_test.exs`
 
 **Interfaces:**
-- Consumes: `VerifiedPubsub.Adapter`, `VerifiedPubsub.Message`.
-- Produces: `VerifiedPubsub.Adapter.PhoenixPubSub`, where `config` is the
+- Consumes: `VerifiedPubSub.Adapter`, `VerifiedPubSub.Message`.
+- Produces: `VerifiedPubSub.Adapter.PhoenixPubSub`, where `config` is the
   `Phoenix.PubSub` process name.
 
 - [ ] **Step 1: Write the failing test**
 
 ```elixir
 # test/verified_pubsub/adapter/phoenix_pub_sub_test.exs
-defmodule VerifiedPubsub.Adapter.PhoenixPubSubTest do
+defmodule VerifiedPubSub.Adapter.PhoenixPubSubTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.Adapter.PhoenixPubSub
-  alias VerifiedPubsub.Message
+  alias VerifiedPubSub.Adapter.PhoenixPubSub
+  alias VerifiedPubSub.Message
 
   setup do
     name = :"pubsub_#{System.unique_integer([:positive])}"
@@ -1410,10 +1410,10 @@ defmodule VerifiedPubsub.Adapter.PhoenixPubSubTest do
 
   test "a registry can use the Phoenix adapter end to end", %{pubsub: pubsub} do
     module =
-      VerifiedPubsub.CompileHelper.compile!("""
-      defmodule #{VerifiedPubsub.CompileHelper.unique_module("VPTest.PhoenixReg")} do
-        use VerifiedPubsub.Registry,
-          adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
+      VerifiedPubSub.CompileHelper.compile!("""
+      defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.PhoenixReg")} do
+        use VerifiedPubSub.Registry,
+          adapter: VerifiedPubSub.Adapter.PhoenixPubSub,
           pubsub: #{inspect(pubsub)}
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
@@ -1435,7 +1435,7 @@ end
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `mix test test/verified_pubsub/adapter/phoenix_pub_sub_test.exs`
-Expected: FAIL — `VerifiedPubsub.Adapter.PhoenixPubSub` is undefined.
+Expected: FAIL — `VerifiedPubSub.Adapter.PhoenixPubSub` is undefined.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -1445,16 +1445,16 @@ so the library compiles cleanly when Phoenix is absent.
 ```elixir
 # lib/verified_pubsub/adapter/phoenix_pub_sub.ex
 if Code.ensure_loaded?(Phoenix.PubSub) do
-  defmodule VerifiedPubsub.Adapter.PhoenixPubSub do
+  defmodule VerifiedPubSub.Adapter.PhoenixPubSub do
     @moduledoc """
     Adapter backed by `Phoenix.PubSub`. Available only when `:phoenix_pubsub` is a
     dependency of the host application.
 
     `config` is the `Phoenix.PubSub` process name, given as the `:pubsub` option to
-    `use VerifiedPubsub.Registry`.
+    `use VerifiedPubSub.Registry`.
     """
 
-    @behaviour VerifiedPubsub.Adapter
+    @behaviour VerifiedPubSub.Adapter
 
     @impl true
     def subscribe(pubsub, topic) when is_binary(topic) do
@@ -1499,12 +1499,12 @@ for every event.
 - Test: `test/verified_pubsub/subscriber_test.exs`
 
 **Interfaces:**
-- Consumes: `VerifiedPubsub.Info.events/2` and `params/2`, `VerifiedPubsub.Message`.
+- Consumes: `VerifiedPubSub.Info.events/2` and `params/2`, `VerifiedPubSub.Message`.
 - Produces:
-  - `use VerifiedPubsub.Subscriber, registry: module(), topics: [atom()], on_missing: :error | :warn | :ignore`
+  - `use VerifiedPubSub.Subscriber, registry: module(), topics: [atom()], on_missing: :error | :warn | :ignore`
   - `handle_message(topic, event, pattern, state, do: body)`
   - `ignore_message(topic, event)`
-  - One generated `handle_info(%VerifiedPubsub.Message{}, state)` clause per module,
+  - One generated `handle_info(%VerifiedPubSub.Message{}, state)` clause per module,
     delegating to grouped private `__verified_pubsub_dispatch__/4` clauses.
   - Imports `subscribe_*`/`unsubscribe_*` for the listed topics from the registry.
 
@@ -1512,16 +1512,16 @@ for every event.
 
 ```elixir
 # test/verified_pubsub/subscriber_test.exs
-defmodule VerifiedPubsub.SubscriberTest do
+defmodule VerifiedPubSub.SubscriberTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.Message
+  alias VerifiedPubSub.Message
 
   defmodule Worker do
     use GenServer
 
-    use VerifiedPubsub.Subscriber,
-      registry: VerifiedPubsub.TestRegistries.Basic,
+    use VerifiedPubSub.Subscriber,
+      registry: VerifiedPubSub.TestRegistries.Basic,
       topics: [:campaigns]
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
@@ -1548,12 +1548,12 @@ defmodule VerifiedPubsub.SubscriberTest do
   end
 
   setup do
-    start_supervised!(VerifiedPubsub.Adapter.Local)
+    start_supervised!(VerifiedPubSub.Adapter.Local)
     start_supervised!({Worker, owner: self(), account_id: "7"})
     :ok
   end
 
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.TestRegistries.Basic
 
   test "the payload form receives the payload" do
     Basic.broadcast_campaigns_created!(%{account_id: "7"}, %{id: "c1"})
@@ -1594,7 +1594,7 @@ end
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `mix test test/verified_pubsub/subscriber_test.exs`
-Expected: FAIL — `VerifiedPubsub.Subscriber` is undefined.
+Expected: FAIL — `VerifiedPubSub.Subscriber` is undefined.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -1605,14 +1605,14 @@ what lets `@before_compile` emit every clause grouped together.
 
 ```elixir
 # lib/verified_pubsub/subscriber.ex
-defmodule VerifiedPubsub.Subscriber do
+defmodule VerifiedPubSub.Subscriber do
   @moduledoc """
   Declares that a module subscribes to topics from a registry, and defines its
   handlers.
 
       defmodule MyAppWeb.CampaignsLive do
         use MyAppWeb, :live_view
-        use VerifiedPubsub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+        use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
         def mount(_params, _session, socket) do
           if connected?(socket), do: subscribe_campaigns(%{account_id: socket.assigns.id})
@@ -1628,7 +1628,7 @@ defmodule VerifiedPubsub.Subscriber do
 
   Every event declared on a subscribed topic must be either handled by
   `handle_message/5` or dismissed by `ignore_message/2`, or the module does not
-  compile. See `VerifiedPubsub.Subscriber.Verify` for the exact rule.
+  compile. See `VerifiedPubSub.Subscriber.Verify` for the exact rule.
   """
 
   @options [:registry, :topics, :on_missing]
@@ -1662,15 +1662,15 @@ defmodule VerifiedPubsub.Subscriber do
       @verified_pubsub_on_missing unquote(on_missing)
 
       import unquote(registry), only: unquote(imports)
-      import VerifiedPubsub.Subscriber, only: [handle_message: 5, ignore_message: 2]
+      import VerifiedPubSub.Subscriber, only: [handle_message: 5, ignore_message: 2]
 
-      @before_compile VerifiedPubsub.Subscriber
+      @before_compile VerifiedPubSub.Subscriber
     end
   end
 
   defp subscribe_imports(registry, topics) do
     Enum.flat_map(topics, fn topic ->
-      arity = if VerifiedPubsub.Info.params(registry, topic) == [], do: 0, else: 1
+      arity = if VerifiedPubSub.Info.params(registry, topic) == [], do: 0, else: 1
       [{:"subscribe_#{topic}", arity}, {:"unsubscribe_#{topic}", arity}]
     end)
   end
@@ -1679,7 +1679,7 @@ defmodule VerifiedPubsub.Subscriber do
   Handles one event on one topic.
 
   `pattern` matches the message `payload`, unless it is syntactically a
-  `%VerifiedPubsub.Message{}` pattern, in which case it matches the whole message and
+  `%VerifiedPubSub.Message{}` pattern, in which case it matches the whole message and
   gives access to `params`.
   """
   defmacro handle_message(topic, event, pattern, state, do: body) do
@@ -1729,7 +1729,7 @@ defmodule VerifiedPubsub.Subscriber do
   end
 
   defp message_pattern?({:%, _, [alias_ast, {:%{}, _, _}]}, env) do
-    Macro.expand(alias_ast, env) == VerifiedPubsub.Message
+    Macro.expand(alias_ast, env) == VerifiedPubSub.Message
   end
 
   defp message_pattern?(_, _), do: false
@@ -1738,7 +1738,7 @@ defmodule VerifiedPubsub.Subscriber do
     clauses = env.module |> Module.get_attribute(:verified_pubsub_clauses) |> Enum.reverse()
     ignored = env.module |> Module.get_attribute(:verified_pubsub_ignored) |> Enum.reverse()
 
-    VerifiedPubsub.Subscriber.Verify.run!(env, clauses, ignored)
+    VerifiedPubSub.Subscriber.Verify.run!(env, clauses, ignored)
 
     dispatch =
       Enum.map(clauses, &dispatch_clause/1) ++ Enum.map(ignored, &ignored_clause/1)
@@ -1750,7 +1750,7 @@ defmodule VerifiedPubsub.Subscriber do
         unquote_splicing(dispatch)
 
         @impl true
-        def handle_info(%VerifiedPubsub.Message{} = message, state) do
+        def handle_info(%VerifiedPubSub.Message{} = message, state) do
           __verified_pubsub_dispatch__(message.topic, message.event, message, state)
         end
       end
@@ -1775,7 +1775,7 @@ defmodule VerifiedPubsub.Subscriber do
       defp __verified_pubsub_dispatch__(
              unquote(clause.topic),
              unquote(clause.event),
-             %VerifiedPubsub.Message{payload: unquote(clause.pattern)},
+             %VerifiedPubSub.Message{payload: unquote(clause.pattern)},
              unquote(clause.state)
            ) do
         unquote(clause.body)
@@ -1797,8 +1797,8 @@ Create a stub for the verifier so this task compiles; Task 8 fills it in.
 
 ```elixir
 # lib/verified_pubsub/subscriber/verify.ex
-defmodule VerifiedPubsub.Subscriber.Verify do
-  @moduledoc "Compile-time coverage check for `VerifiedPubsub.Subscriber`."
+defmodule VerifiedPubSub.Subscriber.Verify do
+  @moduledoc "Compile-time coverage check for `VerifiedPubSub.Subscriber`."
 
   @doc false
   def run!(_env, _clauses, _ignored), do: :ok
@@ -1837,25 +1837,25 @@ git commit -m "Add subscriber macros and handle_info codegen"
 - Test: `test/verified_pubsub/subscriber_verify_test.exs`
 
 **Interfaces:**
-- Consumes: `VerifiedPubsub.Info.events/2`; the `clauses` and `ignored` lists from
+- Consumes: `VerifiedPubSub.Info.events/2`; the `clauses` and `ignored` lists from
   Task 7's `__before_compile__`.
-- Produces: `VerifiedPubsub.Subscriber.Verify.run!(env, clauses, ignored) :: :ok`,
+- Produces: `VerifiedPubSub.Subscriber.Verify.run!(env, clauses, ignored) :: :ok`,
   raising `CompileError` on a violation.
 
 - [ ] **Step 1: Write the failing test**
 
 ```elixir
 # test/verified_pubsub/subscriber_verify_test.exs
-defmodule VerifiedPubsub.SubscriberVerifyTest do
+defmodule VerifiedPubSub.SubscriberVerifyTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubsub.CompileHelper
+  import VerifiedPubSub.CompileHelper
 
   defp subscriber_source(body, opts \\ "") do
     """
     defmodule #{unique_module("VPTest.Sub")} do
-      use VerifiedPubsub.Subscriber,
-        registry: VerifiedPubsub.TestRegistries.Basic,
+      use VerifiedPubSub.Subscriber,
+        registry: VerifiedPubSub.TestRegistries.Basic,
         topics: [:campaigns]#{opts}
 
       #{body}
@@ -2011,9 +2011,9 @@ Expected: FAIL — the stub returns `:ok`, so every "is a compile error" test fa
 
 ```elixir
 # lib/verified_pubsub/subscriber/verify.ex
-defmodule VerifiedPubsub.Subscriber.Verify do
+defmodule VerifiedPubSub.Subscriber.Verify do
   @moduledoc """
-  Compile-time coverage check for `VerifiedPubsub.Subscriber`.
+  Compile-time coverage check for `VerifiedPubSub.Subscriber`.
 
   Coverage is tracked per `{topic, event}` pair using set semantics, because several
   `handle_message` clauses for one event are legal when matching on param values.
@@ -2022,7 +2022,7 @@ defmodule VerifiedPubsub.Subscriber.Verify do
   other value raises `FunctionClauseError` at runtime. No static check closes that gap.
   """
 
-  alias VerifiedPubsub.Info
+  alias VerifiedPubSub.Info
 
   @doc false
   def run!(env, clauses, ignored) do
@@ -2081,7 +2081,7 @@ defmodule VerifiedPubsub.Subscriber.Verify do
     #{pairs}
 
     Either fix the topic or event name, add the topic to the :topics option of
-    `use VerifiedPubsub.Subscriber`, or declare it in the registry.
+    `use VerifiedPubSub.Subscriber`, or declare it in the registry.
     """
   end
 
@@ -2130,7 +2130,7 @@ git commit -m "Enforce subscriber exhaustiveness at compile time"
 
 ### Task 9: LiveView smoke test
 
-Proves `use VerifiedPubsub.Subscriber` composes with `use Phoenix.LiveView`, which is
+Proves `use VerifiedPubSub.Subscriber` composes with `use Phoenix.LiveView`, which is
 the one subscriber target whose `use` macro could conflict with ours.
 
 **Files:**
@@ -2163,16 +2163,16 @@ generated clause inside a real LiveView module.
 
 ```elixir
 # test/verified_pubsub/live_view_test.exs
-defmodule VerifiedPubsub.LiveViewTest do
+defmodule VerifiedPubSub.LiveViewTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.TestRegistries.Basic
 
   defmodule CampaignsLive do
     use Phoenix.LiveView
 
-    use VerifiedPubsub.Subscriber,
-      registry: VerifiedPubsub.TestRegistries.Basic,
+    use VerifiedPubSub.Subscriber,
+      registry: VerifiedPubSub.TestRegistries.Basic,
       topics: [:campaigns]
 
     @impl true
@@ -2194,7 +2194,7 @@ defmodule VerifiedPubsub.LiveViewTest do
   test "the generated handle_info runs inside a LiveView" do
     {:ok, socket} = CampaignsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
 
-    message = %VerifiedPubsub.Message{
+    message = %VerifiedPubSub.Message{
       registry: Basic,
       topic: :campaigns,
       event: :created,
@@ -2209,7 +2209,7 @@ defmodule VerifiedPubsub.LiveViewTest do
   test "an ignored event leaves the socket untouched" do
     {:ok, socket} = CampaignsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
 
-    message = %VerifiedPubsub.Message{
+    message = %VerifiedPubSub.Message{
       registry: Basic,
       topic: :campaigns,
       event: :deleted,
@@ -2260,15 +2260,15 @@ git commit -m "Add LiveView composition smoke test"
 `message/2`, an empty `compile/1`). Replace the whole file:
 
 ```elixir
-defmodule VerifiedPubsub do
+defmodule VerifiedPubSub do
   @moduledoc """
   Compile-time verified PubSub.
 
   Declare every topic and event once, in a registry:
 
       defmodule MyApp.Topics do
-        use VerifiedPubsub.Registry,
-          adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
+        use VerifiedPubSub.Registry,
+          adapter: VerifiedPubSub.Adapter.PhoenixPubSub,
           pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
@@ -2293,7 +2293,7 @@ defmodule VerifiedPubsub do
 
       defmodule MyApp.Worker do
         use GenServer
-        use VerifiedPubsub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+        use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
         handle_message :campaigns, :created, payload, state do
           {:noreply, state}
@@ -2325,14 +2325,14 @@ must be listed by hand.
 ```elixir
 # .formatter.exs
 locals_without_parens = [
-  # VerifiedPubsub.Dsl entities
+  # VerifiedPubSub.Dsl entities
   topic: 2,
   topic: 3,
   message: 1,
   message: 2,
   field: 2,
   field: 3,
-  # VerifiedPubsub.Subscriber macros
+  # VerifiedPubSub.Subscriber macros
   handle_message: 5,
   ignore_message: 2
 ]
@@ -2350,7 +2350,7 @@ Replace the generated stub with: a one-paragraph statement of the problem (drift
 between broadcast sites and handlers), the installation snippet, the three code blocks
 from the moduledoc (registry, broadcast, subscriber), the "What is and is not checked"
 section verbatim from the moduledoc, and a note that `phoenix_pubsub` is optional and
-`VerifiedPubsub.Adapter.Local` is available for tests.
+`VerifiedPubSub.Adapter.Local` is available for tests.
 
 - [ ] **Step 4: Verify formatting and the full suite**
 

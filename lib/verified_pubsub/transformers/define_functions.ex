@@ -1,4 +1,4 @@
-defmodule VerifiedPubsub.Transformers.DefineFunctions do
+defmodule VerifiedPubSub.Transformers.DefineFunctions do
   @moduledoc """
   Generates the `topic_*`, `subscribe_*`, `unsubscribe_*`, and `broadcast_*` functions
   onto the registry module.
@@ -17,8 +17,8 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
   alias Spark.Dsl.Transformer
 
   @impl true
-  def after?(VerifiedPubsub.Transformers.ParseParams), do: true
-  def after?(VerifiedPubsub.Transformers.ValidateTopics), do: true
+  def after?(VerifiedPubSub.Transformers.ParseParams), do: true
+  def after?(VerifiedPubSub.Transformers.ValidateTopics), do: true
   def after?(_), do: false
 
   @impl true
@@ -101,7 +101,7 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
 
       @doc "Same as `#{unquote(fn_name)}/#{unquote(length(all_args))}` but raises on failure."
       def unquote(bang_name)(unquote_splicing(all_args)) do
-        VerifiedPubsub.Broadcast.bang!(
+        VerifiedPubSub.Broadcast.bang!(
           unquote(fn_name)(unquote_splicing(all_args)),
           unquote(topic_name),
           unquote(event)
@@ -128,7 +128,7 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
 
       @doc "Same as `#{unquote(from_name)}/#{unquote(length(from_args))}` but raises on failure."
       def unquote(from_bang_name)(unquote_splicing(from_args)) do
-        VerifiedPubsub.Broadcast.bang!(
+        VerifiedPubSub.Broadcast.bang!(
           unquote(from_name)(unquote_splicing(from_args)),
           unquote(topic_name),
           unquote(event)
@@ -139,7 +139,7 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
 
   defp message_ast(topic_name, event, params_map, payload) do
     quote do
-      %VerifiedPubsub.Message{
+      %VerifiedPubSub.Message{
         registry: __MODULE__,
         topic: unquote(topic_name),
         event: unquote(event),

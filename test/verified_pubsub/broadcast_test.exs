@@ -1,10 +1,10 @@
-defmodule VerifiedPubsub.BroadcastTest do
+defmodule VerifiedPubSub.BroadcastTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubsub.CompileHelper
+  import VerifiedPubSub.CompileHelper
 
-  alias VerifiedPubsub.Message
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.Message
+  alias VerifiedPubSub.TestRegistries.Basic
 
   setup do
     %{account_id: unique_account_id()}
@@ -69,7 +69,7 @@ defmodule VerifiedPubsub.BroadcastTest do
         Code.compile_string("""
         defmodule #{unique_module("VPTest.BadParams")} do
           def go do
-            VerifiedPubsub.TestRegistries.Basic.broadcast_campaigns_created!(
+            VerifiedPubSub.TestRegistries.Basic.broadcast_campaigns_created!(
               %{wrong: "7"},
               %{id: "c1"}
             )
@@ -175,7 +175,7 @@ defmodule VerifiedPubsub.BroadcastTest do
         Code.compile_string("""
         defmodule #{unique_module("VPTest.BadBroadcast")} do
           def go do
-            VerifiedPubsub.TestRegistries.Basic.broadcast_campaigns_exploded!(
+            VerifiedPubSub.TestRegistries.Basic.broadcast_campaigns_exploded!(
               %{account_id: "7"},
               %{}
             )

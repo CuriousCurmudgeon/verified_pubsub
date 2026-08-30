@@ -1,12 +1,12 @@
-defmodule VerifiedPubsub.Transformers.ValidateTopicsTest do
+defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubsub.CompileHelper
+  import VerifiedPubSub.CompileHelper
 
   defp registry_source(body) do
     """
     defmodule #{unique_module("VPTest.Validate")} do
-      use VerifiedPubsub.Registry, pubsub: VerifiedPubsub.TestPubSub
+      use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
       #{body}
     end
     """

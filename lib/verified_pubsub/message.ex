@@ -1,4 +1,4 @@
-defmodule VerifiedPubsub.Message do
+defmodule VerifiedPubSub.Message do
   @moduledoc """
   The struct delivered to subscribers for every verified broadcast.
 

@@ -1,13 +1,13 @@
-defmodule VerifiedPubsub.LiveViewTest do
+defmodule VerifiedPubSub.LiveViewTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.TestRegistries.Basic
 
   defmodule CampaignsLive do
     use Phoenix.LiveView
 
-    use VerifiedPubsub.Subscriber,
-      registry: VerifiedPubsub.TestRegistries.Basic,
+    use VerifiedPubSub.Subscriber,
+      registry: VerifiedPubSub.TestRegistries.Basic,
       topics: [:campaigns]
 
     @impl true
@@ -27,7 +27,7 @@ defmodule VerifiedPubsub.LiveViewTest do
   end
 
   defp message(event, payload) do
-    %VerifiedPubsub.Message{
+    %VerifiedPubSub.Message{
       registry: Basic,
       topic: :campaigns,
       event: event,

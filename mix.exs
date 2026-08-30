@@ -1,4 +1,4 @@
-defmodule VerifiedPubsub.MixProject do
+defmodule VerifiedPubSub.MixProject do
   use Mix.Project
 
   def project do
@@ -9,7 +9,7 @@ defmodule VerifiedPubsub.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      name: "VerifiedPubsub",
+      name: "VerifiedPubSub",
       description: "Compile-time verified PubSub: verified routes, but for topics and events.",
       package: package(),
       docs: docs()
@@ -26,20 +26,20 @@ defmodule VerifiedPubsub.MixProject do
 
   defp docs do
     [
-      main: "VerifiedPubsub",
+      main: "VerifiedPubSub",
       extras: ["README.md"],
       groups_for_modules: [
         Registry: [
-          VerifiedPubsub.Registry,
-          VerifiedPubsub.Dsl,
-          VerifiedPubsub.Info
+          VerifiedPubSub.Registry,
+          VerifiedPubSub.Dsl,
+          VerifiedPubSub.Info
         ],
         Subscribing: [
-          VerifiedPubsub.Subscriber,
-          VerifiedPubsub.Message
+          VerifiedPubSub.Subscriber,
+          VerifiedPubSub.Message
         ],
         Internals: [
-          VerifiedPubsub.Broadcast
+          VerifiedPubSub.Broadcast
         ]
       ]
     ]

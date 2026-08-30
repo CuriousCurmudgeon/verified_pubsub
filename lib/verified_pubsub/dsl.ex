@@ -1,9 +1,9 @@
-defmodule VerifiedPubsub.Dsl do
-  @moduledoc "The Spark DSL extension backing `VerifiedPubsub.Registry`."
+defmodule VerifiedPubSub.Dsl do
+  @moduledoc "The Spark DSL extension backing `VerifiedPubSub.Registry`."
 
   alias Spark.Builder.{Entity, Section}
 
-  @field Entity.new(:field, VerifiedPubsub.Dsl.Field,
+  @field Entity.new(:field, VerifiedPubSub.Dsl.Field,
            describe: "A payload field. Declared in pass 1; not yet enforced.",
            args: [:name, :type],
            identifier: :name,
@@ -14,7 +14,7 @@ defmodule VerifiedPubsub.Dsl do
          )
          |> Entity.build!()
 
-  @message Entity.new(:message, VerifiedPubsub.Dsl.Message,
+  @message Entity.new(:message, VerifiedPubSub.Dsl.Message,
              describe: "An event that can be broadcast on the enclosing topic.",
              args: [:name],
              identifier: :name,
@@ -23,7 +23,7 @@ defmodule VerifiedPubsub.Dsl do
            )
            |> Entity.build!()
 
-  @topic Entity.new(:topic, VerifiedPubsub.Dsl.Topic,
+  @topic Entity.new(:topic, VerifiedPubSub.Dsl.Topic,
            describe: "A topic and the events that may be broadcast on it.",
            args: [:name, :pattern],
            identifier: :name,
@@ -54,8 +54,8 @@ defmodule VerifiedPubsub.Dsl do
   use Spark.Dsl.Extension,
     sections: [@topics],
     transformers: [
-      VerifiedPubsub.Transformers.ParseParams,
-      VerifiedPubsub.Transformers.ValidateTopics,
-      VerifiedPubsub.Transformers.DefineFunctions
+      VerifiedPubSub.Transformers.ParseParams,
+      VerifiedPubSub.Transformers.ValidateTopics,
+      VerifiedPubSub.Transformers.DefineFunctions
     ]
 end

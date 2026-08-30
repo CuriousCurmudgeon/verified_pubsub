@@ -1,11 +1,11 @@
-defmodule VerifiedPubsub.Subscriber do
+defmodule VerifiedPubSub.Subscriber do
   @moduledoc """
   Declares that a module subscribes to topics from a registry, and defines its
   handlers.
 
       defmodule MyAppWeb.CampaignsLive do
         use MyAppWeb, :live_view
-        use VerifiedPubsub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+        use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
         def mount(_params, _session, socket) do
           if connected?(socket), do: subscribe_campaigns(%{account_id: socket.assigns.id})
@@ -25,7 +25,7 @@ defmodule VerifiedPubsub.Subscriber do
 
   ## Generated code
 
-  A single `handle_info/2` clause matching `VerifiedPubsub.Message` is generated at the
+  A single `handle_info/2` clause matching `VerifiedPubSub.Message` is generated at the
   `use` site. It delegates to private `__verified_pubsub_dispatch__/4` clauses, which
   are emitted together at `@before_compile` — never inline at each `handle_message`, so
   they cannot trip Elixir's "clauses with the same name and arity should be grouped
@@ -67,7 +67,7 @@ defmodule VerifiedPubsub.Subscriber do
 
       extra ->
         raise ArgumentError,
-              "unknown options #{inspect(extra)} given to use VerifiedPubsub.Subscriber. " <>
+              "unknown options #{inspect(extra)} given to use VerifiedPubSub.Subscriber. " <>
                 "Expected only #{inspect(@options)}."
     end
 
@@ -100,16 +100,16 @@ defmodule VerifiedPubsub.Subscriber do
 
     quote do
       import unquote(registry), only: unquote(imports)
-      import VerifiedPubsub.Subscriber, only: [handle_message: 5, ignore_message: 2]
+      import VerifiedPubSub.Subscriber, only: [handle_message: 5, ignore_message: 2]
 
-      @before_compile VerifiedPubsub.Subscriber
+      @before_compile VerifiedPubSub.Subscriber
 
       # Defined here, not at @before_compile, so that any handle_info/2 the user
       # writes is matched after this one. Being quote-generated, this clause carries
       # `generated: true` metadata, which is why it raises neither the clause-grouping
       # warning nor the missing-@impl warning. `__verified_pubsub_dispatch__/4` is a
       # forward reference, defined at @before_compile.
-      def handle_info(%VerifiedPubsub.Message{} = message, state) do
+      def handle_info(%VerifiedPubSub.Message{} = message, state) do
         __verified_pubsub_dispatch__(message.topic, message.event, message, state)
       end
     end
@@ -117,7 +117,7 @@ defmodule VerifiedPubsub.Subscriber do
 
   defp subscribe_imports(registry, topics) do
     Enum.flat_map(topics, fn topic ->
-      arity = if VerifiedPubsub.Info.params(registry, topic) == [], do: 0, else: 1
+      arity = if VerifiedPubSub.Info.params(registry, topic) == [], do: 0, else: 1
       [{:"subscribe_#{topic}", arity}, {:"unsubscribe_#{topic}", arity}]
     end)
   end
@@ -126,7 +126,7 @@ defmodule VerifiedPubsub.Subscriber do
   Handles one event on one topic.
 
   `pattern` matches the message `payload`, unless it is syntactically a
-  `%VerifiedPubsub.Message{}` pattern, in which case it matches the whole message and
+  `%VerifiedPubSub.Message{}` pattern, in which case it matches the whole message and
   so can match on `params`.
   """
   defmacro handle_message(topic, event, pattern, state, do: body) do
@@ -174,7 +174,7 @@ defmodule VerifiedPubsub.Subscriber do
   end
 
   defp message_pattern?({:%, _, [alias_ast, {:%{}, _, _}]}, env) do
-    Macro.expand(alias_ast, env) == VerifiedPubsub.Message
+    Macro.expand(alias_ast, env) == VerifiedPubSub.Message
   end
 
   defp message_pattern?(_, _), do: false
@@ -183,7 +183,7 @@ defmodule VerifiedPubsub.Subscriber do
     clauses = env.module |> Module.get_attribute(:verified_pubsub_clauses) |> Enum.reverse()
     ignored = env.module |> Module.get_attribute(:verified_pubsub_ignored) |> Enum.reverse()
 
-    VerifiedPubsub.Subscriber.Verify.run!(env, clauses, ignored)
+    VerifiedPubSub.Subscriber.Verify.run!(env, clauses, ignored)
 
     dispatch = Enum.map(clauses, &dispatch_clause/1) ++ Enum.map(ignored, &ignored_clause/1)
 
@@ -229,7 +229,7 @@ defmodule VerifiedPubsub.Subscriber do
       defp __verified_pubsub_dispatch__(
              unquote(clause.topic),
              unquote(clause.event),
-             %VerifiedPubsub.Message{payload: unquote(clause.pattern)},
+             %VerifiedPubSub.Message{payload: unquote(clause.pattern)},
              unquote(clause.state)
            ) do
         unquote(clause.body)

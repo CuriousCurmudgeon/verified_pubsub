@@ -1,9 +1,9 @@
-defmodule VerifiedPubsub.Registry do
+defmodule VerifiedPubSub.Registry do
   @moduledoc """
   Declares the topics and events for an application.
 
       defmodule MyApp.Topics do
-        use VerifiedPubsub.Registry, pubsub: MyApp.PubSub
+        use VerifiedPubSub.Registry, pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
           message :created do
@@ -18,7 +18,7 @@ defmodule VerifiedPubsub.Registry do
   """
 
   use Spark.Dsl,
-    default_extensions: [extensions: [VerifiedPubsub.Dsl]],
+    default_extensions: [extensions: [VerifiedPubSub.Dsl]],
     opt_schema: [
       pubsub: [
         type: :atom,

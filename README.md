@@ -1,4 +1,4 @@
-# VerifiedPubsub
+# VerifiedPubSub
 
 Compile-time verified PubSub for Elixir — the idea behind verified routes, applied to
 topics and events.
@@ -6,7 +6,7 @@ topics and events.
 A broadcast and its handler are normally two string literals in two files with nothing
 tying them together. Rename an event and you leave a dead handler behind; delete one and
 a subscriber quietly stops mattering; add one and nothing tells you who should care.
-`VerifiedPubsub` makes a registry the single source of truth and turns that drift into
+`VerifiedPubSub` makes a registry the single source of truth and turns that drift into
 compile-time failures.
 
 ## Installation
@@ -26,7 +26,7 @@ dependencies of its own.
 
 ```elixir
 defmodule MyApp.Topics do
-  use VerifiedPubsub.Registry, pubsub: MyApp.PubSub
+  use VerifiedPubSub.Registry, pubsub: MyApp.PubSub
 
   topic :campaigns, "accounts:%{account_id}:campaigns" do
     message :created do
@@ -75,7 +75,7 @@ Each event therefore generates four broadcast functions: `broadcast_*`,
 ```elixir
 defmodule MyAppWeb.CampaignsLive do
   use MyAppWeb, :live_view
-  use VerifiedPubsub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+  use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -102,7 +102,7 @@ To match on topic params, pattern match the whole message rather than the payloa
 
 ```elixir
 handle_message :campaigns, :created,
-               %VerifiedPubsub.Message{params: %{account_id: id}, payload: payload},
+               %VerifiedPubSub.Message{params: %{account_id: id}, payload: payload},
                socket do
   {:noreply, socket}
 end
@@ -132,7 +132,7 @@ end
 **Not checked:**
 
 - **Payload shapes.** `field` declarations are parsed and readable through
-  `VerifiedPubsub.Info`, but nothing validates a payload against them yet.
+  `VerifiedPubSub.Info`, but nothing validates a payload against them yet.
 - **Topic param values.** Coverage is tracked per `{topic, event}` pair. If every clause
   for an event matches a narrow param value, the event still counts as covered, and a
   message with a different value raises `FunctionClauseError`. End with a param-agnostic
@@ -174,7 +174,7 @@ subscribing from the test process:
 start_supervised!({Phoenix.PubSub, name: MyApp.PubSub})
 :ok = MyApp.Topics.subscribe_campaigns(%{account_id: id})
 :ok = MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: "c1"})
-assert_receive %VerifiedPubsub.Message{event: :created}
+assert_receive %VerifiedPubSub.Message{event: :created}
 ```
 
 ## Formatting

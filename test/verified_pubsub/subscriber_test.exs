@@ -1,16 +1,16 @@
-defmodule VerifiedPubsub.SubscriberTest do
+defmodule VerifiedPubSub.SubscriberTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubsub.CompileHelper
+  import VerifiedPubSub.CompileHelper
 
-  alias VerifiedPubsub.Message
-  alias VerifiedPubsub.TestRegistries.Basic
+  alias VerifiedPubSub.Message
+  alias VerifiedPubSub.TestRegistries.Basic
 
   defmodule Worker do
     use GenServer
 
-    use VerifiedPubsub.Subscriber,
-      registry: VerifiedPubsub.TestRegistries.Basic,
+    use VerifiedPubSub.Subscriber,
+      registry: VerifiedPubSub.TestRegistries.Basic,
       topics: [:campaigns]
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
@@ -40,8 +40,8 @@ defmodule VerifiedPubsub.SubscriberTest do
   defmodule WorkerWithOwnHandleInfo do
     use GenServer
 
-    use VerifiedPubsub.Subscriber,
-      registry: VerifiedPubsub.TestRegistries.Basic,
+    use VerifiedPubSub.Subscriber,
+      registry: VerifiedPubSub.TestRegistries.Basic,
       topics: [:campaigns]
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
@@ -70,8 +70,8 @@ defmodule VerifiedPubsub.SubscriberTest do
   defmodule WorkerWithCatchAll do
     use GenServer
 
-    use VerifiedPubsub.Subscriber,
-      registry: VerifiedPubsub.TestRegistries.Basic,
+    use VerifiedPubSub.Subscriber,
+      registry: VerifiedPubSub.TestRegistries.Basic,
       topics: [:campaigns]
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)

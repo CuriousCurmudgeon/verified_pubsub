@@ -1,12 +1,12 @@
 locals_without_parens = [
-  # VerifiedPubsub.Dsl entities
+  # VerifiedPubSub.Dsl entities
   topic: 2,
   topic: 3,
   message: 1,
   message: 2,
   field: 2,
   field: 3,
-  # VerifiedPubsub.Subscriber macros
+  # VerifiedPubSub.Subscriber macros
   handle_message: 5,
   ignore_message: 2
 ]

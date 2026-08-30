@@ -1,13 +1,13 @@
-defmodule VerifiedPubsub.SubscriberVerifyTest do
+defmodule VerifiedPubSub.SubscriberVerifyTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubsub.CompileHelper
+  import VerifiedPubSub.CompileHelper
 
   defp subscriber_source(body, opts \\ "") do
     """
     defmodule #{unique_module("VPTest.Sub")} do
-      use VerifiedPubsub.Subscriber,
-        registry: VerifiedPubsub.TestRegistries.Basic,
+      use VerifiedPubSub.Subscriber,
+        registry: VerifiedPubSub.TestRegistries.Basic,
         topics: [:campaigns]#{opts}
 
       #{body}
@@ -175,8 +175,8 @@ defmodule VerifiedPubsub.SubscriberVerifyTest do
     error =
       compile_error("""
       defmodule #{unique_module("VPTest.BadOpts")} do
-        use VerifiedPubsub.Subscriber,
-          registry: VerifiedPubsub.TestRegistries.Basic,
+        use VerifiedPubSub.Subscriber,
+          registry: VerifiedPubSub.TestRegistries.Basic,
           topics: [:campaigns],
           bogus: true
       end

@@ -1,4 +1,4 @@
-defmodule VerifiedPubsub.CompileHelper do
+defmodule VerifiedPubSub.CompileHelper do
   @moduledoc "Helpers for asserting on compile-time success and failure."
 
   @doc "Compiles `source`, returning the first module defined. Raises on failure."
@@ -20,7 +20,7 @@ defmodule VerifiedPubsub.CompileHelper do
   @doc """
   A unique account id.
 
-  The suite shares one `VerifiedPubsub.Adapter.Local` registry, so any test that
+  The suite shares one `VerifiedPubSub.Adapter.Local` registry, so any test that
   subscribes must use a unique param value or a concurrent test broadcasting on the
   same topic string will deliver to it.
   """

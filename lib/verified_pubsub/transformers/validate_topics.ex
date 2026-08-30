@@ -1,4 +1,4 @@
-defmodule VerifiedPubsub.Transformers.ValidateTopics do
+defmodule VerifiedPubSub.Transformers.ValidateTopics do
   @moduledoc """
   Validates the registry, raising at compile time.
 
@@ -12,7 +12,7 @@ defmodule VerifiedPubsub.Transformers.ValidateTopics do
   alias Spark.Dsl.Transformer
 
   @impl true
-  def after?(VerifiedPubsub.Transformers.ParseParams), do: true
+  def after?(VerifiedPubSub.Transformers.ParseParams), do: true
   def after?(_), do: false
 
   @impl true

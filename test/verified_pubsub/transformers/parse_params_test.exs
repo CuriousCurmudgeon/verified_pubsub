@@ -1,9 +1,9 @@
-defmodule VerifiedPubsub.Transformers.ParseParamsTest do
+defmodule VerifiedPubSub.Transformers.ParseParamsTest do
   use ExUnit.Case, async: true
 
-  alias VerifiedPubsub.Info
-  alias VerifiedPubsub.TestRegistries.Basic
-  alias VerifiedPubsub.Transformers.ParseParams
+  alias VerifiedPubSub.Info
+  alias VerifiedPubSub.TestRegistries.Basic
+  alias VerifiedPubSub.Transformers.ParseParams
 
   describe "parse/1" do
     test "extracts params in order" do

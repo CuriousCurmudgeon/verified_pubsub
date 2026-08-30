@@ -1,4 +1,4 @@
-defmodule VerifiedPubsub.Transformers.ParseParams do
+defmodule VerifiedPubSub.Transformers.ParseParams do
   @moduledoc """
   Derives each topic's parameter list from its wire pattern, so params are declared
   exactly once.
@@ -12,7 +12,7 @@ defmodule VerifiedPubsub.Transformers.ParseParams do
   @doc """
   Extracts parameter names from a wire pattern.
 
-      iex> VerifiedPubsub.Transformers.ParseParams.parse("accounts:%{account_id}:campaigns")
+      iex> VerifiedPubSub.Transformers.ParseParams.parse("accounts:%{account_id}:campaigns")
       {:ok, [:account_id]}
   """
   @spec parse(String.t()) :: {:ok, [atom()]} | {:error, String.t()}

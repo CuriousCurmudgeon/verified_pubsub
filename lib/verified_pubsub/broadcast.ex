@@ -1,4 +1,4 @@
-defmodule VerifiedPubsub.Broadcast do
+defmodule VerifiedPubSub.Broadcast do
   @moduledoc false
 
   # This exists so the generated `broadcast_*!` functions do not contain the

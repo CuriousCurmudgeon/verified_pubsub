@@ -1,15 +1,15 @@
-defmodule VerifiedPubsub.Info do
+defmodule VerifiedPubSub.Info do
   @moduledoc """
   The only supported way to read a registry.
 
-  Everything outside this module — including `VerifiedPubsub.Subscriber` — goes
+  Everything outside this module — including `VerifiedPubSub.Subscriber` — goes
   through these functions rather than Spark internals, so the DSL front-end stays
   replaceable.
   """
 
-  use Spark.InfoGenerator, extension: VerifiedPubsub.Dsl, sections: [:topics]
+  use Spark.InfoGenerator, extension: VerifiedPubSub.Dsl, sections: [:topics]
 
-  alias VerifiedPubsub.Dsl.Topic
+  alias VerifiedPubSub.Dsl.Topic
 
   @doc "Fetches a topic by its alias."
   @spec topic(module(), atom()) :: {:ok, Topic.t()} | :error
