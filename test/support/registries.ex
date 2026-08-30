@@ -2,7 +2,7 @@ defmodule VerifiedPubsub.TestRegistries do
   @moduledoc "Registries compiled in the test env and reused across test files."
 
   defmodule Basic do
-    use VerifiedPubsub.Registry, adapter: VerifiedPubsub.Adapter.Local
+    use VerifiedPubsub.Registry, pubsub: VerifiedPubsub.TestPubSub
 
     topic :campaigns, "accounts:%{account_id}:campaigns" do
       message :created do

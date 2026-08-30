@@ -2,11 +2,14 @@ defmodule VerifiedPubsub.Broadcast do
   @moduledoc false
 
   # This exists so the generated `broadcast_*!` functions do not contain the
-  # `{:error, reason}` clause themselves. An adapter whose `broadcast/3` is inferred to
-  # return only `:ok` (as `Adapter.Local` is, since `Registry.dispatch/3` always
-  # succeeds) would make that clause dead code, and Elixir would emit a
-  # "clause will never match" warning inside every consumer's generated registry.
-  # Here the argument keeps the behaviour's declared `:ok | {:error, term}` type.
+  # `{:error, reason}` clause themselves. If the broadcast call is ever inferred to
+  # return only `:ok`, that clause becomes dead code and Elixir emits a "clause will
+  # never match" warning inside every consumer's generated registry. Keeping the case
+  # here, where the argument carries the declared `:ok | {:error, term}` type, means
+  # generated code cannot trip that warning.
+  #
+  # It also gives a better message than Phoenix.PubSub.broadcast!/4 would, by naming
+  # the topic and event rather than just the underlying failure.
 
   @doc false
   @spec bang!(:ok | {:error, term()}, atom(), atom()) :: :ok

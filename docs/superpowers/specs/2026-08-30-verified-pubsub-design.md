@@ -44,9 +44,9 @@ the registry the single source of truth turns both failures into compile-time er
   scope, they arrive together.
 
   One consequence to know when picking this up: `subscribe_*` currently accepts no
-  options, so `VerifiedPubsub.Adapter.subscribe/2` would have to become `subscribe/3`.
-  That is a **breaking change for custom adapters**, unlike most additions here. It is
-  cheap while the library is unreleased and gets more expensive after.
+  options. Since the adapter layer was dropped, this is now a smaller change than first
+  recorded: `subscribe_*` would simply pass an opts list through to
+  `Phoenix.PubSub.subscribe/3`, with no behaviour signature to break.
 - `local_broadcast` / `local_broadcast_from`. Deliberately deferred: they appear mostly
   inside Phoenix itself (Presence, Channel internals) rather than in application code,
   and adding them would take the generated broadcast functions per event from four to
@@ -62,8 +62,8 @@ PubSub usage this must stay bit-compatible with.
 Subscriber targets, in priority order: plain GenServers, LiveViews, and transient or
 broadcast-only processes (e.g. Oban workers). Phoenix Channels are out of scope.
 
-`phoenix_pubsub` is an **optional** dependency, reached through an adapter behaviour,
-so the library and its test suite do not require Phoenix.
+`phoenix_pubsub` is a **required** dependency. An adapter layer was specified initially
+to keep it optional; that was reversed — see "No adapter layer" below.
 
 ## Decisions
 
@@ -125,9 +125,7 @@ lib/verified_pubsub/transformers/parse_params.ex
 lib/verified_pubsub/transformers/define_functions.ex
 lib/verified_pubsub/transformers/validate_topics.ex
 lib/verified_pubsub/subscriber.ex               # __using__, handle_message, before_compile
-lib/verified_pubsub/adapter.ex                  # behaviour
-lib/verified_pubsub/adapter/phoenix_pub_sub.ex
-lib/verified_pubsub/adapter/local.ex
+lib/verified_pubsub/broadcast.ex                 # bang! helper, keeps generated code clean
 ```
 
 Each unit has one job: the DSL extension parses, transformers derive, verifiers
@@ -141,7 +139,6 @@ subscriber-side codegen and verification, and adapters isolate transport.
 ```elixir
 defmodule MyApp.Topics do
   use VerifiedPubsub.Registry,
-    adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
     pubsub: MyApp.PubSub
 
   topic :campaigns, "accounts:%{account_id}:campaigns" do
@@ -401,18 +398,37 @@ one process subscribes to several instances of a parameterized topic. Documentat
 should recommend a final param-agnostic clause when a subscriber does match on param
 values.
 
-### 6. Adapters
+### 6. No adapter layer
 
-```elixir
-@callback broadcast(config :: term, topic :: String.t(), message :: Message.t()) ::
-            :ok | {:error, term}
-@callback subscribe(config :: term, topic :: String.t()) :: :ok | {:error, term}
-@callback unsubscribe(config :: term, topic :: String.t()) :: :ok
-```
+Generated functions call `Phoenix.PubSub` directly. `use VerifiedPubsub.Registry` takes
+a required `pubsub:` naming a `Phoenix.PubSub` process; transport is configured there.
 
-- `Adapter.PhoenixPubSub` — configured with `pubsub: MyApp.PubSub`. Optional dep.
-- `Adapter.Local` — plain `send/2` to subscribed pids. Lets this library's suite run
-  without Phoenix, and doubles as a test adapter for consumers.
+This reverses an earlier decision in this spec, which specified a
+`VerifiedPubsub.Adapter` behaviour with `PhoenixPubSub` and `Local` implementations.
+Three facts killed it:
+
+1. **`Phoenix.PubSub` already has its own adapter behaviour** (`node_name/1`,
+   `child_spec/1`, `broadcast/4`, `direct_broadcast/5`) — the documented extension point
+   for PG2, Redis, and anything else. Layering a second adapter concept over it
+   duplicates an extension point one level down and splits transport configuration
+   across two places.
+2. **`phoenix_pubsub` has zero transitive dependencies.** "Keep Phoenix optional," the
+   original justification, was asserted without checking this. Requiring it costs
+   essentially nothing.
+3. **`Adapter.Local` was a reimplementation.** `Phoenix.PubSub.subscribe/3` is literally
+   `Registry.register(pubsub, topic, opts[:metadata])` — the same mechanism `Local` used.
+
+What is lost: the library no longer runs on Spark alone, and a non-web OTP app inherits
+a package named `phoenix_*`. Both were judged cosmetic against a wrapper whose only real
+implementation was four pass-through lines — an abstraction with a single implementation
+is validated by nothing.
+
+Tests start a real `Phoenix.PubSub`, which is also the production code path.
+
+One nuance worth recording: `Phoenix.PubSub`'s own adapter behaviour covers **only
+cross-node propagation** — it has no subscribe/unsubscribe, which `Phoenix.PubSub`
+handles itself. So the rejected behaviour was not literally a duplicate of it; it was a
+wrapper around the whole of `Phoenix.PubSub`. The objection stands either way.
 
 ## Error handling
 
@@ -446,7 +462,7 @@ in-process and captures raised errors and emitted warnings.
 4. **Broadcast param handling** — assert the params map interpolates into the correct
    topic string, and that a params map missing a required key raises
    `FunctionClauseError`.
-5. **Integration** — a real GenServer subscriber over `Adapter.Local`; assert
+5. **Integration** — a real GenServer subscriber over a real `Phoenix.PubSub`; assert
    delivery and that the right clause runs.
 6. **LiveView smoke test** — one test behind a test-only `phoenix_live_view` dep,
    confirming `use VerifiedPubsub.Subscriber` composes with `use Phoenix.LiveView`
@@ -461,5 +477,5 @@ in-process and captures raised errors and emitted warnings.
   `locals_without_parens` by hand.
 - `lib/verified_pubsub.ex`'s current skeleton (`topic/1`, `message/2`, empty
   `compile/1`) is superseded by this design and will be replaced.
-- `mix.exs` needs `elixir: "~> 1.17"` retained, `{:spark, "~> 2.7"}`, optional
-  `{:phoenix_pubsub, "~> 2.1", optional: true}`, and test-only `phoenix_live_view`.
+- `mix.exs` needs `elixir: "~> 1.17"` retained, `{:spark, "~> 2.7"}`,
+  `{:phoenix_pubsub, "~> 2.1"}`, and test-only `phoenix_live_view`.

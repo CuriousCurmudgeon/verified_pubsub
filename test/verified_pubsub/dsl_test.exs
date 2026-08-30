@@ -35,8 +35,24 @@ defmodule VerifiedPubsub.DslTest do
     assert [{:id, :string}, {:name, :string}] = Enum.map(created.fields, &{&1.name, &1.type})
   end
 
-  test "the registry records its adapter and config" do
-    assert Basic.__verified_pubsub_adapter__() == VerifiedPubsub.Adapter.Local
-    assert Basic.__verified_pubsub_config__() == nil
+  test "the registry records its Phoenix.PubSub name" do
+    assert Basic.__verified_pubsub_pubsub__() == VerifiedPubsub.TestPubSub
+  end
+
+  test "the :pubsub option is required" do
+    error =
+      VerifiedPubsub.CompileHelper.compile_error("""
+      defmodule #{VerifiedPubsub.CompileHelper.unique_module("VPTest.NoPubSub")} do
+        use VerifiedPubsub.Registry
+
+        topic :campaigns, "campaigns" do
+          message :created do
+          end
+        end
+      end
+      """)
+
+    assert error, "expected a missing :pubsub option to fail compilation"
+    assert Exception.message(error) =~ "pubsub"
   end
 end

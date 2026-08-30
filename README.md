@@ -19,16 +19,14 @@ def deps do
 end
 ```
 
-`:spark` is the only required dependency. `:phoenix_pubsub` is optional — add it if you
-use the Phoenix adapter.
+Requires `:spark` and `:phoenix_pubsub`, neither of which has any transitive
+dependencies of its own.
 
 ## Declare topics and events once
 
 ```elixir
 defmodule MyApp.Topics do
-  use VerifiedPubsub.Registry,
-    adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
-    pubsub: MyApp.PubSub
+  use VerifiedPubsub.Registry, pubsub: MyApp.PubSub
 
   topic :campaigns, "accounts:%{account_id}:campaigns" do
     message :created do
@@ -155,16 +153,29 @@ are matched after it. Add a catch-all if your process receives other messages:
 def handle_info(_other, state), do: {:noreply, state}
 ```
 
-## Transports
+## Transport
 
-`VerifiedPubsub.Adapter.PhoenixPubSub` is the usual choice. `VerifiedPubsub.Adapter.Local`
-delivers in-VM with `send/2`, needs no Phoenix, and is useful in tests:
+Broadcasts and subscriptions go through `Phoenix.PubSub`, so `:pubsub` names one started
+in your supervision tree:
 
 ```elixir
-children = [VerifiedPubsub.Adapter.Local]
+children = [{Phoenix.PubSub, name: MyApp.PubSub}]
 ```
 
-Implement `VerifiedPubsub.Adapter` for anything else.
+There is deliberately no adapter layer. `Phoenix.PubSub` already has its own adapter
+behaviour — that is where PG2, Redis, and anything else get configured — so wrapping it
+would duplicate an extension point one layer down and split transport configuration
+across two places.
+
+In tests, start a `Phoenix.PubSub` as you would in production, and assert on delivery by
+subscribing from the test process:
+
+```elixir
+start_supervised!({Phoenix.PubSub, name: MyApp.PubSub})
+:ok = MyApp.Topics.subscribe_campaigns(%{account_id: id})
+:ok = MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: "c1"})
+assert_receive %VerifiedPubsub.Message{event: :created}
+```
 
 ## Formatting
 

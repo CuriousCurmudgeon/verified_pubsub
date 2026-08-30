@@ -6,7 +6,7 @@ defmodule VerifiedPubsub.Transformers.ValidateTopicsTest do
   defp registry_source(body) do
     """
     defmodule #{unique_module("VPTest.Validate")} do
-      use VerifiedPubsub.Registry, adapter: VerifiedPubsub.Adapter.Local
+      use VerifiedPubsub.Registry, pubsub: VerifiedPubsub.TestPubSub
       #{body}
     end
     """

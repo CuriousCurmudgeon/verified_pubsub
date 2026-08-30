@@ -38,10 +38,8 @@ defmodule VerifiedPubsub.MixProject do
           VerifiedPubsub.Subscriber,
           VerifiedPubsub.Message
         ],
-        Adapters: [
-          VerifiedPubsub.Adapter,
-          VerifiedPubsub.Adapter.Local,
-          VerifiedPubsub.Adapter.PhoenixPubSub
+        Internals: [
+          VerifiedPubsub.Broadcast
         ]
       ]
     ]
@@ -61,7 +59,7 @@ defmodule VerifiedPubsub.MixProject do
   defp deps do
     [
       {:spark, "~> 2.7"},
-      {:phoenix_pubsub, "~> 2.1", optional: true},
+      {:phoenix_pubsub, "~> 2.1"},
       {:phoenix_live_view, "~> 1.0", only: :test}
     ]
   end

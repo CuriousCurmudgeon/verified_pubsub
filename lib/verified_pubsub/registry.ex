@@ -3,9 +3,7 @@ defmodule VerifiedPubsub.Registry do
   Declares the topics and events for an application.
 
       defmodule MyApp.Topics do
-        use VerifiedPubsub.Registry,
-          adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
-          pubsub: MyApp.PubSub
+        use VerifiedPubsub.Registry, pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
           message :created do
@@ -13,20 +11,19 @@ defmodule VerifiedPubsub.Registry do
           end
         end
       end
+
+  Broadcasts and subscriptions go through `Phoenix.PubSub`, so `:pubsub` is the name of
+  a `Phoenix.PubSub` started in your supervision tree. Transport choice (PG2, Redis, …)
+  is configured there, on `Phoenix.PubSub` itself, rather than here.
   """
 
   use Spark.Dsl,
     default_extensions: [extensions: [VerifiedPubsub.Dsl]],
     opt_schema: [
-      adapter: [
-        type: {:behaviour, VerifiedPubsub.Adapter},
-        required: true,
-        doc: "The `VerifiedPubsub.Adapter` used to broadcast and subscribe."
-      ],
       pubsub: [
-        type: :any,
-        default: nil,
-        doc: "Opaque adapter config. For the Phoenix adapter, the `Phoenix.PubSub` name."
+        type: :atom,
+        required: true,
+        doc: "The `Phoenix.PubSub` process name that broadcasts and subscriptions go through."
       ]
     ]
 
@@ -34,10 +31,7 @@ defmodule VerifiedPubsub.Registry do
   def handle_opts(opts) do
     quote do
       @doc false
-      def __verified_pubsub_adapter__, do: unquote(opts[:adapter])
-
-      @doc false
-      def __verified_pubsub_config__, do: unquote(Macro.escape(opts[:pubsub]))
+      def __verified_pubsub_pubsub__, do: unquote(opts[:pubsub])
     end
   end
 end

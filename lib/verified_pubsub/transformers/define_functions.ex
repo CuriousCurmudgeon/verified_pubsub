@@ -6,6 +6,10 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
   Because an undeclared topic or event simply has no generated function, calling one is
   an ordinary undefined-function compile error — the same mechanism verified routes
   relies on.
+
+  The bodies call `Phoenix.PubSub` directly. There is deliberately no adapter layer:
+  `Phoenix.PubSub` already has its own adapter behaviour for transport choice, so
+  wrapping it would duplicate an extension point that exists one layer down.
   """
 
   use Spark.Dsl.Transformer
@@ -53,16 +57,16 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
 
       @doc "Subscribes the calling process to `#{unquote(inspect(name))}`."
       def unquote(subscribe_fn)(unquote_splicing(args)) do
-        __verified_pubsub_adapter__().subscribe(
-          __verified_pubsub_config__(),
+        Phoenix.PubSub.subscribe(
+          __verified_pubsub_pubsub__(),
           unquote(topic_fn)(unquote_splicing(args))
         )
       end
 
       @doc "Unsubscribes the calling process from `#{unquote(inspect(name))}`."
       def unquote(unsubscribe_fn)(unquote_splicing(args)) do
-        __verified_pubsub_adapter__().unsubscribe(
-          __verified_pubsub_config__(),
+        Phoenix.PubSub.unsubscribe(
+          __verified_pubsub_pubsub__(),
           unquote(topic_fn)(unquote_splicing(args))
         )
       end
@@ -88,8 +92,8 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
     quote do
       @doc "Broadcasts `#{unquote(inspect(event))}` on `#{unquote(inspect(topic_name))}`."
       def unquote(fn_name)(unquote_splicing(all_args)) do
-        __verified_pubsub_adapter__().broadcast(
-          __verified_pubsub_config__(),
+        Phoenix.PubSub.broadcast(
+          __verified_pubsub_pubsub__(),
           unquote(topic_fn)(unquote_splicing(args)),
           unquote(message_ast(topic_name, event, params_map, payload))
         )
@@ -114,8 +118,8 @@ defmodule VerifiedPubsub.Transformers.DefineFunctions do
       process rather than the one that started the request.
       """
       def unquote(from_name)(unquote_splicing(from_args)) do
-        __verified_pubsub_adapter__().broadcast_from(
-          __verified_pubsub_config__(),
+        Phoenix.PubSub.broadcast_from(
+          __verified_pubsub_pubsub__(),
           unquote(from),
           unquote(topic_fn)(unquote_splicing(args)),
           unquote(message_ast(topic_name, event, params_map, payload))

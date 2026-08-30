@@ -10,9 +10,7 @@ defmodule VerifiedPubsub do
   ## The registry
 
       defmodule MyApp.Topics do
-        use VerifiedPubsub.Registry,
-          adapter: VerifiedPubsub.Adapter.PhoenixPubSub,
-          pubsub: MyApp.PubSub
+        use VerifiedPubsub.Registry, pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
           message :created do
@@ -105,10 +103,16 @@ defmodule VerifiedPubsub do
       covered and a message with a different value raises `FunctionClauseError`. End
       with a param-agnostic clause when matching on param values.
 
-  ## Transports
+  ## Transport
 
-  `VerifiedPubsub.Adapter.PhoenixPubSub` is the usual choice, and `:phoenix_pubsub` is
-  an optional dependency — the library and its test suite run without Phoenix.
-  `VerifiedPubsub.Adapter.Local` delivers in-VM with `send/2` and is useful in tests.
+  Broadcasts and subscriptions go through `Phoenix.PubSub`, so `:pubsub` names a
+  `Phoenix.PubSub` started in your supervision tree:
+
+      children = [{Phoenix.PubSub, name: MyApp.PubSub}]
+
+  There is deliberately no adapter layer here. `Phoenix.PubSub` already has its own
+  adapter behaviour — that is where PG2, Redis, and anything else are configured — so
+  wrapping it would duplicate an extension point one layer down, and leave you
+  configuring transport in two places.
   """
 end
