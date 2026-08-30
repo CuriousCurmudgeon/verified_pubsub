@@ -45,30 +45,55 @@ end
 renaming it never breaks a call site. `%{account_id}` marks a parameter, and the
 parameter list is derived from the pattern rather than declared twice.
 
-## Broadcast through generated functions
+## Broadcast with verified topics and events
 
 ```elixir
-MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: c.id, name: c.name})
+defmodule MyApp.Campaigns do
+  use VerifiedPubSub, registry: MyApp.Topics
+
+  def create(attrs) do
+    with {:ok, campaign} <- insert(attrs) do
+      broadcast!(:campaigns, :created, %{account_id: campaign.account_id}, campaign)
+      {:ok, campaign}
+    end
+  end
+end
 ```
 
-A topic with no params takes only a payload: `MyApp.Topics.broadcast_system_alert!(payload)`.
+`use VerifiedPubSub, registry: ...` imports the API. A topic with no params takes an
+empty map: `broadcast!(:system, :alert, %{}, payload)`.
+
+These are **macros**, so the topic and event must be literal atoms — that is what lets a
+typo fail the compile. Params may be built at runtime.
 
 To skip the sender — the usual fix for a LiveView that both writes to a topic and
-subscribes to it, and would otherwise apply its own change twice — use the `_from`
-variants:
+subscribes to it, and would otherwise apply its own change twice:
 
 ```elixir
-MyApp.Topics.broadcast_campaigns_created_from!(self(), %{account_id: id}, payload)
+broadcast_from!(self(), :campaigns, :created, %{account_id: id}, payload)
 ```
 
-These mirror `Phoenix.PubSub.broadcast_from/4`, with `from` leading for the same reason
-it does there, and they carry the same semantics: `from` is whichever pid you pass, so
+This mirrors `Phoenix.PubSub.broadcast_from/4`, with `from` leading for the same reason
+it does there, and it carries the same semantics: `from` is whichever pid you pass, so
 `self()` is the calling process. If the broadcast happens inside a context function, a
 `Task`, or an Oban job, `self()` is *that* process, not the one that started the
 request — pass the pid explicitly in those cases.
 
-Each event therefore generates four broadcast functions: `broadcast_*`,
-`broadcast_*!`, `broadcast_*_from`, and `broadcast_*_from!`.
+## Why macros rather than functions
+
+Plain functions taking atoms cannot be verified at compile time. Elixir's type inference
+does not narrow across clause heads on a remote call, so a `broadcast/4` defined as
+
+```elixir
+def broadcast(:campaigns, :created, %{account_id: id}, payload), do: ...
+```
+
+produces **no diagnostic at all** for `broadcast(:campaigns, :creatd, ...)` — it fails at
+runtime. Macros can look the topic and event up in the registry while your code compiles.
+
+The costs are real: every calling module needs `use VerifiedPubSub, registry: ...`, and
+macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules that
+`use VerifiedPubSub.Subscriber` already have the import.
 
 ## Subscribe, and account for every event
 
@@ -79,7 +104,7 @@ defmodule MyAppWeb.CampaignsLive do
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      :ok = subscribe_campaigns(%{account_id: socket.assigns.account.id})
+      :ok = subscribe(:campaigns, %{account_id: socket.assigns.account.id})
     end
 
     {:ok, stream(socket, :campaigns, [])}
@@ -112,24 +137,19 @@ end
 
 **Hard compile errors:**
 
+- broadcasting an unknown topic, an unknown event, or an event that belongs to a
+  different topic — the error names the topic's declared events, and says where a
+  misplaced event actually lives
+- a literal params map with missing or unexpected keys
 - a subscriber that does not account for every event on a topic it subscribes to
 - a subscriber that handles an event the registry does not declare, or a topic not in
   its `:topics` list
 - duplicate topics, duplicate events on one topic, and malformed topic patterns
 
-**Compile warnings, promoted to errors by `mix compile --warnings-as-errors`:**
-
-- broadcasting an unknown topic or event. This works by the generated function not
-  existing, and Elixir reports an undefined remote function as a warning — one that
-  usefully lists the valid alternatives. Run `--warnings-as-errors` in CI to make it
-  binding. This is weaker than verified routes, which raises from a sigil macro; the
-  trade is that broadcasts stay plain function calls, with no `require` at every call
-  site.
-- a params map with the wrong keys, when the map is a literal. Elixir's type inference
-  catches it against the destructured function head. A dynamically-built map raises
-  `FunctionClauseError` at runtime instead.
-
 **Not checked:**
+
+- **A params map built at runtime.** `Map.fetch!/2` raises `KeyError` for a missing key
+  instead.
 
 - **Payload shapes.** `field` declarations are parsed and readable through
   `VerifiedPubSub.Info`, but nothing validates a payload against them yet.
@@ -171,9 +191,11 @@ In tests, start a `Phoenix.PubSub` as you would in production, and assert on del
 subscribing from the test process:
 
 ```elixir
+use VerifiedPubSub, registry: MyApp.Topics
+
 start_supervised!({Phoenix.PubSub, name: MyApp.PubSub})
-:ok = MyApp.Topics.subscribe_campaigns(%{account_id: id})
-:ok = MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: "c1"})
+:ok = subscribe(:campaigns, %{account_id: id})
+:ok = broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c1"})
 assert_receive %VerifiedPubSub.Message{event: :created}
 ```
 

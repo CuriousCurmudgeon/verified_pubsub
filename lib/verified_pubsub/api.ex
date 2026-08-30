@@ -1,20 +1,20 @@
 defmodule VerifiedPubSub.Api do
   @moduledoc """
-  Atom-first macros: an experimental alternative to the generated functions.
+  The call-site API: `subscribe/2`, `unsubscribe/2`, `topic/2`, `broadcast/4`,
+  `broadcast!/4`, `broadcast_from/5` and `broadcast_from!/5`.
 
-  Instead of `MyApp.Topics.broadcast_campaigns_created!(params, payload)`, the topic and
-  event are ordinary arguments:
-
-      use VerifiedPubSub, registry: MyApp.Topics
+  Imported by `use VerifiedPubSub, registry: MyApp.Topics`, and by
+  `use VerifiedPubSub.Subscriber`:
 
       broadcast!(:campaigns, :created, %{account_id: id}, payload)
 
-  Because these are macros, the topic and event must be **literal atoms**, which is what
-  lets a typo be a hard `CompileError` rather than the compile *warning* an undefined
-  generated function produces.
+  These are **macros**, so the topic and event must be literal atoms. That is what allows
+  an unknown topic or event to be a `CompileError` naming the valid alternatives. Params
+  may be built at runtime; a literal params map is checked at compile time, and a dynamic
+  one raises `KeyError` from `Map.fetch!/2` when a key is missing.
 
-  The trade is that every calling module needs `use VerifiedPubSub, registry: ...`, and
-  macros cannot be piped into, captured with `&`, or called via `apply/3`.
+  The costs: every calling module needs the import, and macros cannot be piped into,
+  captured with `&`, or called via `apply/3`.
   """
 
   alias VerifiedPubSub.Info

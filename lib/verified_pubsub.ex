@@ -30,18 +30,25 @@ defmodule VerifiedPubSub do
 
   ## Broadcasting
 
-      MyApp.Topics.broadcast_campaigns_created!(%{account_id: id}, %{id: c.id, name: c.name})
+      defmodule MyApp.Campaigns do
+        use VerifiedPubSub, registry: MyApp.Topics
 
-  Params are passed as a map, which the generated function head destructures. A topic
-  with no params takes only a payload: `MyApp.Topics.broadcast_system_alert!(payload)`.
+        def create(attrs) do
+          # ...
+          broadcast!(:campaigns, :created, %{account_id: attrs.account_id}, payload)
+        end
+      end
 
-  To skip the sender, use the `_from` variants, which mirror
+  `use VerifiedPubSub, registry: ...` imports `VerifiedPubSub.Api`. Topic and event are
+  ordinary arguments, but because these are macros they must be **literal atoms** — that
+  is what makes a typo a compile error. Params may be built at runtime.
+
+  A topic with no params takes an empty map: `broadcast!(:system, :alert, %{}, payload)`.
+
+  To skip the sender, use `broadcast_from!/5`, which mirrors
   `Phoenix.PubSub.broadcast_from/4` (`from` leads, as it does there):
 
-      MyApp.Topics.broadcast_campaigns_created_from!(self(), %{account_id: id}, payload)
-
-  Each event generates `broadcast_*`, `broadcast_*!`, `broadcast_*_from`, and
-  `broadcast_*_from!`.
+      broadcast_from!(self(), :campaigns, :created, %{account_id: id}, payload)
 
   ## Subscribing
 
@@ -50,7 +57,7 @@ defmodule VerifiedPubSub do
         use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
 
         def init(account_id) do
-          :ok = subscribe_campaigns(%{account_id: account_id})
+          :ok = subscribe(:campaigns, %{account_id: account_id})
           {:ok, account_id}
         end
 
@@ -83,16 +90,12 @@ defmodule VerifiedPubSub do
       in its `:topics` list
     * duplicate topics, duplicate events on one topic, and malformed topic patterns
 
-  Enforced as a compile *warning*, promoted to an error by
-  `mix compile --warnings-as-errors`:
+    * broadcasting an unknown topic, an unknown event, or an event that belongs to a
+      different topic
+    * a literal params map with missing or unexpected keys
 
-    * broadcasting an unknown topic or event. This works by the generated function not
-      existing, and Elixir reports an undefined remote function as a warning — one that
-      helpfully lists the valid alternatives. Run `--warnings-as-errors` in CI to make
-      it binding.
-    * a params map with the wrong keys, when the map is a literal. Elixir's type
-      inference catches it against the destructured function head. A dynamically-built
-      map raises `FunctionClauseError` at runtime instead.
+  A params map built at runtime cannot be checked at compile time; `Map.fetch!/2` raises
+  `KeyError` for a missing key instead.
 
   Not checked:
 
@@ -115,22 +118,16 @@ defmodule VerifiedPubSub do
   wrapping it would duplicate an extension point one layer down, and leave you
   configuring transport in two places.
 
-  ## Atom-first macros (experimental)
+  ## Why macros
 
-  `use VerifiedPubSub, registry: MyApp.Topics` imports an alternative call-site API in
-  which the topic and event are arguments rather than part of the function name:
+  The call-site API is macros rather than functions so that the topic and event can be
+  checked while your code compiles. Plain functions taking atoms cannot be: Elixir's
+  type inference does not narrow across clause heads on a remote call, so
+  `broadcast(:campaigns, :creatd, ...)` would fail only at runtime.
 
-      defmodule MyApp.Campaigns do
-        use VerifiedPubSub, registry: MyApp.Topics
-
-        def create(attrs) do
-          # ...
-          broadcast!(:campaigns, :created, %{account_id: attrs.account_id}, payload)
-        end
-      end
-
-  See `VerifiedPubSub.Api` for the trade-offs. The two styles currently coexist so they
-  can be compared; only one should ship.
+  The cost is that every calling module needs `use VerifiedPubSub, registry: ...`, and
+  macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules that
+  `use VerifiedPubSub.Subscriber` already have the import.
   """
 
   @doc """
