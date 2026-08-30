@@ -83,10 +83,16 @@ defmodule VerifiedPubSub.ApiTest do
     end
 
     test "a param-free topic needs no params argument" do
+      token = unique_account_id()
       assert :ok = Broadcaster.sub_system()
-      assert :ok = Broadcaster.alert(%{text: "hi"})
+      assert :ok = Broadcaster.alert(%{text: token})
 
-      assert_receive %Message{topic: :system, event: :alert, params: %{}}
+      assert_receive %Message{
+        topic: :system,
+        event: :alert,
+        params: %{},
+        payload: %{text: ^token}
+      }
     end
 
     test "params built at runtime still work", %{account_id: id} do

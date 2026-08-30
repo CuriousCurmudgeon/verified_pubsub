@@ -57,10 +57,14 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   test "a param-free topic broadcasts with only a payload" do
+    # The :system topic has no params to make unique, and the suite shares one
+    # Phoenix.PubSub, so the payload carries a token to keep concurrent tests on this
+    # topic from matching each other's messages.
+    token = unique_account_id()
     assert :ok = subscribe(:system)
-    assert :ok = broadcast!(:system, :alert, %{}, %{text: "hi"})
+    assert :ok = broadcast!(:system, :alert, %{}, %{text: token})
 
-    assert_receive %Message{topic: :system, event: :alert, params: %{}}
+    assert_receive %Message{topic: :system, event: :alert, params: %{}, payload: %{text: ^token}}
   end
 
   test "a params map built at runtime with a missing key raises KeyError" do
@@ -106,10 +110,11 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   test "a param-free topic's from variant takes only from and payload" do
+    token = unique_account_id()
     assert :ok = subscribe(:system)
-    assert :ok = broadcast_from!(self(), :system, :alert, %{}, %{text: "hi"})
+    assert :ok = broadcast_from!(self(), :system, :alert, %{}, %{text: token})
 
-    refute_receive %Message{topic: :system}, 50
+    refute_receive %Message{topic: :system, payload: %{text: ^token}}, 50
   end
 
   test "the from variant carries the same message shape as the base variant", %{
