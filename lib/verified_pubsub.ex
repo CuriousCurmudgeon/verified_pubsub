@@ -54,7 +54,7 @@ defmodule VerifiedPubSub do
 
       defmodule MyApp.Worker do
         use GenServer
-        use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+        use VerifiedPubSub.Subscriber, registry: MyApp.Topics
 
         def init(account_id) do
           :ok = subscribe(:campaigns, %{account_id: account_id})
@@ -86,8 +86,8 @@ defmodule VerifiedPubSub do
   Enforced as a hard compile error:
 
     * a subscriber that does not account for every event on a topic it subscribes to
-    * a subscriber that handles an event the registry does not declare, or a topic not
-      in its `:topics` list
+    * a subscriber that handles an event the registry does not declare, or names a
+      topic the registry does not declare
     * duplicate topics, duplicate events on one topic, and malformed topic patterns
 
     * broadcasting an unknown topic, an unknown event, or an event that belongs to a

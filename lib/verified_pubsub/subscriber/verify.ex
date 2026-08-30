@@ -2,9 +2,10 @@ defmodule VerifiedPubSub.Subscriber.Verify do
   @moduledoc """
   Compile-time coverage check for `VerifiedPubSub.Subscriber`.
 
-  Coverage is tracked per `{topic, event}` pair using **set** semantics, because
-  several `handle_message` clauses for one event are legal and expected when matching
-  on param values.
+  The subscribed topics are inferred from the module's `handle_message/5` and
+  `ignore_message/2` calls. Coverage is then tracked per `{topic, event}` pair using
+  **set** semantics, because several `handle_message` clauses for one event are legal and
+  expected when matching on param values.
 
   Coverage is therefore name-based, not value-based: if every clause for an event
   matches a narrow param value, the event still counts as covered, and a message with
@@ -18,15 +19,24 @@ defmodule VerifiedPubSub.Subscriber.Verify do
   @doc false
   def run!(env, clauses, ignored) do
     registry = Module.get_attribute(env.module, :verified_pubsub_registry)
-    topics = Module.get_attribute(env.module, :verified_pubsub_topics)
     on_missing = Module.get_attribute(env.module, :verified_pubsub_on_missing)
+
+    accounted_for = MapSet.new(Enum.map(clauses, &{&1.topic, &1.event}) ++ ignored)
+
+    # The subscribed topics are whatever the module actually mentions. Reading the
+    # registry here is also what creates the compile-time dependency on it, so editing
+    # the registry recompiles every subscriber.
+    topics =
+      accounted_for
+      |> Enum.map(&elem(&1, 0))
+      |> Enum.uniq()
+      |> Enum.sort()
+      |> Enum.map(&validate_topic!(env, registry, &1))
 
     declared =
       for topic <- topics, event <- Info.events(registry, topic), into: MapSet.new() do
         {topic, event}
       end
-
-    accounted_for = MapSet.new(Enum.map(clauses, &{&1.topic, &1.event}) ++ ignored)
 
     undeclared = MapSet.difference(accounted_for, declared)
     missing = MapSet.difference(declared, accounted_for)
@@ -35,7 +45,7 @@ defmodule VerifiedPubSub.Subscriber.Verify do
       raise CompileError,
         file: env.file,
         line: env.line,
-        description: undeclared_message(env, registry, topics, undeclared)
+        description: undeclared_message(env, registry, undeclared)
     end
 
     if not Enum.empty?(missing) and on_missing != :ignore do
@@ -50,18 +60,32 @@ defmodule VerifiedPubSub.Subscriber.Verify do
     :ok
   end
 
-  defp undeclared_message(env, registry, topics, undeclared) do
+  defp validate_topic!(env, registry, topic) do
+    case Info.topic(registry, topic) do
+      {:ok, _} ->
+        topic
+
+      :error ->
+        known = registry |> Info.topics() |> Enum.map(& &1.name) |> Enum.sort()
+
+        raise CompileError,
+          file: env.file,
+          line: env.line,
+          description: """
+          #{inspect(env.module)} handles messages on unknown topic #{inspect(topic)}.
+
+          #{inspect(registry)} declares: #{inspect(known)}
+          """
+    end
+  end
+
+  defp undeclared_message(env, registry, undeclared) do
     detail =
       undeclared
       |> Enum.sort()
       |> Enum.map_join("\n", fn {topic, event} ->
-        if topic in topics do
-          "  * #{inspect(topic)}, #{inspect(event)} — #{inspect(registry)} declares " <>
-            "#{inspect(Info.events(registry, topic))} on #{inspect(topic)}"
-        else
-          "  * #{inspect(topic)}, #{inspect(event)} — #{inspect(topic)} is not in the " <>
-            ":topics list #{inspect(topics)}"
-        end
+        "  * #{inspect(topic)}, #{inspect(event)} — #{inspect(registry)} declares " <>
+          "#{inspect(Info.events(registry, topic))} on #{inspect(topic)}"
       end)
 
     """
@@ -69,8 +93,7 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
     #{detail}
 
-    Fix the topic or event name, add the topic to the :topics option of
-    `use VerifiedPubSub.Subscriber`, or declare it in the registry.
+    Fix the event name, or declare it in the registry.
     """
   end
 

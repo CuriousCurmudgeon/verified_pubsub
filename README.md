@@ -100,7 +100,7 @@ macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules
 ```elixir
 defmodule MyAppWeb.CampaignsLive do
   use MyAppWeb, :live_view
-  use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+  use VerifiedPubSub.Subscriber, registry: MyApp.Topics
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -118,10 +118,17 @@ defmodule MyAppWeb.CampaignsLive do
 end
 ```
 
+The topics a module subscribes to are **inferred** from its `handle_message`/`ignore_message`
+calls, so there is no list to keep in sync with them.
+
 `ignore_message/2` is not a convenience. Subscribers routinely care about a subset of a
 topic's events, and without an explicit opt-out exhaustiveness would be unusable rather
 than merely strict. It makes "I know about this event and don't care" a deliberate,
-greppable statement.
+greppable statement. It also takes a list:
+
+```elixir
+ignore_message :campaigns, [:updated, :deleted]
+```
 
 To match on topic params, pattern match the whole message rather than the payload:
 
@@ -142,8 +149,8 @@ end
   misplaced event actually lives
 - a literal params map with missing or unexpected keys
 - a subscriber that does not account for every event on a topic it subscribes to
-- a subscriber that handles an event the registry does not declare, or a topic not in
-  its `:topics` list
+- a subscriber that handles an event the registry does not declare, or names a topic the
+  registry does not declare
 - duplicate topics, duplicate events on one topic, and malformed topic patterns
 
 **Not checked:**

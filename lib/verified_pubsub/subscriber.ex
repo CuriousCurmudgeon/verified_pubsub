@@ -5,7 +5,7 @@ defmodule VerifiedPubSub.Subscriber do
 
       defmodule MyAppWeb.CampaignsLive do
         use MyAppWeb, :live_view
-        use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+        use VerifiedPubSub.Subscriber, registry: MyApp.Topics
 
         def mount(_params, _session, socket) do
           if connected?(socket), do: subscribe(:campaigns, %{account_id: socket.assigns.id})
@@ -19,8 +19,9 @@ defmodule VerifiedPubSub.Subscriber do
         ignore_message :campaigns, :deleted
       end
 
-  Every event declared on a subscribed topic must be either handled by
-  `handle_message/5` or dismissed by `ignore_message/2`, or the module does not
+  The topics this module subscribes to are **inferred** from its `handle_message/5` and
+  `ignore_message/2` calls — there is no list to keep in sync. Every event declared on
+  each of those topics must then be either handled or dismissed, or the module does not
   compile.
 
   `use` also imports `VerifiedPubSub.Api`, so `subscribe/2`, `broadcast!/4` and the rest
@@ -57,12 +58,17 @@ defmodule VerifiedPubSub.Subscriber do
       def handle_info(_other, state), do: {:noreply, state}
   """
 
-  @options [:registry, :topics, :on_missing]
+  @options [:registry, :on_missing]
 
   defmacro __using__(opts) do
     registry = opts |> Keyword.fetch!(:registry) |> Macro.expand(__CALLER__)
-    topics = Keyword.fetch!(opts, :topics)
     on_missing = Keyword.get(opts, :on_missing, :error)
+
+    if Keyword.has_key?(opts, :topics) do
+      raise ArgumentError,
+            "the :topics option was removed. The topics a module subscribes to are now " <>
+              "inferred from its handle_message/5 and ignore_message/2 calls."
+    end
 
     case Keyword.keys(opts) -- @options do
       [] ->
@@ -79,14 +85,6 @@ defmodule VerifiedPubSub.Subscriber do
             "invalid :on_missing #{inspect(on_missing)}. Expected :error, :warn, or :ignore."
     end
 
-    unless is_list(topics) and topics != [] and Enum.all?(topics, &is_atom/1) do
-      raise ArgumentError,
-            "expected :topics to be a non-empty list of atoms, got: #{inspect(topics)}"
-    end
-
-    # Reading the registry here creates a compile-time dependency on it, so editing the
-    # registry recompiles every subscriber. That is deliberate.
-    Enum.each(topics, &VerifiedPubSub.Info.topic!(registry, &1))
     module = __CALLER__.module
 
     # These MUST be set during expansion rather than from inside the quote below.
@@ -98,7 +96,6 @@ defmodule VerifiedPubSub.Subscriber do
     Module.register_attribute(module, :verified_pubsub_clauses, accumulate: true)
     Module.register_attribute(module, :verified_pubsub_ignored, accumulate: true)
     Module.put_attribute(module, :verified_pubsub_registry, registry)
-    Module.put_attribute(module, :verified_pubsub_topics, topics)
     Module.put_attribute(module, :verified_pubsub_on_missing, on_missing)
 
     quote do
@@ -140,17 +137,35 @@ defmodule VerifiedPubSub.Subscriber do
   end
 
   @doc """
-  Declares that this module knowingly does nothing with an event.
+  Declares that this module knowingly does nothing with an event, or a list of them.
+
+      ignore_message :campaigns, :deleted
+      ignore_message :campaigns, [:updated, :deleted]
 
   Satisfies exhaustiveness without a handler. The generated clause returns
   `{:noreply, state}`, which is correct for both GenServer and LiveView.
   """
-  defmacro ignore_message(topic, event) do
-    Module.put_attribute(
-      __CALLER__.module,
-      :verified_pubsub_ignored,
-      {literal_atom!(topic, :topic), literal_atom!(event, :event)}
-    )
+  defmacro ignore_message(topic, event_or_events) do
+    topic = literal_atom!(topic, :topic)
+
+    events =
+      case event_or_events do
+        list when is_list(list) ->
+          if list == [] do
+            raise ArgumentError,
+                  "ignore_message #{inspect(topic)}, [] ignores nothing. " <>
+                    "Pass at least one event, or remove the call."
+          end
+
+          Enum.map(list, &literal_atom!(&1, :event))
+
+        event ->
+          [literal_atom!(event, :event)]
+      end
+
+    Enum.each(events, fn event ->
+      Module.put_attribute(__CALLER__.module, :verified_pubsub_ignored, {topic, event})
+    end)
 
     nil
   end

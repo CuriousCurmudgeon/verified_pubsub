@@ -7,8 +7,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     """
     defmodule #{unique_module("VPTest.Sub")} do
       use VerifiedPubSub.Subscriber,
-        registry: VerifiedPubSub.TestRegistries.Basic,
-        topics: [:campaigns]#{opts}
+        registry: VerifiedPubSub.TestRegistries.Basic#{opts}
 
       #{body}
     end
@@ -83,20 +82,119 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     assert Exception.message(error) =~ ":exploded"
   end
 
-  test "handling a topic that was not subscribed to is a compile error" do
+  test "handling a second topic subscribes to it, and it must also be covered" do
+    # :system declares exactly one event, so handling it is full coverage.
+    assert is_atom(
+             compile!(
+               subscriber_source("""
+               #{all_handled()}
+
+               handle_message :system, :alert, p, s do
+                 {:noreply, {p, s}}
+               end
+               """)
+             )
+           )
+  end
+
+  test "an inferred second topic with an uncovered event is a compile error" do
+    error =
+      compile_error("""
+      defmodule #{unique_module("VPTest.TwoTopics")} do
+        use VerifiedPubSub.Subscriber, registry: VerifiedPubSub.TestRegistries.Basic
+
+        handle_message :system, :alert, p, s do
+          {:noreply, {p, s}}
+        end
+
+        handle_message :campaigns, :created, p, s do
+          {:noreply, {p, s}}
+        end
+      end
+      """)
+
+    assert error, "expected the inferred :campaigns topic to require full coverage"
+    message = Exception.message(error)
+    assert message =~ ":updated"
+    assert message =~ ":deleted"
+  end
+
+  test "a typo'd topic is a compile error naming the declared topics" do
+    error =
+      compile_error("""
+      defmodule #{unique_module("VPTest.TypoTopic")} do
+        use VerifiedPubSub.Subscriber, registry: VerifiedPubSub.TestRegistries.Basic
+
+        handle_message :campaign, :created, p, s do
+          {:noreply, {p, s}}
+        end
+      end
+      """)
+
+    assert error, "expected a typo'd topic to fail compilation"
+    message = Exception.message(error)
+    assert message =~ "unknown topic :campaign"
+    assert message =~ ":campaigns"
+  end
+
+  test "the removed :topics option gives a migration error" do
+    error =
+      compile_error("""
+      defmodule #{unique_module("VPTest.OldTopics")} do
+        use VerifiedPubSub.Subscriber,
+          registry: VerifiedPubSub.TestRegistries.Basic,
+          topics: [:campaigns]
+      end
+      """)
+
+    assert error, "expected :topics to be rejected"
+    message = Exception.message(error)
+    assert message =~ ":topics option was removed"
+    assert message =~ "inferred"
+  end
+
+  test "ignore_message accepts a list of events" do
+    assert is_atom(
+             compile!(
+               subscriber_source("""
+               handle_message :campaigns, :created, p, s do
+                 {:noreply, {p, s}}
+               end
+
+               ignore_message :campaigns, [:updated, :deleted]
+               """)
+             )
+           )
+  end
+
+  test "ignore_message with a list still reports what the list misses" do
+    error =
+      compile_error(
+        subscriber_source("""
+        handle_message :campaigns, :created, p, s do
+          {:noreply, {p, s}}
+        end
+
+        ignore_message :campaigns, [:updated]
+        """)
+      )
+
+    assert error, "expected the uncovered :deleted event to fail compilation"
+    assert Exception.message(error) =~ ":deleted"
+  end
+
+  test "an empty ignore_message list is rejected" do
     error =
       compile_error(
         subscriber_source("""
         #{all_handled()}
 
-        handle_message :system, :alert, p, s do
-          {:noreply, {p, s}}
-        end
+        ignore_message :campaigns, []
         """)
       )
 
-    assert error, "expected an unsubscribed topic to fail compilation"
-    assert Exception.message(error) =~ ":system"
+    assert error, "expected an empty ignore list to be rejected"
+    assert Exception.message(error) =~ "ignores nothing"
   end
 
   test "several clauses for one event are allowed" do
@@ -177,7 +275,6 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       defmodule #{unique_module("VPTest.BadOpts")} do
         use VerifiedPubSub.Subscriber,
           registry: VerifiedPubSub.TestRegistries.Basic,
-          topics: [:campaigns],
           bogus: true
       end
       """)

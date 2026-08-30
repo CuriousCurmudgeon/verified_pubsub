@@ -261,7 +261,7 @@ one to decide deliberately rather than discover late.
 ```elixir
 defmodule MyAppWeb.CampaignsLive do
   use MyAppWeb, :live_view
-  use VerifiedPubSub.Subscriber, registry: MyApp.Topics, topics: [:campaigns]
+  use VerifiedPubSub.Subscriber, registry: MyApp.Topics
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -282,6 +282,18 @@ end
 `use VerifiedPubSub.Subscriber` imports the registry's `subscribe_*`/`unsubscribe_*`
 functions, registers the accumulating coverage attribute, imports `handle_message` and
 `ignore_message`, and installs `@before_compile`.
+
+**Subscribed topics are inferred**, not declared. A `topics:` option existed initially,
+but after the atom-first switch it fed only the exhaustiveness diff — it had previously
+computed the `subscribe_*` imports too — and it was never checked against actual
+`subscribe/2` calls, so its name overpromised. The topics are now the union of those
+named in `handle_message`/`ignore_message`. Exhaustiveness is unaffected: inference
+chooses the topics, and every event on each of them must still be accounted for. A
+typo'd topic fails the registry lookup with its own error.
+
+The compile-time dependency on the registry survives this: `Verify` reads the registry at
+`@before_compile`, and `mix xref` still records a `(compile)` edge, so editing the
+registry recompiles every subscriber.
 
 **`ignore_message/2` is load-bearing, not a convenience.** LiveViews routinely care
 about a subset of a topic's events; without an explicit opt-out, exhaustiveness is
@@ -354,7 +366,8 @@ helpers made.
 The `@before_compile` diff, per subscribed topic:
 
 - `declared` — from `Info.events/2`
-- `accounted_for` — accumulated from `handle_message` and `ignore_message`
+- `accounted_for` — accumulated from `handle_message` and `ignore_message`; also the
+  source of the inferred topic list
 - `MapSet.difference(declared, accounted_for)` → missing, reported per `on_missing`
 - `MapSet.difference(accounted_for, declared)` → undeclared, always an error
 

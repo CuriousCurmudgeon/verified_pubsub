@@ -11,8 +11,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     use GenServer
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic,
-      topics: [:campaigns]
+      registry: VerifiedPubSub.TestRegistries.Basic
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
 
@@ -42,8 +41,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     use GenServer
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic,
-      topics: [:campaigns]
+      registry: VerifiedPubSub.TestRegistries.Basic
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
 
@@ -72,8 +70,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     use GenServer
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic,
-      topics: [:campaigns]
+      registry: VerifiedPubSub.TestRegistries.Basic
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
 

@@ -7,8 +7,7 @@ defmodule VerifiedPubSub.LiveViewTest do
     use Phoenix.LiveView
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic,
-      topics: [:campaigns]
+      registry: VerifiedPubSub.TestRegistries.Basic
 
     @impl true
     def mount(_params, _session, socket) do

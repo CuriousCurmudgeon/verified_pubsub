@@ -210,8 +210,7 @@ defmodule VerifiedPubSub.ApiTest do
                compile!("""
                defmodule #{unique_module("VPTest.SubAndBroadcast")} do
                  use VerifiedPubSub.Subscriber,
-                   registry: VerifiedPubSub.TestRegistries.Basic,
-                   topics: [:campaigns]
+                   registry: VerifiedPubSub.TestRegistries.Basic
 
                  import VerifiedPubSub.Api
 
