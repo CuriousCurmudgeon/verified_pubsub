@@ -43,7 +43,9 @@ defmodule VerifiedPubSub do
   ordinary arguments, but because these are macros they must be **literal atoms** — that
   is what makes a typo a compile error. Params may be built at runtime.
 
-  A topic with no params takes an empty map: `broadcast!(:system, %{}, :alert, payload)`.
+  A topic with no params takes no params argument — `broadcast!(:system, :alert, payload)`
+  and `subscribe(:system)`. Passing `%{}` explicitly works too, and omitting params on a
+  topic that does take them is a compile error naming them.
 
   A topic is always followed immediately by its params. Params exist only to fill in the
   topic pattern, so `{topic, params}` is the address and `{event, payload}` is the

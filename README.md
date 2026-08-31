@@ -60,8 +60,16 @@ defmodule MyApp.Campaigns do
 end
 ```
 
-`use VerifiedPubSub, registry: ...` imports the API. A topic with no params takes an
-empty map: `broadcast!(:system, %{}, :alert, payload)`.
+`use VerifiedPubSub, registry: ...` imports the API. A topic with no params takes no
+params argument:
+
+```elixir
+broadcast!(:system, :alert, payload)
+subscribe(:system)
+```
+
+Passing `%{}` explicitly works too. Omitting params on a topic that *does* take them is a
+compile error naming them.
 
 A topic is always followed immediately by its params — in `subscribe/2`, `unsubscribe/2`,
 `topic/2` and all four broadcasts. Params exist only to fill in the topic pattern, so

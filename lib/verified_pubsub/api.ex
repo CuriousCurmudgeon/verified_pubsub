@@ -58,9 +58,24 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
+  @doc """
+  Broadcasts an event on a topic that takes no params.
+
+  Equivalent to `broadcast(topic, %{}, event, payload)`, and a compile error if the topic
+  does take params. `subscribe/1` already worked this way.
+  """
+  defmacro broadcast(topic, event, payload) do
+    build(__CALLER__, topic, no_params(), event, payload, nil, false)
+  end
+
   @doc "Broadcasts an event on a topic."
   defmacro broadcast(topic, params, event, payload) do
     build(__CALLER__, topic, params, event, payload, nil, false)
+  end
+
+  @doc "Broadcasts an event on a topic that takes no params, raising on failure."
+  defmacro broadcast!(topic, event, payload) do
+    build(__CALLER__, topic, no_params(), event, payload, nil, true)
   end
 
   @doc "Broadcasts an event on a topic, raising on failure."
@@ -68,15 +83,32 @@ defmodule VerifiedPubSub.Api do
     build(__CALLER__, topic, params, event, payload, nil, true)
   end
 
+  @doc "Broadcasts on a param-free topic to every subscriber except `from`."
+  defmacro broadcast_from(from, topic, event, payload) do
+    build(__CALLER__, topic, no_params(), event, payload, from, false)
+  end
+
   @doc "Broadcasts to every subscriber except `from`."
   defmacro broadcast_from(from, topic, params, event, payload) do
     build(__CALLER__, topic, params, event, payload, from, false)
+  end
+
+  @doc """
+  Broadcasts on a param-free topic to every subscriber except `from`, raising on failure.
+  """
+  defmacro broadcast_from!(from, topic, event, payload) do
+    build(__CALLER__, topic, no_params(), event, payload, from, true)
   end
 
   @doc "Broadcasts to every subscriber except `from`, raising on failure."
   defmacro broadcast_from!(from, topic, params, event, payload) do
     build(__CALLER__, topic, params, event, payload, from, true)
   end
+
+  # The AST of an empty params map, for the arities that omit the argument. Written here
+  # rather than as a default argument so the shorter arity shows up in the docs as its own
+  # signature instead of `params \\ %{}` in the middle of the list.
+  defp no_params, do: {:%{}, [], []}
 
   # -- expansion helpers -------------------------------------------------------
 

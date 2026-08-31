@@ -12,11 +12,11 @@ defmodule VerifiedPubSub.BroadcastTest do
     %{account_id: unique_account_id()}
   end
 
-  test "topic_* interpolates params into the wire pattern" do
+  test "topic/2 interpolates params into the wire pattern" do
     assert topic(:campaigns, %{account_id: "7"}) == "accounts:7:campaigns"
   end
 
-  test "topic_* stringifies non-binary params" do
+  test "topic/2 stringifies non-binary params" do
     assert topic(:campaigns, %{account_id: 7}) == "accounts:7:campaigns"
   end
 
@@ -142,5 +142,77 @@ defmodule VerifiedPubSub.BroadcastTest do
                     }}
 
     Process.exit(other, :kill)
+  end
+
+  describe "the params-free arities" do
+    test "broadcast!/3 reaches subscribers of a param-free topic" do
+      token = unique_account_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast!(:system, :alert, %{text: token})
+
+      assert_receive %Message{topic: :system, event: :alert, payload: %{text: ^token}}
+    end
+
+    test "broadcast/3 works too" do
+      token = unique_account_id()
+      assert :ok = subscribe(:system, %{})
+      assert :ok = broadcast(:system, :alert, %{text: token})
+
+      assert_receive %Message{payload: %{text: ^token}}
+    end
+
+    test "broadcast_from!/4 skips the sender" do
+      token = unique_account_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast_from!(self(), :system, :alert, %{text: token})
+
+      refute_receive %Message{payload: %{text: ^token}}, 50
+    end
+
+    test "broadcast_from/4 skips the sender" do
+      token = unique_account_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast_from(self(), :system, :alert, %{text: token})
+
+      refute_receive %Message{payload: %{text: ^token}}, 50
+    end
+
+    test "the four-argument form still takes an explicit empty map" do
+      token = unique_account_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
+
+      assert_receive %Message{payload: %{text: ^token}}
+    end
+
+    test "omitting params on a topic that takes them is a compile error" do
+      error =
+        compile_error("""
+        defmodule #{unique_module("VPTest.NoParams")} do
+          use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+          def go(payload), do: broadcast!(:campaigns, :created, payload)
+        end
+        """)
+
+      assert %CompileError{} = error
+      message = Exception.message(error)
+      assert message =~ "missing: [:account_id]"
+      assert message =~ "takes exactly [:account_id]"
+    end
+
+    test "a forgotten payload is still caught as a non-atom event" do
+      # broadcast!(:campaigns, %{...}, :created) is also arity 3, so the params map lands
+      # in the event slot rather than being silently accepted.
+      error =
+        compile_error("""
+        defmodule #{unique_module("VPTest.NoPayload")} do
+          use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+          def go(id), do: broadcast!(:campaigns, %{account_id: id}, :created)
+        end
+        """)
+
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ "expected a literal atom for event"
+    end
   end
 end
