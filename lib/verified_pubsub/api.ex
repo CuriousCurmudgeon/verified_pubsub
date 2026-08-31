@@ -115,12 +115,22 @@ defmodule VerifiedPubSub.Api do
     quote do
       unquote(bind_topic(registry, topic_struct, params))
 
+      # Bound once, so the payload expression is not evaluated twice, and validated
+      # before anything is sent.
+      vp_payload =
+        VerifiedPubSub.Payload.validate!(
+          unquote(registry),
+          unquote(topic_struct.name),
+          unquote(event),
+          unquote(payload)
+        )
+
       vp_message = %VerifiedPubSub.Message{
         registry: unquote(registry),
         topic: unquote(topic_struct.name),
         event: unquote(event),
         params: vp_params,
-        payload: unquote(payload)
+        payload: vp_payload
       }
 
       unquote(call)

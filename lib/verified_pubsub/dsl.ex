@@ -4,12 +4,27 @@ defmodule VerifiedPubSub.Dsl do
   alias Spark.Builder.{Entity, Section}
 
   @field Entity.new(:field, VerifiedPubSub.Dsl.Field,
-           describe: "A payload field. Declared in pass 1; not yet enforced.",
+           describe: "A field that must be present in the event's payload.",
            args: [:name, :type],
            identifier: :name,
            schema: [
              name: [type: :atom, required: true, doc: "The field name."],
-             type: [type: :atom, required: true, doc: "The field type."]
+             type: [
+               # Deliberately :any. The permitted types include `{:list, type}` tuples
+               # and struct modules, which no Spark type captures, so
+               # VerifiedPubSub.Transformers.ValidateFields checks this instead and can
+               # report the valid options.
+               type: :any,
+               required: true,
+               doc:
+                 "A primitive (:string, :integer, :float, :boolean, :atom, :map, :list, :any), " <>
+                   "a {:list, type} tuple, or a struct module."
+             ],
+             required: [
+               type: :boolean,
+               default: true,
+               doc: "Whether the key must be present in the payload."
+             ]
            ]
          )
          |> Entity.build!()
@@ -55,6 +70,8 @@ defmodule VerifiedPubSub.Dsl do
     sections: [@topics],
     transformers: [
       VerifiedPubSub.Transformers.ParseParams,
-      VerifiedPubSub.Transformers.ValidateTopics
+      VerifiedPubSub.Transformers.ValidateTopics,
+      VerifiedPubSub.Transformers.ValidateFields,
+      VerifiedPubSub.Transformers.DefinePayloadSchemas
     ]
 end

@@ -42,6 +42,22 @@ defmodule VerifiedPubSub.Info do
     registry |> topic!(name) |> Map.fetch!(:messages) |> Enum.map(& &1.name)
   end
 
+  @doc "Declared payload fields for an event, in declaration order."
+  @spec fields(module(), atom(), atom()) :: [VerifiedPubSub.Dsl.Field.t()]
+  def fields(registry, topic, event) do
+    topic_struct = topic!(registry, topic)
+
+    case Enum.find(topic_struct.messages, &(&1.name == event)) do
+      nil ->
+        raise ArgumentError,
+              "unknown event #{inspect(event)} on topic #{inspect(topic)} in " <>
+                "#{inspect(registry)}. Declared events: #{inspect(events(registry, topic))}"
+
+      message ->
+        message.fields
+    end
+  end
+
   @doc "Parameter names for a topic, in the order they appear in the pattern."
   @spec params(module(), atom()) :: [atom()]
   def params(registry, name) do

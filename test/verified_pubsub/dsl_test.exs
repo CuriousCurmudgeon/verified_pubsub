@@ -5,7 +5,8 @@ defmodule VerifiedPubSub.DslTest do
   alias VerifiedPubSub.TestRegistries.Basic
 
   test "topics are parsed at the top level, without a wrapper block" do
-    assert [:campaigns, :system] = Info.topics(Basic) |> Enum.map(& &1.name) |> Enum.sort()
+    assert [:campaigns, :shapes, :system] =
+             Info.topics(Basic) |> Enum.map(& &1.name) |> Enum.sort()
   end
 
   test "topic/2 returns the topic by name" do

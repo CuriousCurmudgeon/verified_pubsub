@@ -1,7 +1,13 @@
 defmodule VerifiedPubSub.Dsl.Field do
-  @moduledoc "A declared payload field. Parsed in pass 1, not enforced."
+  @moduledoc """
+  A declared payload field.
 
-  @type t :: %__MODULE__{name: atom(), type: atom()}
+  The `type` is one of the primitives (`:string`, `:integer`, `:float`, `:boolean`,
+  `:atom`, `:map`, `:list`, `:any`), a `{:list, type}` tuple, or a struct module.
+  """
 
-  defstruct [:name, :type, :__identifier__, :__spark_metadata__]
+  @type type :: atom() | {:list, type()}
+  @type t :: %__MODULE__{name: atom(), type: type(), required: boolean()}
+
+  defstruct [:name, :type, :__identifier__, :__spark_metadata__, required: true]
 end
