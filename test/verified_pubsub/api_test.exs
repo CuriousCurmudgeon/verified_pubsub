@@ -174,13 +174,15 @@ defmodule VerifiedPubSub.ApiTest do
     test "params built at runtime skip the compile check and are not an error" do
       assert is_atom(
                compile!(
-                 source(~s|broadcast!(:campaigns, :created, Map.new([{:account_id, "1"}]), %{})|)
+                 source(
+                   ~s|broadcast!(:campaigns, :created, Map.new([{:account_id, "1"}]), %{id: "x"})|
+                 )
                )
              )
     end
 
     test "a param-free topic accepts an empty literal map" do
-      assert is_atom(compile!(source(~s|broadcast!(:system, :alert, %{}, %{})|)))
+      assert is_atom(compile!(source(~s|broadcast!(:system, :alert, %{}, %{text: "x"})|)))
     end
 
     test "a non-literal topic is a hard compile error" do
@@ -214,7 +216,9 @@ defmodule VerifiedPubSub.ApiTest do
 
                  import VerifiedPubSub.Api
 
-                 def go(id), do: broadcast!(:campaigns, :created, %{account_id: id}, %{})
+                 def go(id) do
+                   broadcast!(:campaigns, :created, %{account_id: id}, %{id: "x"})
+                 end
 
                  handle_message :campaigns, :created, p, s do
                    {:noreply, {p, s}}

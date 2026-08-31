@@ -6,6 +6,7 @@ defmodule VerifiedPubSub.Payload do
   fields plus a key-set comparison, which is negligible beside the PubSub send it guards.
   """
 
+  alias VerifiedPubSub.Dsl.Field
   alias VerifiedPubSub.PayloadError
 
   @doc """
@@ -44,13 +45,14 @@ defmodule VerifiedPubSub.Payload do
     missing = required |> MapSet.difference(present) |> Enum.sort()
     unexpected = present |> MapSet.difference(declared) |> Enum.sort()
 
+    # Note the shape here: `value = Map.fetch!(...)` as a `for` qualifier would be
+    # evaluated for truthiness and act as a filter, so every nil or false value would
+    # skip its type check -- including on required fields.
     type_problems =
-      for field <- fields,
-          Map.has_key?(payload, field.name),
-          value = Map.fetch!(payload, field.name),
-          not valid?(field.type, value) do
-        {:type, field.name, field.type, value}
-      end
+      fields
+      |> Enum.filter(&Map.has_key?(payload, &1.name))
+      |> Enum.reject(&valid_field?(&1, Map.fetch!(payload, &1.name)))
+      |> Enum.map(&{:type, &1.name, &1.type, Map.fetch!(payload, &1.name)})
 
     Enum.concat([
       if(missing == [], do: [], else: [{:missing, missing}]),
@@ -60,6 +62,17 @@ defmodule VerifiedPubSub.Payload do
   end
 
   defp problems(_fields, payload), do: [{:not_a_map, payload}]
+
+  @doc """
+  Whether `value` satisfies `field`.
+
+  `nil` is accepted for an optional field: it is how Elixir and Ecto spell absence, and
+  requiring the key to be omitted instead would be awkward when a payload is built from
+  a struct. A required field rejects `nil`.
+  """
+  @spec valid_field?(Field.t(), term()) :: boolean()
+  def valid_field?(%{required: false}, nil), do: true
+  def valid_field?(field, value), do: valid?(field.type, value)
 
   @doc false
   def valid?(:any, _value), do: true

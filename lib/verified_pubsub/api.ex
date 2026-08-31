@@ -78,6 +78,7 @@ defmodule VerifiedPubSub.Api do
     {registry, topic_struct} = resolve!(caller, topic)
     event = validate_event!(caller, registry, topic_struct, event)
     validate_params!(caller, topic_struct, params)
+    validate_literal_payload!(caller, registry, topic_struct.name, event, payload)
 
     call =
       if from do
@@ -216,19 +217,16 @@ defmodule VerifiedPubSub.Api do
   # function call) is left to `Map.fetch!/2` at runtime, which raises KeyError naming the
   # missing key.
   defp validate_params!(caller, topic_struct, {:%{}, _, pairs}) when is_list(pairs) do
-    keys = Enum.map(pairs, &elem(&1, 0))
-
-    if Enum.all?(keys, &is_atom/1) do
+    if literal_keys(pairs) do
+      keys = literal_keys(pairs)
       expected = topic_struct.params
       missing = expected -- keys
       unexpected = keys -- expected
 
-      cond do
-        missing == [] and unexpected == [] ->
-          :ok
-
-        true ->
-          raise_compile_error(caller, params_message(topic_struct, missing, unexpected))
+      if missing == [] and unexpected == [] do
+        :ok
+      else
+        raise_compile_error(caller, params_message(topic_struct, missing, unexpected))
       end
     else
       :ok
@@ -236,6 +234,91 @@ defmodule VerifiedPubSub.Api do
   end
 
   defp validate_params!(_caller, _topic_struct, _params), do: :ok
+
+  # A payload built at runtime can only be checked by VerifiedPubSub.Payload when the
+  # broadcast runs. A literal map, though, is fully known here, so the same checks run at
+  # compile time and fail the build instead.
+  defp validate_literal_payload!(caller, registry, topic, event, {:%{}, _, pairs})
+       when is_list(pairs) do
+    with keys when is_list(keys) <- literal_keys(pairs) do
+      fields = Info.fields(registry, topic, event)
+      declared = Enum.map(fields, & &1.name)
+      required = fields |> Enum.filter(& &1.required) |> Enum.map(& &1.name)
+
+      missing = required -- keys
+      unexpected = keys -- declared
+      type_problems = literal_type_problems(fields, pairs)
+
+      if missing == [] and unexpected == [] and type_problems == [] do
+        :ok
+      else
+        raise_compile_error(
+          caller,
+          literal_payload_message(topic, event, fields, missing, unexpected, type_problems)
+        )
+      end
+    end
+
+    :ok
+  end
+
+  defp validate_literal_payload!(_caller, _registry, _topic, _event, _payload), do: :ok
+
+  # Only values that are literals in the AST can be judged. A variable or a call is left
+  # to the runtime check.
+  defp literal_type_problems(fields, pairs) do
+    for {key, value} <- pairs,
+        field = Enum.find(fields, &(&1.name == key)),
+        literal_value?(value),
+        not VerifiedPubSub.Payload.valid_field?(field, value) do
+      {key, field.type, value}
+    end
+  end
+
+  defp literal_value?(value) do
+    is_binary(value) or is_integer(value) or is_float(value) or is_boolean(value) or
+      is_nil(value)
+  end
+
+  defp literal_payload_message(topic, event, fields, missing, unexpected, type_problems) do
+    detail =
+      [
+        if(missing != [], do: "  missing required: #{inspect(missing)}"),
+        if(unexpected != [], do: "  unexpected: #{inspect(unexpected)}")
+      ]
+      |> Enum.concat(
+        Enum.map(type_problems, fn {key, type, value} ->
+          "  #{inspect(key)} is declared as #{inspect(type)}, got: #{inspect(value)}"
+        end)
+      )
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n")
+
+    declared =
+      Enum.map_join(fields, "\n", fn field ->
+        "    field #{inspect(field.name)}, #{inspect(field.type)}" <>
+          if(field.required, do: "", else: ", required: false")
+      end)
+
+    """
+    invalid payload for #{inspect(topic)} #{inspect(event)}.
+
+    #{detail}
+
+    Declared:
+
+    #{declared}
+    """
+  end
+
+  # The keys of a literal map, or nil when the AST is not one we can read statically.
+  # `%{base | k: v}` arrives as a single three-element `{:|, meta, [_, _]}` tuple rather
+  # than key/value pairs, and would otherwise be misread as a map with the key `:|`.
+  defp literal_keys(pairs) do
+    if Enum.all?(pairs, &match?({key, _value} when is_atom(key), &1)) do
+      Enum.map(pairs, &elem(&1, 0))
+    end
+  end
 
   defp params_message(topic_struct, missing, unexpected) do
     detail =

@@ -14,6 +14,11 @@ defmodule VerifiedPubSub.PayloadTest do
     %{owner_id: unique_account_id()}
   end
 
+  # Passing a payload through a function call hides it from the compile-time literal
+  # check, so the runtime validator is what runs. Literal payloads are covered
+  # separately below. Identity on purpose: the point is only to defeat AST inspection.
+  defp at_runtime(payload), do: payload
+
   defp valid_typed do
     %{
       name: "n",
@@ -60,7 +65,7 @@ defmodule VerifiedPubSub.PayloadTest do
     test "a missing required key raises and names it", %{owner_id: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, :bare, %{owner_id: id}, %{})
+          broadcast!(:shapes, :bare, %{owner_id: id}, at_runtime(%{}))
         end
 
       message = Exception.message(error)
@@ -72,7 +77,7 @@ defmodule VerifiedPubSub.PayloadTest do
     test "an unexpected key raises and names it", %{owner_id: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, :bare, %{owner_id: id}, %{id: "x", nope: 1})
+          broadcast!(:shapes, :bare, %{owner_id: id}, at_runtime(%{id: "x", nope: 1}))
         end
 
       assert Exception.message(error) =~ "unexpected key: :nope"
@@ -81,7 +86,7 @@ defmodule VerifiedPubSub.PayloadTest do
     test "a wrong type raises, naming the field, declared type and value", %{owner_id: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, :bare, %{owner_id: id}, %{id: 42})
+          broadcast!(:shapes, :bare, %{owner_id: id}, at_runtime(%{id: 42}))
         end
 
       message = Exception.message(error)
@@ -92,7 +97,12 @@ defmodule VerifiedPubSub.PayloadTest do
     test "every problem is reported at once, not just the first", %{owner_id: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, :typed, %{owner_id: id}, %{count: "not an int", nope: 1})
+          broadcast!(
+            :shapes,
+            :typed,
+            %{owner_id: id},
+            at_runtime(%{count: "not an int", nope: 1})
+          )
         end
 
       message = Exception.message(error)
@@ -106,7 +116,7 @@ defmodule VerifiedPubSub.PayloadTest do
 
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, :typed, %{owner_id: id}, payload)
+          broadcast!(:shapes, :typed, %{owner_id: id}, at_runtime(payload))
         end
 
       assert Exception.message(error) =~ "{:list, :string}"
@@ -130,7 +140,7 @@ defmodule VerifiedPubSub.PayloadTest do
     test "a non-map payload raises", %{owner_id: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, :bare, %{owner_id: id}, "not a map")
+          broadcast!(:shapes, :bare, %{owner_id: id}, at_runtime("not a map"))
         end
 
       assert Exception.message(error) =~ "must be a map of the declared fields"
@@ -139,7 +149,7 @@ defmodule VerifiedPubSub.PayloadTest do
     test "a struct payload explains how to carry it in a field", %{owner_id: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, :bare, %{owner_id: id}, %Point{x: 1, y: 2})
+          broadcast!(:shapes, :bare, %{owner_id: id}, at_runtime(%Point{x: 1, y: 2}))
         end
 
       message = Exception.message(error)
@@ -151,7 +161,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert :ok = subscribe(:shapes, %{owner_id: id})
 
       assert_raise PayloadError, fn ->
-        broadcast!(:shapes, :bare, %{owner_id: id}, %{})
+        broadcast!(:shapes, :bare, %{owner_id: id}, at_runtime(%{}))
       end
 
       refute_receive %Message{topic: :shapes}, 50
@@ -161,18 +171,97 @@ defmodule VerifiedPubSub.PayloadTest do
       # A shape violation is a bug, not a transport failure, so it is not reported
       # through the {:error, _} channel that a caller might shrug off.
       assert_raise PayloadError, fn ->
-        broadcast(:shapes, :bare, %{owner_id: id}, %{})
+        broadcast(:shapes, :bare, %{owner_id: id}, at_runtime(%{}))
       end
     end
 
     test "the from variants validate as well", %{owner_id: id} do
       assert_raise PayloadError, fn ->
-        broadcast_from!(self(), :shapes, :bare, %{owner_id: id}, %{})
+        broadcast_from!(self(), :shapes, :bare, %{owner_id: id}, at_runtime(%{}))
       end
 
       assert_raise PayloadError, fn ->
-        broadcast_from(self(), :shapes, :bare, %{owner_id: id}, %{})
+        broadcast_from(self(), :shapes, :bare, %{owner_id: id}, at_runtime(%{}))
       end
+    end
+  end
+
+  describe "compile-time checks on a literal payload" do
+    defp source(payload) do
+      """
+      defmodule #{unique_module("VPTest.Payload")} do
+        use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+        def go(id), do: broadcast!(:shapes, :bare, %{owner_id: id}, #{payload})
+      end
+      """
+    end
+
+    test "a valid literal payload compiles" do
+      assert is_atom(compile!(source(~s|%{id: "x"}|)))
+    end
+
+    test "a missing required key fails the compile, listing the declared fields" do
+      error = compile_error(source("%{}"))
+
+      assert %CompileError{} = error
+      message = Exception.message(error)
+      assert message =~ "missing required: [:id]"
+      assert message =~ "field :id, :string"
+    end
+
+    test "an unexpected key fails the compile" do
+      error = compile_error(source(~s|%{id: "x", nope: 1}|))
+
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ "unexpected: [:nope]"
+    end
+
+    test "a literal value of the wrong type fails the compile" do
+      error = compile_error(source("%{id: 42}"))
+
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ ":id is declared as :string, got: 42"
+    end
+
+    test "a literal nil for a required field fails the compile" do
+      error = compile_error(source("%{id: nil}"))
+
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ ":id is declared as :string, got: nil"
+    end
+
+    test "a non-literal value is left to the runtime check" do
+      assert is_atom(compile!(source("%{id: to_string(id)}")))
+    end
+
+    test "a map-update expression is not mistaken for a literal map" do
+      # `%{base | id: "x"}` is a single {:|, _, _} tuple, not key/value pairs. Reading it
+      # as a literal map would report a bogus unexpected key :| on correct code.
+      assert is_atom(
+               compile!("""
+               defmodule #{unique_module("VPTest.MapUpdate")} do
+                 use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+
+                 def go(id, base) do
+                   broadcast!(:shapes, :bare, %{owner_id: id}, %{base | id: "x"})
+                 end
+               end
+               """)
+             )
+    end
+
+    test "a map-update params expression is not mistaken for a literal map either" do
+      assert is_atom(
+               compile!("""
+               defmodule #{unique_module("VPTest.MapUpdateParams")} do
+                 use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+
+                 def go(base) do
+                   broadcast!(:shapes, :bare, %{base | owner_id: "1"}, %{id: "x"})
+                 end
+               end
+               """)
+             )
     end
   end
 
