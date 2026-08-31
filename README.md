@@ -135,15 +135,36 @@ greppable statement. It also takes a list:
 ignore_message :campaigns, [:updated, :deleted]
 ```
 
-To match on topic params, pattern match the whole message rather than the payload:
+To match on topic params, put them where `broadcast!/4` takes them — right after the
+topic. The leading arguments are the same in both; the difference is that a broadcast
+builds them and a handler matches them:
 
 ```elixir
-handle_message :campaigns, :created,
-               %VerifiedPubSub.Message{params: %{account_id: id}, payload: payload},
-               socket do
-  {:noreply, socket}
+broadcast!     :campaigns, %{account_id: id},   :created, payload
+handle_message :campaigns, %{account_id: acct}, :created, payload, socket
+```
+
+```elixir
+handle_message :campaigns, %{account_id: acct}, :created, payload, socket do
+  {:noreply, assign(socket, :account_id, acct)}
 end
 ```
+
+A literal narrows the clause to one value, and ordinary clause ordering applies — put the
+narrow clause first:
+
+```elixir
+handle_message :campaigns, %{account_id: "7"}, :created, payload, socket do
+handle_message :campaigns, %{account_id: acct}, :created, payload, socket do
+```
+
+Unlike a broadcast, the pattern may name a **subset** of the params; matching one of three
+is normal. Naming a param the topic does not declare is a compile error, since that clause
+could never fire.
+
+The params argument is optional, so `handle_message :campaigns, :created, payload, socket`
+is unchanged. Matching the whole `%VerifiedPubSub.Message{}` in the payload position still
+works too, for anything else it carries.
 
 ## What is and is not checked
 
@@ -156,6 +177,8 @@ end
 - a subscriber that does not account for every event on a topic it subscribes to
 - a subscriber that handles an event the registry does not declare, or names a topic the
   registry does not declare
+- a handler whose params pattern names a param the topic does not declare, or whose
+  payload pattern names a field the event does not declare — either could never match
 - duplicate topics, duplicate events on one topic, and malformed topic patterns
 - a `%{param}` that does not fill a whole `:`-delimited segment of its pattern
 - two topics whose patterns can match the same wire topic

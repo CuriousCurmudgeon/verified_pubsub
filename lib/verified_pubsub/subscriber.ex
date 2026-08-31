@@ -105,7 +105,9 @@ defmodule VerifiedPubSub.Subscriber do
 
     quote do
       import VerifiedPubSub.Api
-      import VerifiedPubSub.Subscriber, only: [handle_message: 5, ignore_message: 2]
+
+      import VerifiedPubSub.Subscriber,
+        only: [handle_message: 5, handle_message: 6, ignore_message: 2]
 
       @before_compile VerifiedPubSub.Subscriber
 
@@ -128,17 +130,155 @@ defmodule VerifiedPubSub.Subscriber do
   so can match on `params`.
   """
   defmacro handle_message(topic, event, pattern, state, do: body) do
-    Module.put_attribute(__CALLER__.module, :verified_pubsub_clauses, %{
-      topic: literal_atom!(topic, :topic),
-      event: literal_atom!(event, :event),
+    put_clause!(__CALLER__, topic, nil, event, pattern, state, body)
+  end
+
+  @doc """
+  Handles one event on one topic, matching the topic params.
+
+  The leading arguments are `broadcast!/4`'s, in the same order — the difference is that
+  here they **match** rather than build:
+
+      broadcast!     :campaigns, %{account_id: id},   :created, payload
+      handle_message :campaigns, %{account_id: acct}, :created, payload, socket
+
+  So `acct` is bound from the topic params without destructuring the whole message, and a
+  literal narrows the clause to that value:
+
+      handle_message :campaigns, %{account_id: "7"}, :created, payload, socket
+
+  Unlike a broadcast, a subset of the params is legitimate — a pattern that mentions one
+  param of three still matches. Naming a param the topic does not declare is a compile
+  error, since that pattern could never match.
+  """
+  defmacro handle_message(topic, params, event, pattern, state, do: body) do
+    put_clause!(__CALLER__, topic, params, event, pattern, state, body)
+  end
+
+  defp put_clause!(caller, topic, params, event, pattern, state, body) do
+    topic = literal_atom!(topic, :topic)
+    whole_message? = message_pattern?(pattern, caller)
+
+    if params && whole_message? do
+      raise CompileError,
+        file: caller.file,
+        line: caller.line,
+        description: """
+        this clause already matches the params, so the payload argument cannot also be a \
+        whole %VerifiedPubSub.Message{} pattern — the two would match the same message \
+        twice, and the params match would be silently ignored.
+
+        Match the payload instead.
+        """
+    end
+
+    if params, do: validate_params_pattern!(caller, topic, params)
+    event_name = literal_atom!(event, :event)
+    unless whole_message?, do: validate_payload_pattern!(caller, topic, event_name, pattern)
+
+    Module.put_attribute(caller.module, :verified_pubsub_clauses, %{
+      topic: topic,
+      event: event_name,
       pattern: pattern,
+      params_pattern: params,
       state: state,
       body: body,
-      whole_message?: message_pattern?(pattern, __CALLER__),
-      line: __CALLER__.line
+      whole_message?: whole_message?,
+      line: caller.line
     })
 
     nil
+  end
+
+  # Only unexpected keys are an error. A match on a subset of the params is the normal
+  # case, so unlike `broadcast!/4` a missing key is not a problem here.
+  defp validate_params_pattern!(caller, topic, {:%{}, _, pairs}) when is_list(pairs) do
+    registry = Module.get_attribute(caller.module, :verified_pubsub_registry)
+
+    with keys when is_list(keys) <- literal_keys(pairs) do
+      declared = VerifiedPubSub.Info.params(registry, topic)
+
+      case keys -- declared do
+        [] ->
+          :ok
+
+        unexpected ->
+          raise CompileError,
+            file: caller.file,
+            line: caller.line,
+            description: """
+            topic #{inspect(topic)} has no #{Enum.map_join(unexpected, ", ", &inspect/1)}.
+
+            #{inspect(topic)} takes #{inspect(declared)}, so this pattern could never match.
+            """
+      end
+    end
+
+    :ok
+  end
+
+  defp validate_params_pattern!(_caller, _topic, _params), do: :ok
+
+  # A payload is validated on broadcast to contain only declared fields, so a literal
+  # pattern naming any other key cannot ever match. Worth an error rather than a clause
+  # that silently never fires -- and the most likely cause is the params map landing in
+  # the payload slot, which is `broadcast!`'s argument order minus the event.
+  defp validate_payload_pattern!(caller, topic, event, {:%{}, _, pairs}) when is_list(pairs) do
+    registry = Module.get_attribute(caller.module, :verified_pubsub_registry)
+
+    with keys when is_list(keys) <- literal_keys(pairs) do
+      declared = registry |> VerifiedPubSub.Info.fields(topic, event) |> Enum.map(& &1.name)
+
+      case keys -- declared do
+        [] ->
+          :ok
+
+        undeclared ->
+          raise CompileError,
+            file: caller.file,
+            line: caller.line,
+            description: payload_pattern_message(registry, topic, event, declared, undeclared)
+      end
+    end
+
+    :ok
+  end
+
+  defp validate_payload_pattern!(_caller, _topic, _event, _pattern), do: :ok
+
+  defp payload_pattern_message(registry, topic, event, declared, undeclared) do
+    params = VerifiedPubSub.Info.params(registry, topic)
+
+    hint =
+      if undeclared != [] and Enum.all?(undeclared, &(&1 in params)) do
+        """
+
+        #{inspect(undeclared)} #{if length(undeclared) == 1, do: "is a param", else: "are params"} \
+        of #{inspect(topic)}, not a payload field. To match on params, put them where \
+        `broadcast!/4` takes them — right after the topic:
+
+            handle_message #{inspect(topic)}, %{#{Enum.map_join(params, ", ", &"#{&1}: ...")}}, \
+        #{inspect(event)}, payload, state do
+        """
+      else
+        ""
+      end
+
+    """
+    #{inspect(event)} on #{inspect(topic)} declares no #{Enum.map_join(undeclared, ", ", &inspect/1)}.
+
+    A payload carries exactly the declared fields #{inspect(declared)}, so this pattern \
+    could never match.
+    #{hint}\
+    """
+  end
+
+  # The keys of a literal map, or nil when the AST is not one we can read statically.
+  # `%{base | k: v}` arrives as a single {:|, meta, [_, _]} tuple rather than pairs.
+  defp literal_keys(pairs) do
+    if Enum.all?(pairs, &match?({key, _value} when is_atom(key), &1)) do
+      Enum.map(pairs, &elem(&1, 0))
+    end
   end
 
   @doc """
@@ -241,11 +381,23 @@ defmodule VerifiedPubSub.Subscriber do
   end
 
   defp dispatch_clause(clause) do
+    message_pattern =
+      case clause.params_pattern do
+        nil ->
+          quote do: %VerifiedPubSub.Message{payload: unquote(clause.pattern)}
+
+        params ->
+          quote do: %VerifiedPubSub.Message{
+                  payload: unquote(clause.pattern),
+                  params: unquote(params)
+                }
+      end
+
     quote line: clause.line do
       defp __verified_pubsub_dispatch__(
              unquote(clause.topic),
              unquote(clause.event),
-             %VerifiedPubSub.Message{payload: unquote(clause.pattern)},
+             unquote(message_pattern),
              unquote(clause.state)
            ) do
         unquote(clause.body)

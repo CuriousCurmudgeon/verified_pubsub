@@ -77,13 +77,16 @@ defmodule VerifiedPubSub do
   topic's events; without it, exhaustiveness would be unusable rather than merely
   strict.
 
-  To match on topic params, pattern match the whole message instead of the payload:
+  To match on topic params, put them where `broadcast!/4` takes them — right after the
+  topic. The leading arguments are the same in both; a broadcast builds them, a handler
+  matches them:
 
-      handle_message :campaigns, :created,
-                     %VerifiedPubSub.Message{params: %{account_id: id}, payload: p},
-                     state do
-        {:noreply, state}
-      end
+      broadcast!     :campaigns, %{account_id: id},   :created, payload
+      handle_message :campaigns, %{account_id: acct}, :created, payload, state
+
+  The params argument is optional, and a pattern may name a subset of the params. Matching
+  the whole `%VerifiedPubSub.Message{}` in the payload position still works for anything
+  else it carries.
 
   ## What is and is not checked
 
