@@ -97,14 +97,40 @@ defmodule VerifiedPubSub do
   A params map built at runtime cannot be checked at compile time; `Map.fetch!/2` raises
   `KeyError` for a missing key instead.
 
+  Payload shapes are checked too: a **literal** payload map at compile time, and anything
+  built at runtime on every broadcast in every environment, raising
+  `VerifiedPubSub.PayloadError` from both `broadcast/4` and `broadcast!/4`. See "Payload
+  shapes" below.
+
   Not checked:
 
-    * **Payload shapes.** `field` declarations are parsed and introspectable via
-      `VerifiedPubSub.Info`, but nothing validates a payload against them yet.
     * **Topic param values.** Coverage is tracked per `{topic, event}` pair, so if
       every clause for an event matches a narrow param value, the event still counts as
       covered and a message with a different value raises `FunctionClauseError`. End
       with a param-agnostic clause when matching on param values.
+
+  ## Payload shapes
+
+  Each `field` declares a key the payload must carry:
+
+      message :created do
+        field :id, :string
+        field :campaign, MyApp.Campaign
+        field :tags, {:list, :string}
+        field :note, :string, required: false
+      end
+
+  A type is one of `:string`, `:integer`, `:float`, `:boolean`, `:atom`, `:map`, `:list`,
+  `:any`, a `{:list, type}` tuple, or a struct module. An unknown type is a compile error.
+
+  **The payload is a map of exactly the declared fields.** Undeclared keys are rejected,
+  which keeps the registry an accurate description of what is on the wire. It also means a
+  struct cannot be the payload itself — it carries `__struct__` and every one of its own
+  keys — so put it in a field:
+
+      broadcast!(:campaigns, :created, %{account_id: id}, %{campaign: campaign})
+
+  `required: false` allows the key to be absent, or present as `nil`.
 
   ## Transport
 

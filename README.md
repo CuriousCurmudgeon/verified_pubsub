@@ -53,7 +53,7 @@ defmodule MyApp.Campaigns do
 
   def create(attrs) do
     with {:ok, campaign} <- insert(attrs) do
-      broadcast!(:campaigns, :created, %{account_id: campaign.account_id}, campaign)
+      broadcast!(:campaigns, :created, %{account_id: campaign.account_id}, %{campaign: campaign})
       {:ok, campaign}
     end
   end
@@ -152,18 +152,60 @@ end
 - a subscriber that handles an event the registry does not declare, or names a topic the
   registry does not declare
 - duplicate topics, duplicate events on one topic, and malformed topic patterns
+- a literal payload map that does not match the declared fields
+
+**Checked at runtime, on every broadcast, in every environment:**
+
+- payload shape — missing required keys, undeclared keys, and field types. Raises
+  `VerifiedPubSub.PayloadError` from both `broadcast/4` and `broadcast!/4`, because a
+  shape violation is a bug in the calling code rather than something a caller should
+  handle like a network blip.
 
 **Not checked:**
 
 - **A params map built at runtime.** `Map.fetch!/2` raises `KeyError` for a missing key
   instead.
-
-- **Payload shapes.** `field` declarations are parsed and readable through
-  `VerifiedPubSub.Info`, but nothing validates a payload against them yet.
 - **Topic param values.** Coverage is tracked per `{topic, event}` pair. If every clause
   for an event matches a narrow param value, the event still counts as covered, and a
   message with a different value raises `FunctionClauseError`. End with a param-agnostic
   clause when matching on param values.
+
+## Payload shapes
+
+Each `field` declares a key the payload must carry:
+
+```elixir
+message :created do
+  field :id, :string
+  field :campaign, MyApp.Campaign
+  field :tags, {:list, :string}
+  field :note, :string, required: false
+end
+```
+
+A type is one of `:string`, `:integer`, `:float`, `:boolean`, `:atom`, `:map`, `:list`,
+`:any`, a `{:list, type}` tuple, or a struct module. An unknown type is a compile error.
+
+**The payload is a map of exactly the declared fields.** Undeclared keys are rejected, so
+the registry stays an accurate description of what is on the wire. That also means a
+struct cannot be the payload itself — it carries `__struct__` and all of its own keys — so
+put it in a field:
+
+```elixir
+broadcast!(:campaigns, :created, %{account_id: id}, %{campaign: campaign})
+```
+
+`required: false` allows the key to be absent, or present as `nil`.
+
+Errors report every problem at once rather than the first:
+
+```
+invalid payload for :campaigns :created in MyApp.Topics:
+
+  * missing required key: :id
+  * unexpected key: :extra — not declared on this event
+  * :name is declared as :string, got: 42
+```
 
 ## Messages your process does not expect
 
