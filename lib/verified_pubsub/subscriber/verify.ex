@@ -84,8 +84,8 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
     #{detail}
 
-    Keep the `handle_message` clause or the `ignore_message`, not both. As written the
-    handler wins and the `ignore_message` is dead.
+    An event can be handled by `handle_message` or dismissed by `ignore_message`, not
+    both. Remove whichever one you did not intend.
     """
   end
 
