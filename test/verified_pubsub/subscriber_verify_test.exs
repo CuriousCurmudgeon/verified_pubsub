@@ -153,6 +153,24 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     assert message =~ "inferred"
   end
 
+  test "handling and ignoring the same event is a compile error" do
+    error =
+      compile_error(
+        subscriber_source("""
+        handle_message :campaigns, :created, p, s do
+          {:noreply, {p, s}}
+        end
+
+        ignore_message :campaigns, [:created, :updated, :deleted]
+        """)
+      )
+
+    assert error, "expected a contradictory declaration to fail compilation"
+    message = Exception.message(error)
+    assert message =~ "both handles and ignores"
+    assert message =~ ":created"
+  end
+
   test "ignore_message accepts a list of events" do
     assert is_atom(
              compile!(

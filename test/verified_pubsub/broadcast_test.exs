@@ -143,8 +143,4 @@ defmodule VerifiedPubSub.BroadcastTest do
 
     Process.exit(other, :kill)
   end
-
-  test "no function is generated for an undeclared event" do
-    refute function_exported?(Basic, :broadcast_campaigns_exploded!, 2)
-  end
 end

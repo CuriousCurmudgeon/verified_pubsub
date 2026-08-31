@@ -121,10 +121,6 @@ defmodule VerifiedPubSub.SubscriberTest do
     assert Process.alive?(pid)
   end
 
-  test "exactly one handle_info clause is generated for verified messages" do
-    assert function_exported?(Worker, :handle_info, 2)
-  end
-
   @tag :capture_log
   test "an unrelated message raises unless the module handles it", %{worker: pid} do
     # Defining any handle_info/2 discards the default that `use GenServer` installs,

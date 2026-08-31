@@ -21,7 +21,18 @@ defmodule VerifiedPubSub.Subscriber.Verify do
     registry = Module.get_attribute(env.module, :verified_pubsub_registry)
     on_missing = Module.get_attribute(env.module, :verified_pubsub_on_missing)
 
-    accounted_for = MapSet.new(Enum.map(clauses, &{&1.topic, &1.event}) ++ ignored)
+    handled = MapSet.new(Enum.map(clauses, &{&1.topic, &1.event}))
+    dismissed = MapSet.new(ignored)
+    accounted_for = MapSet.union(handled, dismissed)
+
+    contradictory = MapSet.intersection(handled, dismissed)
+
+    unless Enum.empty?(contradictory) do
+      raise CompileError,
+        file: env.file,
+        line: env.line,
+        description: contradictory_message(env, contradictory)
+    end
 
     # The subscribed topics are whatever the module actually mentions. Reading the
     # registry here is also what creates the compile-time dependency on it, so editing
@@ -58,6 +69,24 @@ defmodule VerifiedPubSub.Subscriber.Verify do
     end
 
     :ok
+  end
+
+  defp contradictory_message(env, contradictory) do
+    detail =
+      contradictory
+      |> Enum.sort()
+      |> Enum.map_join("\n", fn {topic, event} ->
+        "  * #{inspect(topic)}, #{inspect(event)}"
+      end)
+
+    """
+    #{inspect(env.module)} both handles and ignores the same event:
+
+    #{detail}
+
+    Keep the `handle_message` clause or the `ignore_message`, not both. As written the
+    handler wins and the `ignore_message` is dead.
+    """
   end
 
   defp validate_topic!(env, registry, topic) do
