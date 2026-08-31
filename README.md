@@ -157,6 +157,8 @@ end
 - a subscriber that handles an event the registry does not declare, or names a topic the
   registry does not declare
 - duplicate topics, duplicate events on one topic, and malformed topic patterns
+- a `%{param}` that does not fill a whole `:`-delimited segment of its pattern
+- two topics whose patterns can match the same wire topic
 - a literal payload map that does not match the declared fields
 
 **Checked at runtime, on every broadcast, in every environment:**
@@ -165,6 +167,8 @@ end
   `VerifiedPubSub.PayloadError` from both `broadcast/4` and `broadcast!/4`, because a
   shape violation is a bug in the calling code rather than something a caller should
   handle like a network blip.
+- topic param values — a value must be non-empty and must not contain `:`. Raises
+  `VerifiedPubSub.TopicError`. See "Topic patterns" below for why.
 
 **Not checked:**
 
@@ -174,6 +178,27 @@ end
   for an event matches a narrow param value, the event still counts as covered, and a
   message with a different value raises `FunctionClauseError`. End with a param-agnostic
   clause when matching on param values.
+
+## Topic patterns
+
+Topics are `:`-delimited, and each `%{param}` must fill a whole segment. So
+`"accounts:%{account_id}:campaigns"` is fine and `"accounts:acct%{account_id}"` is a
+compile error. `~p` restricts path interpolation the same way, for the same reason.
+
+Three rules together guarantee an interpolated topic can only be the topic its call site
+names — the first two checked when the registry compiles, the third on every call:
+
+1. every `%{param}` fills a whole segment
+2. no two declared patterns can match the same wire topic
+3. a param value is non-empty and contains no `:`
+
+Drop any one and the guarantee fails. `"a:%{x}"` and `"a:%{x}:b"` differ in segment count,
+so rule 2 holds, yet `x = "1:b"` on the first builds `"a:1:b"` — exactly what the second
+builds from `x = "1"`. Without rule 3, a broadcast on one topic reaches the other's
+subscribers.
+
+Values are not escaped, because a topic string is a wire format that other systems may
+also subscribe to; silently rewriting it would be worse than refusing.
 
 ## Payload shapes
 

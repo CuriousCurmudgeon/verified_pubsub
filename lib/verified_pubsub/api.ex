@@ -147,7 +147,7 @@ defmodule VerifiedPubSub.Api do
   # Binds `vp_params` and `vp_topic`. The vars are created with this module's context so
   # they match the `vp_params` / `vp_topic` written literally inside the `quote` blocks
   # above, which hygiene also stamps with this module.
-  defp bind_topic(_registry, topic_struct, params) do
+  defp bind_topic(registry, topic_struct, params) do
     pvar = Macro.var(:vp_params, __MODULE__)
     tvar = Macro.var(:vp_topic, __MODULE__)
     literals = String.split(topic_struct.pattern, ~r/%\{[^}]*\}/)
@@ -158,7 +158,12 @@ defmodule VerifiedPubSub.Api do
       |> Enum.reduce(hd(literals), fn {param, literal}, acc ->
         quote do
           unquote(acc) <>
-            to_string(Map.fetch!(unquote(pvar), unquote(param))) <>
+            VerifiedPubSub.Topic.segment!(
+              unquote(registry),
+              unquote(topic_struct.name),
+              unquote(param),
+              Map.fetch!(unquote(pvar), unquote(param))
+            ) <>
             unquote(literal)
         end
       end)

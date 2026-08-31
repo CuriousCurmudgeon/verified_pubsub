@@ -93,6 +93,8 @@ defmodule VerifiedPubSub do
     * a subscriber that handles an event the registry does not declare, or names a
       topic the registry does not declare
     * duplicate topics, duplicate events on one topic, and malformed topic patterns
+    * a `%{param}` that does not fill a whole `:`-delimited segment of its pattern
+    * two topics whose patterns can match the same wire topic
 
     * broadcasting an unknown topic, an unknown event, or an event that belongs to a
       different topic
@@ -135,6 +137,14 @@ defmodule VerifiedPubSub do
       broadcast!(:campaigns, %{account_id: id}, :created, %{campaign: campaign})
 
   `required: false` allows the key to be absent, or present as `nil`.
+
+  ## Topic patterns
+
+  Topics are `:`-delimited and each `%{param}` must fill a whole segment, so
+  `"accounts:acct%{account_id}"` is a compile error. Param values are checked on every
+  call: a value must be non-empty and contain no `:`, or `VerifiedPubSub.TopicError` is
+  raised. Together with pattern disjointness this guarantees an interpolated topic can
+  only be the topic its call site names — see `VerifiedPubSub.Topic`.
 
   ## Transport
 

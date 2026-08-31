@@ -48,4 +48,22 @@ defmodule VerifiedPubSub.TestRegistries do
       end
     end
   end
+
+  # Two patterns that are legitimately disjoint -- different segment counts -- but whose
+  # topic strings collide if a param value is allowed to carry the separator.
+  defmodule Adjacent do
+    use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
+
+    topic :short, "adj:%{x}" do
+      message :ping do
+        field :tag, :string
+      end
+    end
+
+    topic :long, "adj:%{x}:b" do
+      message :pong do
+        field :tag, :string
+      end
+    end
+  end
 end
