@@ -102,19 +102,19 @@ defmodule VerifiedPubSub.SubscriberTest do
   end
 
   test "the payload form receives the payload", %{account_id: id} do
-    broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c1"})
+    broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
 
     assert_receive {:created, %{id: "c1"}}
   end
 
   test "the Message form can match on topic params", %{account_id: id} do
-    broadcast!(:campaigns, :updated, %{account_id: id}, %{id: "c2"})
+    broadcast!(:campaigns, %{account_id: id}, :updated, %{id: "c2"})
 
     assert_receive {:updated, ^id, %{id: "c2"}}
   end
 
   test "an ignored event is received without crashing", %{account_id: id, worker: pid} do
-    broadcast!(:campaigns, :deleted, %{account_id: id}, %{id: "c3"})
+    broadcast!(:campaigns, %{account_id: id}, :deleted, %{id: "c3"})
 
     refute_receive {:created, _}, 50
     refute_receive {:updated, _, _}, 50
@@ -144,7 +144,7 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     # The generated clause is emitted at the `use` site, so it is matched before the
     # user's catch-all and verified messages still dispatch correctly.
-    broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c7"})
+    broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c7"})
     assert_receive {:created, %{id: "c7"}}
   end
 
@@ -155,7 +155,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     send(pid, :tick)
     assert_receive :ticked
 
-    broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c9"})
+    broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c9"})
     assert_receive {:created, %{id: "c9"}}
 
     assert Process.alive?(pid)

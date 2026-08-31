@@ -6,7 +6,13 @@ defmodule VerifiedPubSub.Api do
   Imported by `use VerifiedPubSub, registry: MyApp.Topics`, and by
   `use VerifiedPubSub.Subscriber`:
 
-      broadcast!(:campaigns, :created, %{account_id: id}, payload)
+      broadcast!(:campaigns, %{account_id: id}, :created, payload)
+
+  A topic is always followed immediately by its params, in every macro here. The params
+  exist only to fill in the topic pattern, so `{topic, params}` is the address and
+  `{event, payload}` is the message -- the same address-then-message shape as
+  `Phoenix.PubSub.broadcast/3`. It also means the two atoms are never adjacent, so they
+  cannot be silently transposed.
 
   These are **macros**, so the topic and event must be literal atoms. That is what allows
   an unknown topic or event to be a `CompileError` naming the valid alternatives. Params
@@ -53,28 +59,28 @@ defmodule VerifiedPubSub.Api do
   end
 
   @doc "Broadcasts an event on a topic."
-  defmacro broadcast(topic, event, params, payload) do
-    build(__CALLER__, topic, event, params, payload, nil, false)
+  defmacro broadcast(topic, params, event, payload) do
+    build(__CALLER__, topic, params, event, payload, nil, false)
   end
 
   @doc "Broadcasts an event on a topic, raising on failure."
-  defmacro broadcast!(topic, event, params, payload) do
-    build(__CALLER__, topic, event, params, payload, nil, true)
+  defmacro broadcast!(topic, params, event, payload) do
+    build(__CALLER__, topic, params, event, payload, nil, true)
   end
 
   @doc "Broadcasts to every subscriber except `from`."
-  defmacro broadcast_from(from, topic, event, params, payload) do
-    build(__CALLER__, topic, event, params, payload, from, false)
+  defmacro broadcast_from(from, topic, params, event, payload) do
+    build(__CALLER__, topic, params, event, payload, from, false)
   end
 
   @doc "Broadcasts to every subscriber except `from`, raising on failure."
-  defmacro broadcast_from!(from, topic, event, params, payload) do
-    build(__CALLER__, topic, event, params, payload, from, true)
+  defmacro broadcast_from!(from, topic, params, event, payload) do
+    build(__CALLER__, topic, params, event, payload, from, true)
   end
 
   # -- expansion helpers -------------------------------------------------------
 
-  defp build(caller, topic, event, params, payload, from, bang?) do
+  defp build(caller, topic, params, event, payload, from, bang?) do
     {registry, topic_struct} = resolve!(caller, topic)
     event = validate_event!(caller, registry, topic_struct, event)
     validate_params!(caller, topic_struct, params)

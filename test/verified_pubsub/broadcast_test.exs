@@ -26,7 +26,7 @@ defmodule VerifiedPubSub.BroadcastTest do
 
   test "broadcast_*! delivers a Message to subscribers of that topic", %{account_id: id} do
     assert :ok = subscribe(:campaigns, %{account_id: id})
-    assert :ok = broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c1"})
+    assert :ok = broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
 
     assert_receive %Message{
       registry: Basic,
@@ -39,7 +39,7 @@ defmodule VerifiedPubSub.BroadcastTest do
 
   test "broadcasts are scoped by param value", %{account_id: id} do
     assert :ok = subscribe(:campaigns, %{account_id: id})
-    assert :ok = broadcast!(:campaigns, :created, %{account_id: id <> "other"}, %{id: "c1"})
+    assert :ok = broadcast!(:campaigns, %{account_id: id <> "other"}, :created, %{id: "c1"})
 
     refute_receive %Message{}, 50
   end
@@ -47,13 +47,13 @@ defmodule VerifiedPubSub.BroadcastTest do
   test "unsubscribe_* stops delivery", %{account_id: id} do
     assert :ok = subscribe(:campaigns, %{account_id: id})
     assert :ok = unsubscribe(:campaigns, %{account_id: id})
-    assert :ok = broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c1"})
+    assert :ok = broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
 
     refute_receive %Message{}, 50
   end
 
   test "the non-bang broadcast returns :ok" do
-    assert :ok = broadcast(:campaigns, :created, %{account_id: "7"}, %{id: "c1"})
+    assert :ok = broadcast(:campaigns, %{account_id: "7"}, :created, %{id: "c1"})
   end
 
   test "a param-free topic broadcasts with only a payload" do
@@ -62,7 +62,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     # topic from matching each other's messages.
     token = unique_account_id()
     assert :ok = subscribe(:system)
-    assert :ok = broadcast!(:system, :alert, %{}, %{text: token})
+    assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
 
     assert_receive %Message{topic: :system, event: :alert, params: %{}, payload: %{text: ^token}}
   end
@@ -73,7 +73,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     params = Map.new([{String.to_atom("wrong"), "7"}])
 
     assert_raise KeyError, fn ->
-      broadcast!(:campaigns, :created, params, %{id: "c1"})
+      broadcast!(:campaigns, params, :created, %{id: "c1"})
     end
   end
 
@@ -81,7 +81,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     assert :ok = subscribe(:campaigns, %{account_id: id})
 
     assert :ok =
-             broadcast_from!(self(), :campaigns, :created, %{account_id: id}, %{id: "c1"})
+             broadcast_from!(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
 
     refute_receive %Message{}, 50
   end
@@ -98,7 +98,7 @@ defmodule VerifiedPubSub.BroadcastTest do
 
     assert_receive :ready
     subscribe(:campaigns, %{account_id: id})
-    broadcast_from!(self(), :campaigns, :created, %{account_id: id}, %{id: "c1"})
+    broadcast_from!(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
 
     assert_receive {:other_got, %{id: "c1"}}
     refute_receive %Message{}, 50
@@ -106,13 +106,13 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   test "the non-bang from variant returns :ok", %{account_id: id} do
-    assert :ok = broadcast_from(self(), :campaigns, :created, %{account_id: id}, %{id: "c1"})
+    assert :ok = broadcast_from(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
   end
 
   test "a param-free topic's from variant takes only from and payload" do
     token = unique_account_id()
     assert :ok = subscribe(:system)
-    assert :ok = broadcast_from!(self(), :system, :alert, %{}, %{text: token})
+    assert :ok = broadcast_from!(self(), :system, %{}, :alert, %{text: token})
 
     refute_receive %Message{topic: :system, payload: %{text: ^token}}, 50
   end
@@ -130,7 +130,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       end)
 
     assert_receive :ready
-    broadcast_from!(self(), :campaigns, :created, %{account_id: id}, %{id: "c1"})
+    broadcast_from!(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
 
     assert_receive {:got,
                     %Message{

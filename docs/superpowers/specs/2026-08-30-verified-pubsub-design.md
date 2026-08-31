@@ -216,7 +216,7 @@ defmodule MyApp.Campaigns do
   use VerifiedPubSub, registry: MyApp.Topics
 
   def create(attrs) do
-    broadcast!(:campaigns, :created, %{account_id: attrs.account_id}, payload)
+    broadcast!(:campaigns, %{account_id: attrs.account_id}, :created, payload)
   end
 end
 ```
@@ -244,8 +244,8 @@ built, tested, and then reversed. The reasons:
    same pair of identifiers was expressed two different ways.
 
 Why plain functions taking atoms cannot work — verified empirically on Elixir 1.20.4:
-given `def broadcast(:campaigns, :created, %{account_id: id}, payload)`, a call to
-`broadcast(:campaigns, :creatd, ...)` produces **no diagnostic at all**. Type inference
+given `def broadcast(:campaigns, %{account_id: id}, :created, payload)`, a call to
+`broadcast(:campaigns, params, :creatd, ...)` produces **no diagnostic at all**. Type inference
 does not narrow across clause heads on a remote call. The same check gives up on the
 params map too, which the single-shaped generated head had caught. So atom-first
 requires macros; there is no function-based version that verifies anything.

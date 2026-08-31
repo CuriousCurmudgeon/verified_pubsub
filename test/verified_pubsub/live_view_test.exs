@@ -25,7 +25,7 @@ defmodule VerifiedPubSub.LiveViewTest do
     def subscribe_to(account_id), do: subscribe(:campaigns, %{account_id: account_id})
 
     def announce(account_id, payload) do
-      broadcast!(:campaigns, :created, %{account_id: account_id}, payload)
+      broadcast!(:campaigns, %{account_id: account_id}, :created, payload)
     end
 
     handle_message :campaigns, :created, payload, socket do

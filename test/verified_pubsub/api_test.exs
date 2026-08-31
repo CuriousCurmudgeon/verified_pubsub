@@ -13,24 +13,24 @@ defmodule VerifiedPubSub.ApiTest do
     def topic_for(id), do: topic(:campaigns, %{account_id: id})
 
     def created(id, payload) do
-      broadcast!(:campaigns, :created, %{account_id: id}, payload)
+      broadcast!(:campaigns, %{account_id: id}, :created, payload)
     end
 
     def created_plain(id, payload) do
-      broadcast(:campaigns, :created, %{account_id: id}, payload)
+      broadcast(:campaigns, %{account_id: id}, :created, payload)
     end
 
     def created_from(from, id, payload) do
-      broadcast_from!(from, :campaigns, :created, %{account_id: id}, payload)
+      broadcast_from!(from, :campaigns, %{account_id: id}, :created, payload)
     end
 
-    def alert(payload), do: broadcast!(:system, :alert, %{}, payload)
+    def alert(payload), do: broadcast!(:system, %{}, :alert, payload)
     def sub_system, do: subscribe(:system)
 
     # params built at runtime, so the map is not a literal at expansion time
     def created_dynamic(id, payload) do
       params = Map.new([{:account_id, id}])
-      broadcast!(:campaigns, :created, params, payload)
+      broadcast!(:campaigns, params, :created, payload)
     end
   end
 
@@ -113,8 +113,18 @@ defmodule VerifiedPubSub.ApiTest do
       """
     end
 
+    test "params and event in the wrong order is a compile error, not a runtime one" do
+      # The pre-0.1 order was (topic, event, params, payload). Swapping the two puts the
+      # params map in the event slot, where a non-atom cannot be verified -- so the old
+      # order fails the build rather than reaching Map.fetch!/2 on an atom at runtime.
+      error = compile_error(source(~s|broadcast!(:campaigns, :created, %{account_id: "1"}, %{})|))
+
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ "expected a literal atom for event"
+    end
+
     test "an unknown topic is a hard compile error listing declared topics" do
-      error = compile_error(source(~s|broadcast!(:nope, :created, %{}, %{})|))
+      error = compile_error(source(~s|broadcast!(:nope, %{}, :created, %{})|))
 
       assert %CompileError{} = error
       message = Exception.message(error)
@@ -124,7 +134,7 @@ defmodule VerifiedPubSub.ApiTest do
 
     test "a typo'd event is a hard compile error listing declared events" do
       error =
-        compile_error(source(~s|broadcast!(:campaigns, :creatd, %{account_id: "1"}, %{})|))
+        compile_error(source(~s|broadcast!(:campaigns, %{account_id: "1"}, :creatd, %{})|))
 
       assert %CompileError{} = error
       message = Exception.message(error)
@@ -134,7 +144,7 @@ defmodule VerifiedPubSub.ApiTest do
 
     test "an event from another topic is a hard error, and says where it lives" do
       error =
-        compile_error(source(~s|broadcast!(:campaigns, :alert, %{account_id: "1"}, %{})|))
+        compile_error(source(~s|broadcast!(:campaigns, %{account_id: "1"}, :alert, %{})|))
 
       assert %CompileError{} = error
       message = Exception.message(error)
@@ -143,7 +153,7 @@ defmodule VerifiedPubSub.ApiTest do
     end
 
     test "a literal params map missing a required key is a hard compile error" do
-      error = compile_error(source(~s|broadcast!(:campaigns, :created, %{}, %{})|))
+      error = compile_error(source(~s|broadcast!(:campaigns, %{}, :created, %{})|))
 
       assert %CompileError{} = error
       message = Exception.message(error)
@@ -154,7 +164,7 @@ defmodule VerifiedPubSub.ApiTest do
     test "a literal params map with an unexpected key is a hard compile error" do
       error =
         compile_error(
-          source(~s|broadcast!(:campaigns, :created, %{account_id: "1", extra: 2}, %{})|)
+          source(~s|broadcast!(:campaigns, %{account_id: "1", extra: 2}, :created, %{})|)
         )
 
       assert %CompileError{} = error
@@ -163,7 +173,7 @@ defmodule VerifiedPubSub.ApiTest do
 
     test "a literal params map with a misspelled key names both sides" do
       error =
-        compile_error(source(~s|broadcast!(:campaigns, :created, %{acount_id: "1"}, %{})|))
+        compile_error(source(~s|broadcast!(:campaigns, %{acount_id: "1"}, :created, %{})|))
 
       assert %CompileError{} = error
       message = Exception.message(error)
@@ -175,18 +185,18 @@ defmodule VerifiedPubSub.ApiTest do
       assert is_atom(
                compile!(
                  source(
-                   ~s|broadcast!(:campaigns, :created, Map.new([{:account_id, "1"}]), %{id: "x"})|
+                   ~s|broadcast!(:campaigns, Map.new([{:account_id, "1"}]), :created, %{id: "x"})|
                  )
                )
              )
     end
 
     test "a param-free topic accepts an empty literal map" do
-      assert is_atom(compile!(source(~s|broadcast!(:system, :alert, %{}, %{text: "x"})|)))
+      assert is_atom(compile!(source(~s|broadcast!(:system, %{}, :alert, %{text: "x"})|)))
     end
 
     test "a non-literal topic is a hard compile error" do
-      error = compile_error(source(~s|broadcast!(var!(t), :created, %{account_id: "1"}, %{})|))
+      error = compile_error(source(~s|broadcast!(var!(t), %{account_id: "1"}, :created, %{})|))
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ "literal atom"
@@ -197,7 +207,7 @@ defmodule VerifiedPubSub.ApiTest do
         compile_error("""
         defmodule #{unique_module("VPTest.NoReg")} do
           import VerifiedPubSub.Api
-          def go, do: broadcast!(:campaigns, :created, %{account_id: "1"}, %{})
+          def go, do: broadcast!(:campaigns, %{account_id: "1"}, :created, %{})
         end
         """)
 
@@ -217,7 +227,7 @@ defmodule VerifiedPubSub.ApiTest do
                  import VerifiedPubSub.Api
 
                  def go(id) do
-                   broadcast!(:campaigns, :created, %{account_id: id}, %{id: "x"})
+                   broadcast!(:campaigns, %{account_id: id}, :created, %{id: "x"})
                  end
 
                  handle_message :campaigns, :created, p, s do

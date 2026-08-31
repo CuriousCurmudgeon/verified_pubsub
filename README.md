@@ -53,7 +53,7 @@ defmodule MyApp.Campaigns do
 
   def create(attrs) do
     with {:ok, campaign} <- insert(attrs) do
-      broadcast!(:campaigns, :created, %{account_id: campaign.account_id}, %{campaign: campaign})
+      broadcast!(:campaigns, %{account_id: campaign.account_id}, :created, %{campaign: campaign})
       {:ok, campaign}
     end
   end
@@ -61,7 +61,12 @@ end
 ```
 
 `use VerifiedPubSub, registry: ...` imports the API. A topic with no params takes an
-empty map: `broadcast!(:system, :alert, %{}, payload)`.
+empty map: `broadcast!(:system, %{}, :alert, payload)`.
+
+A topic is always followed immediately by its params — in `subscribe/2`, `unsubscribe/2`,
+`topic/2` and all four broadcasts. Params exist only to fill in the topic pattern, so
+`{topic, params}` is the address and `{event, payload}` is the message, matching the
+address-then-message shape of `Phoenix.PubSub.broadcast/3`.
 
 These are **macros**, so the topic and event must be literal atoms — that is what lets a
 typo fail the compile. Params may be built at runtime.
@@ -70,7 +75,7 @@ To skip the sender — the usual fix for a LiveView that both writes to a topic 
 subscribes to it, and would otherwise apply its own change twice:
 
 ```elixir
-broadcast_from!(self(), :campaigns, :created, %{account_id: id}, payload)
+broadcast_from!(self(), :campaigns, %{account_id: id}, :created, payload)
 ```
 
 This mirrors `Phoenix.PubSub.broadcast_from/4`, with `from` leading for the same reason
@@ -85,10 +90,10 @@ Plain functions taking atoms cannot be verified at compile time. Elixir's type i
 does not narrow across clause heads on a remote call, so a `broadcast/4` defined as
 
 ```elixir
-def broadcast(:campaigns, :created, %{account_id: id}, payload), do: ...
+def broadcast(:campaigns, %{account_id: id}, :created, payload), do: ...
 ```
 
-produces **no diagnostic at all** for `broadcast(:campaigns, :creatd, ...)` — it fails at
+produces **no diagnostic at all** for `broadcast(:campaigns, params, :creatd, ...)` — it fails at
 runtime. Macros can look the topic and event up in the registry while your code compiles.
 
 The costs are real: every calling module needs `use VerifiedPubSub, registry: ...`, and
@@ -192,7 +197,7 @@ struct cannot be the payload itself — it carries `__struct__` and all of its o
 put it in a field:
 
 ```elixir
-broadcast!(:campaigns, :created, %{account_id: id}, %{campaign: campaign})
+broadcast!(:campaigns, %{account_id: id}, :created, %{campaign: campaign})
 ```
 
 `required: false` allows the key to be absent, or present as `nil`.
@@ -244,7 +249,7 @@ use VerifiedPubSub, registry: MyApp.Topics
 
 start_supervised!({Phoenix.PubSub, name: MyApp.PubSub})
 :ok = subscribe(:campaigns, %{account_id: id})
-:ok = broadcast!(:campaigns, :created, %{account_id: id}, %{id: "c1"})
+:ok = broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
 assert_receive %VerifiedPubSub.Message{event: :created}
 ```
 

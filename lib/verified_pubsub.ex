@@ -35,7 +35,7 @@ defmodule VerifiedPubSub do
 
         def create(attrs) do
           # ...
-          broadcast!(:campaigns, :created, %{account_id: attrs.account_id}, payload)
+          broadcast!(:campaigns, %{account_id: attrs.account_id}, :created, payload)
         end
       end
 
@@ -43,12 +43,16 @@ defmodule VerifiedPubSub do
   ordinary arguments, but because these are macros they must be **literal atoms** — that
   is what makes a typo a compile error. Params may be built at runtime.
 
-  A topic with no params takes an empty map: `broadcast!(:system, :alert, %{}, payload)`.
+  A topic with no params takes an empty map: `broadcast!(:system, %{}, :alert, payload)`.
+
+  A topic is always followed immediately by its params. Params exist only to fill in the
+  topic pattern, so `{topic, params}` is the address and `{event, payload}` is the
+  message — the same address-then-message shape as `Phoenix.PubSub.broadcast/3`.
 
   To skip the sender, use `broadcast_from!/5`, which mirrors
   `Phoenix.PubSub.broadcast_from/4` (`from` leads, as it does there):
 
-      broadcast_from!(self(), :campaigns, :created, %{account_id: id}, payload)
+      broadcast_from!(self(), :campaigns, %{account_id: id}, :created, payload)
 
   ## Subscribing
 
@@ -128,7 +132,7 @@ defmodule VerifiedPubSub do
   struct cannot be the payload itself — it carries `__struct__` and every one of its own
   keys — so put it in a field:
 
-      broadcast!(:campaigns, :created, %{account_id: id}, %{campaign: campaign})
+      broadcast!(:campaigns, %{account_id: id}, :created, %{campaign: campaign})
 
   `required: false` allows the key to be absent, or present as `nil`.
 
@@ -149,7 +153,7 @@ defmodule VerifiedPubSub do
   The call-site API is macros rather than functions so that the topic and event can be
   checked while your code compiles. Plain functions taking atoms cannot be: Elixir's
   type inference does not narrow across clause heads on a remote call, so
-  `broadcast(:campaigns, :creatd, ...)` would fail only at runtime.
+  `broadcast(:campaigns, params, :creatd, ...)` would fail only at runtime.
 
   The cost is that every calling module needs `use VerifiedPubSub, registry: ...`, and
   macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules that
