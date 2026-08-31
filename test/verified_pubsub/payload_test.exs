@@ -32,8 +32,13 @@ defmodule VerifiedPubSub.PayloadTest do
     }
   end
 
+  # Every test here subscribes and asserts on the message received, not just on :ok.
+  # Validation runs inside the macro before anything is sent, so `assert :ok` alone would
+  # prove the payload was accepted but not that it survived intact --
+  # `VerifiedPubSub.Payload.validate!/4` returns the payload and the macro puts that
+  # return value on the message, so a bug there could drop or alter keys unnoticed.
   describe "a valid payload" do
-    test "passes and is delivered unchanged", %{owner_id: id} do
+    test "is delivered unchanged", %{owner_id: id} do
       assert :ok = subscribe(:shapes, %{owner_id: id})
       payload = valid_typed()
       assert :ok = broadcast!(:shapes, :typed, %{owner_id: id}, payload)
@@ -41,23 +46,45 @@ defmodule VerifiedPubSub.PayloadTest do
       assert_receive %Message{event: :typed, payload: ^payload}
     end
 
-    test "an optional field may be omitted", %{owner_id: id} do
+    test "may omit an optional field, and none is invented", %{owner_id: id} do
+      assert :ok = subscribe(:shapes, %{owner_id: id})
       assert :ok = broadcast!(:shapes, :typed, %{owner_id: id}, valid_typed())
+
+      assert_receive %Message{event: :typed, payload: payload}
+      refute Map.has_key?(payload, :note)
     end
 
-    test "an optional field may be supplied", %{owner_id: id} do
-      payload = Map.put(valid_typed(), :note, "hi")
-      assert :ok = broadcast!(:shapes, :typed, %{owner_id: id}, payload)
+    test "may supply an optional field, and it survives", %{owner_id: id} do
+      assert :ok = subscribe(:shapes, %{owner_id: id})
+
+      assert :ok =
+               broadcast!(:shapes, :typed, %{owner_id: id}, Map.put(valid_typed(), :note, "hi"))
+
+      assert_receive %Message{event: :typed, payload: %{note: "hi"}}
     end
 
-    test "a struct field accepts the declared struct", %{owner_id: id} do
+    test "may carry the declared struct in a field", %{owner_id: id} do
+      assert :ok = subscribe(:shapes, %{owner_id: id})
+
       assert :ok =
                broadcast!(:shapes, :structured, %{owner_id: id}, %{point: %Point{x: 1, y: 2}})
+
+      assert_receive %Message{event: :structured, payload: %{point: %Point{x: 1, y: 2}}}
     end
 
-    test "an :any field accepts anything", %{owner_id: id} do
-      payload = Map.put(valid_typed(), :anything, self())
-      assert :ok = broadcast!(:shapes, :typed, %{owner_id: id}, payload)
+    test "may put anything in an :any field", %{owner_id: id} do
+      assert :ok = subscribe(:shapes, %{owner_id: id})
+      pid = self()
+
+      assert :ok =
+               broadcast!(
+                 :shapes,
+                 :typed,
+                 %{owner_id: id},
+                 Map.put(valid_typed(), :anything, pid)
+               )
+
+      assert_receive %Message{event: :typed, payload: %{anything: ^pid}}
     end
   end
 
