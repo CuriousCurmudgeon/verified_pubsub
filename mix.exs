@@ -29,17 +29,27 @@ defmodule VerifiedPubSub.MixProject do
       main: "VerifiedPubSub",
       extras: ["README.md"],
       groups_for_modules: [
-        Registry: [
+        "Declaring topics": [
           VerifiedPubSub.Registry,
-          VerifiedPubSub.Dsl,
           VerifiedPubSub.Info
         ],
-        Subscribing: [
+        "Broadcasting and subscribing": [
+          VerifiedPubSub.Api,
           VerifiedPubSub.Subscriber,
-          VerifiedPubSub.Message
+          VerifiedPubSub.Message,
+          VerifiedPubSub.PayloadError
         ],
         Internals: [
-          VerifiedPubSub.Broadcast
+          VerifiedPubSub.Dsl,
+          VerifiedPubSub.Dsl.Topic,
+          VerifiedPubSub.Dsl.Message,
+          VerifiedPubSub.Dsl.Field,
+          VerifiedPubSub.Payload,
+          VerifiedPubSub.Subscriber.Verify,
+          VerifiedPubSub.Transformers.ParseParams,
+          VerifiedPubSub.Transformers.ValidateTopics,
+          VerifiedPubSub.Transformers.ValidateFields,
+          VerifiedPubSub.Transformers.DefinePayloadSchemas
         ]
       ]
     ]
@@ -60,7 +70,8 @@ defmodule VerifiedPubSub.MixProject do
     [
       {:spark, "~> 2.7"},
       {:phoenix_pubsub, "~> 2.1"},
-      {:phoenix_live_view, "~> 1.0", only: :test}
+      {:phoenix_live_view, "~> 1.0", only: :test},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]
   end
 end
