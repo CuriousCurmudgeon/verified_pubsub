@@ -18,7 +18,7 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
   @doc false
   def run!(env, clauses, ignored) do
-    registry = Module.get_attribute(env.module, :verified_pubsub_registry)
+    manifest = Module.get_attribute(env.module, :verified_pubsub_manifest)
     on_missing = Module.get_attribute(env.module, :verified_pubsub_on_missing)
 
     handled = MapSet.new(Enum.map(clauses, &{&1.topic, &1.event}))
@@ -35,17 +35,17 @@ defmodule VerifiedPubSub.Subscriber.Verify do
     end
 
     # The subscribed topics are whatever the module actually mentions. Reading the
-    # registry here is also what creates the compile-time dependency on it, so editing
-    # the registry recompiles every subscriber.
+    # manifest here is also what creates the compile-time dependency on it, so editing
+    # the manifest recompiles every subscriber.
     topics =
       accounted_for
       |> Enum.map(&elem(&1, 0))
       |> Enum.uniq()
       |> Enum.sort()
-      |> Enum.map(&validate_topic!(env, registry, &1))
+      |> Enum.map(&validate_topic!(env, manifest, &1))
 
     declared =
-      for topic <- topics, event <- Info.events(registry, topic), into: MapSet.new() do
+      for topic <- topics, event <- Info.events(manifest, topic), into: MapSet.new() do
         {topic, event}
       end
 
@@ -56,11 +56,11 @@ defmodule VerifiedPubSub.Subscriber.Verify do
       raise CompileError,
         file: env.file,
         line: env.line,
-        description: undeclared_message(env, registry, undeclared)
+        description: undeclared_message(env, manifest, undeclared)
     end
 
     if not Enum.empty?(missing) and on_missing != :ignore do
-      description = missing_message(env, registry, missing)
+      description = missing_message(env, manifest, missing)
 
       case on_missing do
         :error -> raise CompileError, file: env.file, line: env.line, description: description
@@ -89,13 +89,13 @@ defmodule VerifiedPubSub.Subscriber.Verify do
     """
   end
 
-  defp validate_topic!(env, registry, topic) do
-    case Info.topic(registry, topic) do
+  defp validate_topic!(env, manifest, topic) do
+    case Info.topic(manifest, topic) do
       {:ok, _} ->
         topic
 
       :error ->
-        known = registry |> Info.topics() |> Enum.map(& &1.name) |> Enum.sort()
+        known = manifest |> Info.topics() |> Enum.map(& &1.name) |> Enum.sort()
 
         raise CompileError,
           file: env.file,
@@ -103,30 +103,30 @@ defmodule VerifiedPubSub.Subscriber.Verify do
           description: """
           #{inspect(env.module)} handles messages on unknown topic #{inspect(topic)}.
 
-          #{inspect(registry)} declares: #{inspect(known)}
+          #{inspect(manifest)} declares: #{inspect(known)}
           """
     end
   end
 
-  defp undeclared_message(env, registry, undeclared) do
+  defp undeclared_message(env, manifest, undeclared) do
     detail =
       undeclared
       |> Enum.sort()
       |> Enum.map_join("\n", fn {topic, event} ->
-        "  * #{inspect(topic)}, #{inspect(event)} — #{inspect(registry)} declares " <>
-          "#{inspect(Info.events(registry, topic))} on #{inspect(topic)}"
+        "  * #{inspect(topic)}, #{inspect(event)} — #{inspect(manifest)} declares " <>
+          "#{inspect(Info.events(manifest, topic))} on #{inspect(topic)}"
       end)
 
     """
-    #{inspect(env.module)} handles messages that #{inspect(registry)} does not declare:
+    #{inspect(env.module)} handles messages that #{inspect(manifest)} does not declare:
 
     #{detail}
 
-    Fix the event name, or declare it in the registry.
+    Fix the event name, or declare it in the manifest.
     """
   end
 
-  defp missing_message(env, registry, missing) do
+  defp missing_message(env, manifest, missing) do
     sorted = Enum.sort(missing)
     detail = Enum.map_join(sorted, "\n", fn {t, e} -> "  * #{inspect(t)}, #{inspect(e)}" end)
     {example_topic, example_event} = hd(sorted)
@@ -140,7 +140,7 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
         ignore_message #{inspect(example_topic)}, #{inspect(example_event)}
 
-    Registry: #{inspect(registry)}
+    Manifest: #{inspect(manifest)}
     """
   end
 end

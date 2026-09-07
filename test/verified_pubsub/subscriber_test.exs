@@ -1,7 +1,7 @@
 defmodule VerifiedPubSub.SubscriberTest do
   use ExUnit.Case, async: true
 
-  use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+  use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
   import VerifiedPubSub.CompileHelper
 
@@ -11,7 +11,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     use GenServer
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic
+      manifest: VerifiedPubSub.TestManifests.Basic
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
 
@@ -41,7 +41,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     use GenServer
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic
+      manifest: VerifiedPubSub.TestManifests.Basic
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
 
@@ -70,7 +70,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     use GenServer
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic
+      manifest: VerifiedPubSub.TestManifests.Basic
 
     def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
 

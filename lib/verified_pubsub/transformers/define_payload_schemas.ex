@@ -1,15 +1,15 @@
 defmodule VerifiedPubSub.Transformers.DefinePayloadSchemas do
   @moduledoc """
-  Generates `__verified_pubsub_fields__/2` on the registry: one clause per
+  Generates `__verified_pubsub_fields__/2` on the manifest: one clause per
   `{topic, event}`, returning that event's declared fields.
 
-  The schema lives on the registry rather than being inlined into each broadcast site.
+  The schema lives on the manifest rather than being inlined into each broadcast site.
   Inlining would be marginally faster but would go stale in any caller that is not
-  recompiled after a registry change, and it would bloat every call site. A clause
+  recompiled after a manifest change, and it would bloat every call site. A clause
   returning a literal list is cheap enough to run on every broadcast.
 
   The `__spark_metadata__` on each field is dropped: it carries source annotations that
-  would be dead weight in the compiled registry.
+  would be dead weight in the compiled manifest.
   """
 
   use Spark.Dsl.Transformer

@@ -4,7 +4,7 @@ defmodule VerifiedPubSub.Broadcast do
   # This exists so the generated `broadcast_*!` functions do not contain the
   # `{:error, reason}` clause themselves. If the broadcast call is ever inferred to
   # return only `:ok`, that clause becomes dead code and Elixir emits a "clause will
-  # never match" warning inside every consumer's generated registry. Keeping the case
+  # never match" warning inside every consumer's generated manifest. Keeping the case
   # here, where the argument carries the declared `:ok | {:error, term}` type, means
   # generated code cannot trip that warning.
   #

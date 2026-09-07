@@ -1,13 +1,13 @@
 defmodule VerifiedPubSub.PayloadError do
   @moduledoc """
-  Raised when a broadcast payload does not match the shape the registry declares.
+  Raised when a broadcast payload does not match the shape the manifest declares.
 
   Raised by both `broadcast/4` and `broadcast!/4`: a shape violation is a bug in the
   calling code, not an operational condition, so `{:error, _}` stays reserved for
   transport failures a caller might reasonably handle.
   """
 
-  defexception [:registry, :topic, :event, :problems, :payload]
+  defexception [:manifest, :topic, :event, :problems, :payload]
 
   @type problem ::
           {:not_a_map, term()}
@@ -20,7 +20,7 @@ defmodule VerifiedPubSub.PayloadError do
   def message(%__MODULE__{} = error) do
     """
     invalid payload for #{inspect(error.topic)} #{inspect(error.event)} in \
-    #{inspect(error.registry)}:
+    #{inspect(error.manifest)}:
 
     #{Enum.map_join(error.problems, "\n", &describe(&1, error))}
     """

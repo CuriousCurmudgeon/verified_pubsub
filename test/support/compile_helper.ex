@@ -20,7 +20,7 @@ defmodule VerifiedPubSub.CompileHelper do
   @doc """
   A unique account id.
 
-  The suite shares one `VerifiedPubSub.Adapter.Local` registry, so any test that
+  The suite shares one `VerifiedPubSub.Adapter.Local` manifest, so any test that
   subscribes must use a unique param value or a concurrent test broadcasting on the
   same topic string will deliver to it.
   """

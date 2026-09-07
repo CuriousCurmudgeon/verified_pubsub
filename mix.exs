@@ -30,16 +30,19 @@ defmodule VerifiedPubSub.MixProject do
       extras: ["README.md"],
       groups_for_modules: [
         "Declaring topics": [
-          VerifiedPubSub.Registry,
-          VerifiedPubSub.Info
+          VerifiedPubSub.Manifest,
+          VerifiedPubSub.Info,
+          VerifiedPubSub.Topic
         ],
         "Broadcasting and subscribing": [
           VerifiedPubSub.Api,
           VerifiedPubSub.Subscriber,
           VerifiedPubSub.Message,
-          VerifiedPubSub.PayloadError
+          VerifiedPubSub.PayloadError,
+          VerifiedPubSub.TopicError
         ],
         Internals: [
+          VerifiedPubSub.Broadcast,
           VerifiedPubSub.Dsl,
           VerifiedPubSub.Dsl.Topic,
           VerifiedPubSub.Dsl.Message,

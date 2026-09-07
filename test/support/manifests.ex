@@ -1,8 +1,8 @@
-defmodule VerifiedPubSub.TestRegistries do
-  @moduledoc "Registries compiled in the test env and reused across test files."
+defmodule VerifiedPubSub.TestManifests do
+  @moduledoc "Manifests compiled in the test env and reused across test files."
 
   defmodule Basic do
-    use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
+    use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
     topic :campaigns, "accounts:%{account_id}:campaigns" do
       message :created do
@@ -52,7 +52,7 @@ defmodule VerifiedPubSub.TestRegistries do
   # Two patterns that are legitimately disjoint -- different segment counts -- but whose
   # topic strings collide if a param value is allowed to carry the separator.
   defmodule Adjacent do
-    use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
+    use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
     topic :short, "adj:%{x}" do
       message :ping do

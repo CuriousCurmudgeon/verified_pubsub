@@ -1,5 +1,5 @@
 defmodule VerifiedPubSub.Dsl do
-  @moduledoc "The Spark DSL extension backing `VerifiedPubSub.Registry`."
+  @moduledoc "The Spark DSL extension backing `VerifiedPubSub.Manifest`."
 
   alias Spark.Builder.{Entity, Section}
 
@@ -47,7 +47,7 @@ defmodule VerifiedPubSub.Dsl do
              name: [
                type: :atom,
                required: true,
-               doc: "Alias used to build function names. Independent of the wire pattern."
+               doc: "The name call sites use. Independent of the wire pattern."
              ],
              pattern: [
                type: :string,

@@ -6,7 +6,7 @@ topics and events.
 A broadcast and its handler are normally two string literals in two files with nothing
 tying them together. Rename an event and you leave a dead handler behind; delete one and
 a subscriber quietly stops mattering; add one and nothing tells you who should care.
-`VerifiedPubSub` makes a registry the single source of truth and turns that drift into
+`VerifiedPubSub` makes a manifest the single source of truth and turns that drift into
 compile-time failures.
 
 ## Installation
@@ -26,7 +26,7 @@ dependencies of its own.
 
 ```elixir
 defmodule MyApp.Topics do
-  use VerifiedPubSub.Registry, pubsub: MyApp.PubSub
+  use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
   topic :campaigns, "accounts:%{account_id}:campaigns" do
     message :created do
@@ -41,15 +41,15 @@ defmodule MyApp.Topics do
 end
 ```
 
-`:campaigns` is an alias used to build function names; the string is the wire topic, so
-renaming it never breaks a call site. `%{account_id}` marks a parameter, and the
+`:campaigns` is the name call sites use; the string is the wire topic, so renaming the
+pattern never touches a call site. `%{account_id}` marks a parameter, and the
 parameter list is derived from the pattern rather than declared twice.
 
 ## Broadcast with verified topics and events
 
 ```elixir
 defmodule MyApp.Campaigns do
-  use VerifiedPubSub, registry: MyApp.Topics
+  use VerifiedPubSub, manifest: MyApp.Topics
 
   def create(attrs) do
     with {:ok, campaign} <- insert(attrs) do
@@ -60,7 +60,7 @@ defmodule MyApp.Campaigns do
 end
 ```
 
-`use VerifiedPubSub, registry: ...` imports the API. A topic with no params takes no
+`use VerifiedPubSub, manifest: ...` imports the API. A topic with no params takes no
 params argument:
 
 ```elixir
@@ -102,9 +102,9 @@ def broadcast(:campaigns, %{account_id: id}, :created, payload), do: ...
 ```
 
 produces **no diagnostic at all** for `broadcast(:campaigns, params, :creatd, ...)` — it fails at
-runtime. Macros can look the topic and event up in the registry while your code compiles.
+runtime. Macros can look the topic and event up in the manifest while your code compiles.
 
-The costs are real: every calling module needs `use VerifiedPubSub, registry: ...`, and
+The costs are real: every calling module needs `use VerifiedPubSub, manifest: ...`, and
 macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules that
 `use VerifiedPubSub.Subscriber` already have the import.
 
@@ -113,7 +113,7 @@ macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules
 ```elixir
 defmodule MyAppWeb.CampaignsLive do
   use MyAppWeb, :live_view
-  use VerifiedPubSub.Subscriber, registry: MyApp.Topics
+  use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -183,8 +183,8 @@ works too, for anything else it carries.
   misplaced event actually lives
 - a literal params map with missing or unexpected keys
 - a subscriber that does not account for every event on a topic it subscribes to
-- a subscriber that handles an event the registry does not declare, or names a topic the
-  registry does not declare
+- a subscriber that handles an event the manifest does not declare, or names a topic the
+  manifest does not declare
 - a handler whose params pattern names a param the topic does not declare, or whose
   payload pattern names a field the event does not declare — either could never match
 - duplicate topics, duplicate events on one topic, and malformed topic patterns
@@ -217,7 +217,7 @@ Topics are `:`-delimited, and each `%{param}` must fill a whole segment. So
 compile error. `~p` restricts path interpolation the same way, for the same reason.
 
 Three rules together guarantee an interpolated topic can only be the topic its call site
-names — the first two checked when the registry compiles, the third on every call:
+names — the first two checked when the manifest compiles, the third on every call:
 
 1. every `%{param}` fills a whole segment
 2. no two declared patterns can match the same wire topic
@@ -248,7 +248,7 @@ A type is one of `:string`, `:integer`, `:float`, `:boolean`, `:atom`, `:map`, `
 `:any`, a `{:list, type}` tuple, or a struct module. An unknown type is a compile error.
 
 **The payload is a map of exactly the declared fields.** Undeclared keys are rejected, so
-the registry stays an accurate description of what is on the wire. That also means a
+the manifest stays an accurate description of what is on the wire. That also means a
 struct cannot be the payload itself — it carries `__struct__` and all of its own keys — so
 put it in a field:
 
@@ -301,7 +301,7 @@ In tests, start a `Phoenix.PubSub` as you would in production, and assert on del
 subscribing from the test process:
 
 ```elixir
-use VerifiedPubSub, registry: MyApp.Topics
+use VerifiedPubSub, manifest: MyApp.Topics
 
 start_supervised!({Phoenix.PubSub, name: MyApp.PubSub})
 :ok = subscribe(:campaigns, %{account_id: id})

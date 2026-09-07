@@ -1,9 +1,9 @@
-defmodule VerifiedPubSub.Registry do
+defmodule VerifiedPubSub.Manifest do
   @moduledoc """
   Declares the topics and events for an application.
 
       defmodule MyApp.Topics do
-        use VerifiedPubSub.Registry, pubsub: MyApp.PubSub
+        use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
           message :created do

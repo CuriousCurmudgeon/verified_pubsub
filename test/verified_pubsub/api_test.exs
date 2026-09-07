@@ -6,7 +6,7 @@ defmodule VerifiedPubSub.ApiTest do
   alias VerifiedPubSub.Message
 
   defmodule Broadcaster do
-    use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+    use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
     def sub(id), do: subscribe(:campaigns, %{account_id: id})
     def unsub(id), do: unsubscribe(:campaigns, %{account_id: id})
@@ -55,7 +55,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert :ok = Broadcaster.created(id, %{id: "c1"})
 
       assert_receive %Message{
-        registry: VerifiedPubSub.TestRegistries.Basic,
+        manifest: VerifiedPubSub.TestManifests.Basic,
         topic: :campaigns,
         event: :created,
         params: %{account_id: ^id},
@@ -107,7 +107,7 @@ defmodule VerifiedPubSub.ApiTest do
     defp source(body) do
       """
       defmodule #{unique_module("VPTest.Api")} do
-        use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
         def go, do: #{body}
       end
       """
@@ -202,7 +202,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert Exception.message(error) =~ "literal atom"
     end
 
-    test "using the macros without a registry in scope is a compile error" do
+    test "using the macros without a manifest in scope is a compile error" do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.NoReg")} do
@@ -212,17 +212,17 @@ defmodule VerifiedPubSub.ApiTest do
         """)
 
       assert %CompileError{} = error
-      assert Exception.message(error) =~ "no registry is in scope"
+      assert Exception.message(error) =~ "no manifest is in scope"
     end
 
-    test "a subscriber's registry is reused without a second use" do
-      # `use VerifiedPubSub.Subscriber` already sets the registry attribute, so a
+    test "a subscriber's manifest is reused without a second use" do
+      # `use VerifiedPubSub.Subscriber` already sets the manifest attribute, so a
       # LiveView that subscribes can broadcast by importing the macros alone.
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.SubAndBroadcast")} do
                  use VerifiedPubSub.Subscriber,
-                   registry: VerifiedPubSub.TestRegistries.Basic
+                   manifest: VerifiedPubSub.TestManifests.Basic
 
                  import VerifiedPubSub.Api
 

@@ -6,7 +6,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
   alias VerifiedPubSub.Message
 
   defmodule Listener do
-    use VerifiedPubSub.Subscriber, registry: VerifiedPubSub.TestRegistries.Basic
+    use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
     # Binds from the topic params, no %Message{} destructuring.
     handle_message :campaigns, %{account_id: acct}, :created, payload, state do
@@ -22,7 +22,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
   end
 
   defmodule Narrowed do
-    use VerifiedPubSub.Subscriber, registry: VerifiedPubSub.TestRegistries.Basic
+    use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
     # A literal narrows to one param value. Order is load-bearing, as with any clauses.
     handle_message :campaigns, %{account_id: "7"}, :created, payload, state do
@@ -38,7 +38,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
 
   defp message(event, account_id, payload) do
     %Message{
-      registry: VerifiedPubSub.TestRegistries.Basic,
+      manifest: VerifiedPubSub.TestManifests.Basic,
       topic: :campaigns,
       event: event,
       params: %{account_id: account_id},
@@ -71,7 +71,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
   defp source(body) do
     """
     defmodule #{unique_module("VPTest.Params")} do
-      use VerifiedPubSub.Subscriber, registry: VerifiedPubSub.TestRegistries.Basic
+      use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
       #{body}
     end
     """

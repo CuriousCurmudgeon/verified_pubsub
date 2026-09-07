@@ -2,7 +2,7 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
   use ExUnit.Case, async: true
 
   alias VerifiedPubSub.Info
-  alias VerifiedPubSub.TestRegistries.Basic
+  alias VerifiedPubSub.TestManifests.Basic
   alias VerifiedPubSub.Transformers.ParseParams
 
   describe "parse/1" do

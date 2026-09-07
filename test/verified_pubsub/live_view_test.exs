@@ -4,13 +4,13 @@ defmodule VerifiedPubSub.LiveViewTest do
   import VerifiedPubSub.CompileHelper
 
   alias VerifiedPubSub.Message
-  alias VerifiedPubSub.TestRegistries.Basic
+  alias VerifiedPubSub.TestManifests.Basic
 
   defmodule CampaignsLive do
     use Phoenix.LiveView
 
     use VerifiedPubSub.Subscriber,
-      registry: VerifiedPubSub.TestRegistries.Basic
+      manifest: VerifiedPubSub.TestManifests.Basic
 
     @impl true
     def mount(_params, _session, socket) do
@@ -38,7 +38,7 @@ defmodule VerifiedPubSub.LiveViewTest do
 
   defp message(event, payload) do
     %VerifiedPubSub.Message{
-      registry: Basic,
+      manifest: Basic,
       topic: :campaigns,
       event: event,
       params: %{account_id: "7"},

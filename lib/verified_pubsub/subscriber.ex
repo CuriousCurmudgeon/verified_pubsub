@@ -1,11 +1,11 @@
 defmodule VerifiedPubSub.Subscriber do
   @moduledoc """
-  Declares that a module subscribes to topics from a registry, and defines its
+  Declares that a module subscribes to topics from a manifest, and defines its
   handlers.
 
       defmodule MyAppWeb.CampaignsLive do
         use MyAppWeb, :live_view
-        use VerifiedPubSub.Subscriber, registry: MyApp.Topics
+        use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
 
         def mount(_params, _session, socket) do
           if connected?(socket), do: subscribe(:campaigns, %{account_id: socket.assigns.id})
@@ -25,7 +25,7 @@ defmodule VerifiedPubSub.Subscriber do
   compile.
 
   `use` also imports `VerifiedPubSub.Api`, so `subscribe/2`, `broadcast!/4` and the rest
-  are available without a separate `use VerifiedPubSub, registry: ...`.
+  are available without a separate `use VerifiedPubSub, manifest: ...`.
 
   ## Generated code
 
@@ -63,10 +63,10 @@ defmodule VerifiedPubSub.Subscriber do
       def handle_info(_other, state), do: {:noreply, state}
   """
 
-  @options [:registry, :on_missing]
+  @options [:manifest, :on_missing]
 
   defmacro __using__(opts) do
-    registry = opts |> Keyword.fetch!(:registry) |> Macro.expand(__CALLER__)
+    manifest = opts |> Keyword.fetch!(:manifest) |> Macro.expand(__CALLER__)
     on_missing = Keyword.get(opts, :on_missing, :error)
 
     if Keyword.has_key?(opts, :topics) do
@@ -100,7 +100,7 @@ defmodule VerifiedPubSub.Subscriber do
     # accumulation is live before any `handle_message` in the body is expanded.
     Module.register_attribute(module, :verified_pubsub_clauses, accumulate: true)
     Module.register_attribute(module, :verified_pubsub_ignored, accumulate: true)
-    Module.put_attribute(module, :verified_pubsub_registry, registry)
+    Module.put_attribute(module, :verified_pubsub_manifest, manifest)
     Module.put_attribute(module, :verified_pubsub_on_missing, on_missing)
 
     quote do
@@ -193,10 +193,10 @@ defmodule VerifiedPubSub.Subscriber do
   # Only unexpected keys are an error. A match on a subset of the params is the normal
   # case, so unlike `broadcast!/4` a missing key is not a problem here.
   defp validate_params_pattern!(caller, topic, {:%{}, _, pairs}) when is_list(pairs) do
-    registry = Module.get_attribute(caller.module, :verified_pubsub_registry)
+    manifest = Module.get_attribute(caller.module, :verified_pubsub_manifest)
 
     with keys when is_list(keys) <- literal_keys(pairs) do
-      declared = VerifiedPubSub.Info.params(registry, topic)
+      declared = VerifiedPubSub.Info.params(manifest, topic)
 
       case keys -- declared do
         [] ->
@@ -224,10 +224,10 @@ defmodule VerifiedPubSub.Subscriber do
   # that silently never fires -- and the most likely cause is the params map landing in
   # the payload slot, which is `broadcast!`'s argument order minus the event.
   defp validate_payload_pattern!(caller, topic, event, {:%{}, _, pairs}) when is_list(pairs) do
-    registry = Module.get_attribute(caller.module, :verified_pubsub_registry)
+    manifest = Module.get_attribute(caller.module, :verified_pubsub_manifest)
 
     with keys when is_list(keys) <- literal_keys(pairs) do
-      declared = registry |> VerifiedPubSub.Info.fields(topic, event) |> Enum.map(& &1.name)
+      declared = manifest |> VerifiedPubSub.Info.fields(topic, event) |> Enum.map(& &1.name)
 
       case keys -- declared do
         [] ->
@@ -237,7 +237,7 @@ defmodule VerifiedPubSub.Subscriber do
           raise CompileError,
             file: caller.file,
             line: caller.line,
-            description: payload_pattern_message(registry, topic, event, declared, undeclared)
+            description: payload_pattern_message(manifest, topic, event, declared, undeclared)
       end
     end
 
@@ -246,8 +246,8 @@ defmodule VerifiedPubSub.Subscriber do
 
   defp validate_payload_pattern!(_caller, _topic, _event, _pattern), do: :ok
 
-  defp payload_pattern_message(registry, topic, event, declared, undeclared) do
-    params = VerifiedPubSub.Info.params(registry, topic)
+  defp payload_pattern_message(manifest, topic, event, declared, undeclared) do
+    params = VerifiedPubSub.Info.params(manifest, topic)
 
     hint =
       if undeclared != [] and Enum.all?(undeclared, &(&1 in params)) do

@@ -3,7 +3,7 @@ defmodule VerifiedPubSub.Api do
   The call-site API: `subscribe/2`, `unsubscribe/2`, `topic/2`, `broadcast/4`,
   `broadcast!/4`, `broadcast_from/5` and `broadcast_from!/5`.
 
-  Imported by `use VerifiedPubSub, registry: MyApp.Topics`, and by
+  Imported by `use VerifiedPubSub, manifest: MyApp.Topics`, and by
   `use VerifiedPubSub.Subscriber`:
 
       broadcast!(:campaigns, %{account_id: id}, :created, payload)
@@ -27,33 +27,33 @@ defmodule VerifiedPubSub.Api do
 
   @doc "Subscribes the calling process to a topic."
   defmacro subscribe(topic, params \\ quote(do: %{})) do
-    {registry, topic_struct} = resolve!(__CALLER__, topic)
+    {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
 
     quote do
-      unquote(bind_topic(registry, topic_struct, params))
-      Phoenix.PubSub.subscribe(unquote(registry).__verified_pubsub_name__(), vp_topic)
+      unquote(bind_topic(manifest, topic_struct, params))
+      Phoenix.PubSub.subscribe(unquote(manifest).__verified_pubsub_name__(), vp_topic)
     end
   end
 
   @doc "Unsubscribes the calling process from a topic."
   defmacro unsubscribe(topic, params \\ quote(do: %{})) do
-    {registry, topic_struct} = resolve!(__CALLER__, topic)
+    {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
 
     quote do
-      unquote(bind_topic(registry, topic_struct, params))
-      Phoenix.PubSub.unsubscribe(unquote(registry).__verified_pubsub_name__(), vp_topic)
+      unquote(bind_topic(manifest, topic_struct, params))
+      Phoenix.PubSub.unsubscribe(unquote(manifest).__verified_pubsub_name__(), vp_topic)
     end
   end
 
   @doc "Returns the wire topic string."
   defmacro topic(topic, params \\ quote(do: %{})) do
-    {registry, topic_struct} = resolve!(__CALLER__, topic)
+    {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
 
     quote do
-      unquote(bind_topic(registry, topic_struct, params))
+      unquote(bind_topic(manifest, topic_struct, params))
       vp_topic
     end
   end
@@ -113,16 +113,16 @@ defmodule VerifiedPubSub.Api do
   # -- expansion helpers -------------------------------------------------------
 
   defp build(caller, topic, params, event, payload, from, bang?) do
-    {registry, topic_struct} = resolve!(caller, topic)
-    event = validate_event!(caller, registry, topic_struct, event)
+    {manifest, topic_struct} = resolve!(caller, topic)
+    event = validate_event!(caller, manifest, topic_struct, event)
     validate_params!(caller, topic_struct, params)
-    validate_literal_payload!(caller, registry, topic_struct.name, event, payload)
+    validate_literal_payload!(caller, manifest, topic_struct.name, event, payload)
 
     call =
       if from do
         quote do
           Phoenix.PubSub.broadcast_from(
-            unquote(registry).__verified_pubsub_name__(),
+            unquote(manifest).__verified_pubsub_name__(),
             unquote(from),
             vp_topic,
             vp_message
@@ -131,7 +131,7 @@ defmodule VerifiedPubSub.Api do
       else
         quote do
           Phoenix.PubSub.broadcast(
-            unquote(registry).__verified_pubsub_name__(),
+            unquote(manifest).__verified_pubsub_name__(),
             vp_topic,
             vp_message
           )
@@ -152,20 +152,20 @@ defmodule VerifiedPubSub.Api do
       end
 
     quote do
-      unquote(bind_topic(registry, topic_struct, params))
+      unquote(bind_topic(manifest, topic_struct, params))
 
       # Bound once, so the payload expression is not evaluated twice, and validated
       # before anything is sent.
       vp_payload =
         VerifiedPubSub.Payload.validate!(
-          unquote(registry),
+          unquote(manifest),
           unquote(topic_struct.name),
           unquote(event),
           unquote(payload)
         )
 
       vp_message = %VerifiedPubSub.Message{
-        registry: unquote(registry),
+        manifest: unquote(manifest),
         topic: unquote(topic_struct.name),
         event: unquote(event),
         params: vp_params,
@@ -179,7 +179,7 @@ defmodule VerifiedPubSub.Api do
   # Binds `vp_params` and `vp_topic`. The vars are created with this module's context so
   # they match the `vp_params` / `vp_topic` written literally inside the `quote` blocks
   # above, which hygiene also stamps with this module.
-  defp bind_topic(registry, topic_struct, params) do
+  defp bind_topic(manifest, topic_struct, params) do
     pvar = Macro.var(:vp_params, __MODULE__)
     tvar = Macro.var(:vp_topic, __MODULE__)
     literals = String.split(topic_struct.pattern, ~r/%\{[^}]*\}/)
@@ -191,7 +191,7 @@ defmodule VerifiedPubSub.Api do
         quote do
           unquote(acc) <>
             VerifiedPubSub.Topic.segment!(
-              unquote(registry),
+              unquote(manifest),
               unquote(topic_struct.name),
               unquote(param),
               Map.fetch!(unquote(pvar), unquote(param))
@@ -210,25 +210,25 @@ defmodule VerifiedPubSub.Api do
   # -- compile-time validation -------------------------------------------------
 
   defp resolve!(caller, topic_ast) do
-    registry = registry!(caller)
+    manifest = manifest!(caller)
     topic = literal_atom!(caller, topic_ast, "topic")
 
-    case Info.topic(registry, topic) do
+    case Info.topic(manifest, topic) do
       {:ok, topic_struct} ->
-        {registry, topic_struct}
+        {manifest, topic_struct}
 
       :error ->
-        known = registry |> Info.topics() |> Enum.map(& &1.name) |> Enum.sort()
+        known = manifest |> Info.topics() |> Enum.map(& &1.name) |> Enum.sort()
 
         raise_compile_error(caller, """
-        unknown topic #{inspect(topic)} in #{inspect(registry)}.
+        unknown topic #{inspect(topic)} in #{inspect(manifest)}.
 
         Declared topics: #{inspect(known)}
         """)
     end
   end
 
-  defp validate_event!(caller, registry, topic_struct, event_ast) do
+  defp validate_event!(caller, manifest, topic_struct, event_ast) do
     event = literal_atom!(caller, event_ast, "event")
     declared = Enum.map(topic_struct.messages, & &1.name)
 
@@ -236,7 +236,7 @@ defmodule VerifiedPubSub.Api do
       event
     else
       elsewhere =
-        registry
+        manifest
         |> Info.topics()
         |> Enum.filter(&(event in Enum.map(&1.messages, fn m -> m.name end)))
         |> Enum.map(& &1.name)
@@ -281,10 +281,10 @@ defmodule VerifiedPubSub.Api do
   # A payload built at runtime can only be checked by VerifiedPubSub.Payload when the
   # broadcast runs. A literal map, though, is fully known here, so the same checks run at
   # compile time and fail the build instead.
-  defp validate_literal_payload!(caller, registry, topic, event, {:%{}, _, pairs})
+  defp validate_literal_payload!(caller, manifest, topic, event, {:%{}, _, pairs})
        when is_list(pairs) do
     with keys when is_list(keys) <- literal_keys(pairs) do
-      fields = Info.fields(registry, topic, event)
+      fields = Info.fields(manifest, topic, event)
       declared = Enum.map(fields, & &1.name)
       required = fields |> Enum.filter(& &1.required) |> Enum.map(& &1.name)
 
@@ -305,7 +305,7 @@ defmodule VerifiedPubSub.Api do
     :ok
   end
 
-  defp validate_literal_payload!(_caller, _registry, _topic, _event, _payload), do: :ok
+  defp validate_literal_payload!(_caller, _manifest, _topic, _event, _payload), do: :ok
 
   # Only values that are literals in the AST can be judged. A variable or a call is left
   # to the runtime check.
@@ -391,22 +391,22 @@ defmodule VerifiedPubSub.Api do
     expected a literal atom for #{role}, got: #{Macro.to_string(ast)}
 
     These are macros, so the #{role} must be known at compile time in order to be
-    verified. For a value chosen at runtime, look it up in the registry yourself with
+    verified. For a value chosen at runtime, look it up in the manifest yourself with
     VerifiedPubSub.Info and call Phoenix.PubSub directly.
     """)
   end
 
-  defp registry!(caller) do
-    case Module.get_attribute(caller.module, :verified_pubsub_registry) do
+  defp manifest!(caller) do
+    case Module.get_attribute(caller.module, :verified_pubsub_manifest) do
       nil ->
         raise_compile_error(caller, """
-        no registry is in scope.
+        no manifest is in scope.
 
-        Add `use VerifiedPubSub, registry: MyApp.Topics` to #{inspect(caller.module)}.
+        Add `use VerifiedPubSub, manifest: MyApp.Topics` to #{inspect(caller.module)}.
         """)
 
-      registry ->
-        registry
+      manifest ->
+        manifest
     end
   end
 

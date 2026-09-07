@@ -4,13 +4,13 @@ defmodule VerifiedPubSub do
 
   A broadcast and its handler are normally two string literals in two files with
   nothing tying them together, so renaming or deleting an event leaves dead handlers
-  and unhandled messages behind, silently. `VerifiedPubSub` makes a registry the single
+  and unhandled messages behind, silently. `VerifiedPubSub` makes a manifest the single
   source of truth and turns that drift into compile-time failures.
 
-  ## The registry
+  ## The manifest
 
       defmodule MyApp.Topics do
-        use VerifiedPubSub.Registry, pubsub: MyApp.PubSub
+        use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
         topic :campaigns, "accounts:%{account_id}:campaigns" do
           message :created do
@@ -24,14 +24,15 @@ defmodule VerifiedPubSub do
         end
       end
 
-  `:campaigns` is an alias used to build function names; the string is the wire topic.
+  `:campaigns` is the name call sites use; the string is the wire topic, so renaming the
+  pattern never touches a call site.
   `%{account_id}` marks a parameter, and the parameter list is derived from the pattern
   rather than declared twice.
 
   ## Broadcasting
 
       defmodule MyApp.Campaigns do
-        use VerifiedPubSub, registry: MyApp.Topics
+        use VerifiedPubSub, manifest: MyApp.Topics
 
         def create(attrs) do
           # ...
@@ -39,7 +40,7 @@ defmodule VerifiedPubSub do
         end
       end
 
-  `use VerifiedPubSub, registry: ...` imports `VerifiedPubSub.Api`. Topic and event are
+  `use VerifiedPubSub, manifest: ...` imports `VerifiedPubSub.Api`. Topic and event are
   ordinary arguments, but because these are macros they must be **literal atoms** — that
   is what makes a typo a compile error. Params may be built at runtime.
 
@@ -60,7 +61,7 @@ defmodule VerifiedPubSub do
 
       defmodule MyApp.Worker do
         use GenServer
-        use VerifiedPubSub.Subscriber, registry: MyApp.Topics
+        use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
 
         def init(account_id) do
           :ok = subscribe(:campaigns, %{account_id: account_id})
@@ -95,8 +96,8 @@ defmodule VerifiedPubSub do
   Enforced as a hard compile error:
 
     * a subscriber that does not account for every event on a topic it subscribes to
-    * a subscriber that handles an event the registry does not declare, or names a
-      topic the registry does not declare
+    * a subscriber that handles an event the manifest does not declare, or names a
+      topic the manifest does not declare
     * duplicate topics, duplicate events on one topic, and malformed topic patterns
     * a `%{param}` that does not fill a whole `:`-delimited segment of its pattern
     * two topics whose patterns can match the same wire topic
@@ -135,7 +136,7 @@ defmodule VerifiedPubSub do
   `:any`, a `{:list, type}` tuple, or a struct module. An unknown type is a compile error.
 
   **The payload is a map of exactly the declared fields.** Undeclared keys are rejected,
-  which keeps the registry an accurate description of what is on the wire. It also means a
+  which keeps the manifest an accurate description of what is on the wire. It also means a
   struct cannot be the payload itself — it carries `__struct__` and every one of its own
   keys — so put it in a field:
 
@@ -170,32 +171,32 @@ defmodule VerifiedPubSub do
   type inference does not narrow across clause heads on a remote call, so
   `broadcast(:campaigns, params, :creatd, ...)` would fail only at runtime.
 
-  The cost is that every calling module needs `use VerifiedPubSub, registry: ...`, and
+  The cost is that every calling module needs `use VerifiedPubSub, manifest: ...`, and
   macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules that
   `use VerifiedPubSub.Subscriber` already have the import.
   """
 
   @doc """
-  Imports the atom-first macros in `VerifiedPubSub.Api`, bound to `registry`.
+  Imports the atom-first macros in `VerifiedPubSub.Api`, bound to `manifest`.
   """
   defmacro __using__(opts) do
-    registry = opts |> Keyword.fetch!(:registry) |> Macro.expand(__CALLER__)
+    manifest = opts |> Keyword.fetch!(:manifest) |> Macro.expand(__CALLER__)
     module = __CALLER__.module
 
     # Set during expansion, not from inside the quote: Elixir expands the macros in a
     # module body before the body's runtime calls execute, so an assignment in the quote
     # would not be visible to a `broadcast!` further down the same module.
-    case Module.get_attribute(module, :verified_pubsub_registry) do
+    case Module.get_attribute(module, :verified_pubsub_manifest) do
       nil ->
-        Module.put_attribute(module, :verified_pubsub_registry, registry)
+        Module.put_attribute(module, :verified_pubsub_manifest, manifest)
 
-      ^registry ->
+      ^manifest ->
         :ok
 
       other ->
         raise ArgumentError,
-              "#{inspect(module)} is already bound to registry #{inspect(other)}, " <>
-                "cannot also bind #{inspect(registry)}"
+              "#{inspect(module)} is already bound to manifest #{inspect(other)}, " <>
+                "cannot also bind #{inspect(manifest)}"
     end
 
     quote do

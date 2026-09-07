@@ -7,7 +7,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     """
     defmodule #{unique_module("VPTest.Sub")} do
       use VerifiedPubSub.Subscriber,
-        registry: VerifiedPubSub.TestRegistries.Basic#{opts}
+        manifest: VerifiedPubSub.TestManifests.Basic#{opts}
 
       #{body}
     end
@@ -101,7 +101,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     error =
       compile_error("""
       defmodule #{unique_module("VPTest.TwoTopics")} do
-        use VerifiedPubSub.Subscriber, registry: VerifiedPubSub.TestRegistries.Basic
+        use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
         handle_message :system, :alert, p, s do
           {:noreply, {p, s}}
@@ -123,7 +123,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     error =
       compile_error("""
       defmodule #{unique_module("VPTest.TypoTopic")} do
-        use VerifiedPubSub.Subscriber, registry: VerifiedPubSub.TestRegistries.Basic
+        use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
         handle_message :campaign, :created, p, s do
           {:noreply, {p, s}}
@@ -142,7 +142,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       compile_error("""
       defmodule #{unique_module("VPTest.OldTopics")} do
         use VerifiedPubSub.Subscriber,
-          registry: VerifiedPubSub.TestRegistries.Basic,
+          manifest: VerifiedPubSub.TestManifests.Basic,
           topics: [:campaigns]
       end
       """)
@@ -292,7 +292,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       compile_error("""
       defmodule #{unique_module("VPTest.BadOpts")} do
         use VerifiedPubSub.Subscriber,
-          registry: VerifiedPubSub.TestRegistries.Basic,
+          manifest: VerifiedPubSub.TestManifests.Basic,
           bogus: true
       end
       """)

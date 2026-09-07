@@ -1,6 +1,6 @@
 defmodule VerifiedPubSub.Transformers.ValidateTopics do
   @moduledoc """
-  Validates the registry, raising at compile time.
+  Validates the manifest, raising at compile time.
 
   This is a Transformer rather than a Verifier deliberately: a Verifier returning
   `{:error, _}` runs via `@after_verify`, which downgrades the error to a warning and

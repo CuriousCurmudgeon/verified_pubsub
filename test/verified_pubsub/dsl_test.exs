@@ -2,7 +2,7 @@ defmodule VerifiedPubSub.DslTest do
   use ExUnit.Case, async: true
 
   alias VerifiedPubSub.Info
-  alias VerifiedPubSub.TestRegistries.Basic
+  alias VerifiedPubSub.TestManifests.Basic
 
   test "topics are parsed at the top level, without a wrapper block" do
     assert [:campaigns, :shapes, :system] =
@@ -36,7 +36,7 @@ defmodule VerifiedPubSub.DslTest do
     assert [{:id, :string}, {:name, :string}] = Enum.map(created.fields, &{&1.name, &1.type})
   end
 
-  test "the registry records its Phoenix.PubSub name" do
+  test "the manifest records its Phoenix.PubSub name" do
     assert Basic.__verified_pubsub_name__() == VerifiedPubSub.TestPubSub
   end
 
@@ -44,7 +44,7 @@ defmodule VerifiedPubSub.DslTest do
     error =
       VerifiedPubSub.CompileHelper.compile_error("""
       defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.NoPubSub")} do
-        use VerifiedPubSub.Registry
+        use VerifiedPubSub.Manifest
 
         topic :campaigns, "campaigns" do
           message :created do

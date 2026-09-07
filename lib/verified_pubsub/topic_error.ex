@@ -8,13 +8,13 @@ defmodule VerifiedPubSub.TopicError do
   subscribers. See `VerifiedPubSub.Topic`.
   """
 
-  defexception [:registry, :topic, :pattern, :param, :value, :reason]
+  defexception [:manifest, :topic, :pattern, :param, :value, :reason]
 
   @impl true
   def message(%__MODULE__{} = error) do
     """
     invalid value for topic param #{inspect(error.param)} on #{inspect(error.topic)} in \
-    #{inspect(error.registry)}:
+    #{inspect(error.manifest)}:
 
       #{detail(error)}
 

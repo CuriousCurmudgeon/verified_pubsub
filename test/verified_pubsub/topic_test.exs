@@ -1,7 +1,7 @@
 defmodule VerifiedPubSub.TopicTest do
   use ExUnit.Case, async: true
 
-  use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+  use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
   alias VerifiedPubSub.Message
   alias VerifiedPubSub.TopicError
@@ -69,7 +69,7 @@ defmodule VerifiedPubSub.TopicTest do
 
   describe "cross-topic delivery" do
     defmodule Adjacent do
-      use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Adjacent
+      use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Adjacent
 
       def listen_long(x), do: subscribe(:long, %{x: x})
       def ping_short(x, tag), do: broadcast!(:short, %{x: x}, :ping, %{tag: tag})

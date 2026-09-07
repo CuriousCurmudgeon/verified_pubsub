@@ -1,6 +1,6 @@
 defmodule VerifiedPubSub.Payload do
   @moduledoc """
-  Runtime validation of broadcast payloads against the registry.
+  Runtime validation of broadcast payloads against the manifest.
 
   Runs on every broadcast, in every environment. The cost is one pass over the declared
   fields plus a key-set comparison, which is negligible beside the PubSub send it guards.
@@ -10,14 +10,14 @@ defmodule VerifiedPubSub.Payload do
   alias VerifiedPubSub.PayloadError
 
   @doc """
-  Checks `payload` against the fields the registry declares for `{topic, event}`,
+  Checks `payload` against the fields the manifest declares for `{topic, event}`,
   raising `VerifiedPubSub.PayloadError` on any mismatch.
 
   Returns the payload unchanged so it can be used inline.
   """
   @spec validate!(module(), atom(), atom(), term()) :: term()
-  def validate!(registry, topic, event, payload) do
-    fields = registry.__verified_pubsub_fields__(topic, event)
+  def validate!(manifest, topic, event, payload) do
+    fields = manifest.__verified_pubsub_fields__(topic, event)
 
     case problems(fields, payload) do
       [] ->
@@ -25,7 +25,7 @@ defmodule VerifiedPubSub.Payload do
 
       problems ->
         raise PayloadError,
-          registry: registry,
+          manifest: manifest,
           topic: topic,
           event: event,
           payload: payload,

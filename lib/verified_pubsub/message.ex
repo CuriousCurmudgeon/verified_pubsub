@@ -7,13 +7,13 @@ defmodule VerifiedPubSub.Message do
   """
 
   @type t :: %__MODULE__{
-          registry: module(),
+          manifest: module(),
           topic: atom(),
           event: atom(),
           params: map(),
           payload: term()
         }
 
-  @enforce_keys [:registry, :topic, :event]
-  defstruct [:registry, :topic, :event, params: %{}, payload: nil]
+  @enforce_keys [:manifest, :topic, :event]
+  defstruct [:manifest, :topic, :event, params: %{}, payload: nil]
 end

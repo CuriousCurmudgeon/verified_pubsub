@@ -1,14 +1,14 @@
 defmodule VerifiedPubSub.PayloadTest do
   use ExUnit.Case, async: true
 
-  use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+  use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
   import VerifiedPubSub.CompileHelper
 
   alias VerifiedPubSub.Message
   alias VerifiedPubSub.Payload
   alias VerifiedPubSub.PayloadError
-  alias VerifiedPubSub.TestRegistries.Basic
+  alias VerifiedPubSub.TestManifests.Basic
   alias VerifiedPubSub.TestStructs.Point
 
   setup do
@@ -142,7 +142,7 @@ defmodule VerifiedPubSub.PayloadTest do
         assert_raise PayloadError, fn ->
           broadcast!(:shapes, %{owner_id: id}, :structured, %{
             point: %Message{
-              registry: Basic,
+              manifest: Basic,
               topic: :a,
               event: :b
             }
@@ -205,7 +205,7 @@ defmodule VerifiedPubSub.PayloadTest do
     defp source(payload) do
       """
       defmodule #{unique_module("VPTest.Payload")} do
-        use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
         def go(id), do: broadcast!(:shapes, %{owner_id: id}, :bare, #{payload})
       end
       """
@@ -255,7 +255,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.MapUpdate")} do
-                 use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+                 use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
                  def go(id, base) do
                    broadcast!(:shapes, %{owner_id: id}, :bare, %{base | id: "x"})
@@ -269,7 +269,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.MapUpdateParams")} do
-                 use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+                 use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
                  def go(base) do
                    broadcast!(:shapes, %{base | owner_id: "1"}, :bare, %{id: "x"})
@@ -285,7 +285,7 @@ defmodule VerifiedPubSub.PayloadTest do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.BadType")} do
-          use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
+          use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
           topic :t, "t" do
             message :e do
@@ -305,7 +305,7 @@ defmodule VerifiedPubSub.PayloadTest do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.BadInner")} do
-          use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
+          use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
           topic :t, "t" do
             message :e do
@@ -323,7 +323,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.StructType")} do
-                 use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
+                 use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
                  topic :t, "t" do
                    message :e do

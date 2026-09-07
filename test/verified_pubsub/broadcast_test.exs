@@ -1,12 +1,12 @@
 defmodule VerifiedPubSub.BroadcastTest do
   use ExUnit.Case, async: true
 
-  use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+  use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
   import VerifiedPubSub.CompileHelper
 
   alias VerifiedPubSub.Message
-  alias VerifiedPubSub.TestRegistries.Basic
+  alias VerifiedPubSub.TestManifests.Basic
 
   setup do
     %{account_id: unique_account_id()}
@@ -29,7 +29,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     assert :ok = broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
 
     assert_receive %Message{
-      registry: Basic,
+      manifest: Basic,
       topic: :campaigns,
       event: :created,
       params: %{account_id: ^id},
@@ -134,7 +134,7 @@ defmodule VerifiedPubSub.BroadcastTest do
 
     assert_receive {:got,
                     %Message{
-                      registry: Basic,
+                      manifest: Basic,
                       topic: :campaigns,
                       event: :created,
                       params: %{account_id: ^id},
@@ -189,7 +189,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.NoParams")} do
-          use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+          use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
           def go(payload), do: broadcast!(:campaigns, :created, payload)
         end
         """)
@@ -206,7 +206,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.NoPayload")} do
-          use VerifiedPubSub, registry: VerifiedPubSub.TestRegistries.Basic
+          use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
           def go(id), do: broadcast!(:campaigns, %{account_id: id}, :created)
         end
         """)

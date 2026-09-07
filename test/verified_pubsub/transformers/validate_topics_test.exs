@@ -3,19 +3,19 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
 
   import VerifiedPubSub.CompileHelper
 
-  defp registry_source(body) do
+  defp manifest_source(body) do
     """
     defmodule #{unique_module("VPTest.Validate")} do
-      use VerifiedPubSub.Registry, pubsub: VerifiedPubSub.TestPubSub
+      use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
       #{body}
     end
     """
   end
 
-  test "a valid registry compiles" do
+  test "a valid manifest compiles" do
     assert is_atom(
              compile!(
-               registry_source("""
+               manifest_source("""
                topic :campaigns, "accounts:%{account_id}:campaigns" do
                  message :created do
                    field :id, :string
@@ -29,7 +29,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   test "duplicate topic names are a compile error" do
     error =
       compile_error(
-        registry_source("""
+        manifest_source("""
         topic :campaigns, "a" do
           message :created do
           end
@@ -50,7 +50,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   test "duplicate event names within a topic are a compile error" do
     error =
       compile_error(
-        registry_source("""
+        manifest_source("""
         topic :campaigns, "a" do
           message :created do
           end
@@ -69,7 +69,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   test "the same event name on two different topics is allowed" do
     assert is_atom(
              compile!(
-               registry_source("""
+               manifest_source("""
                topic :campaigns, "a" do
                  message :created do
                  end
@@ -87,7 +87,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   test "a malformed pattern is a compile error" do
     error =
       compile_error(
-        registry_source("""
+        manifest_source("""
         topic :campaigns, "a:%{oops" do
           message :created do
           end
@@ -102,7 +102,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   test "a topic with no events is a compile error" do
     error =
       compile_error(
-        registry_source("""
+        manifest_source("""
         topic :campaigns, "a" do
         end
         """)
@@ -120,7 +120,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     test "a param that does not fill a whole segment is a compile error" do
       error =
         compile_error(
-          registry_source("""
+          manifest_source("""
           topic :campaigns, "accounts:acct%{account_id}:campaigns" do
             message :created do
               field :id, :string
@@ -139,7 +139,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     test "two params in one segment are a compile error" do
       error =
         compile_error(
-          registry_source("""
+          manifest_source("""
           topic :campaigns, "accounts:%{org_id}%{account_id}" do
             message :created do
               field :id, :string
@@ -155,7 +155,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     test "a param filling the entire pattern is fine" do
       assert is_atom(
                compile!(
-                 registry_source("""
+                 manifest_source("""
                  topic :t, "%{id}" do
                    message :e do
                      field :id, :string
@@ -171,7 +171,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     test "two patterns that can match the same topic string are a compile error" do
       error =
         compile_error(
-          registry_source("""
+          manifest_source("""
           topic :campaigns, "accounts:%{account_id}:campaigns" do
             message :created do
               field :id, :string
@@ -196,7 +196,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     test "patterns distinguished by a literal segment are fine" do
       assert is_atom(
                compile!(
-                 registry_source("""
+                 manifest_source("""
                  topic :campaigns, "accounts:%{account_id}:campaigns" do
                    message :created do
                      field :id, :string
@@ -216,7 +216,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     test "patterns of different segment counts are fine" do
       assert is_atom(
                compile!(
-                 registry_source("""
+                 manifest_source("""
                  topic :short, "a:%{x}" do
                    message :e do
                      field :id, :string
