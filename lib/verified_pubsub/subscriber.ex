@@ -64,6 +64,18 @@ defmodule VerifiedPubSub.Subscriber do
   ignore unrelated messages, and letting it swallow this one would hide the collision
   permanently.
 
+  For hard isolation, give each manifest its own `Phoenix.PubSub`. Separate instances are
+  separate registries, so a colliding topic is never delivered at all:
+
+      children = [
+        Supervisor.child_spec({Phoenix.PubSub, name: Campaigns.PubSub}, id: :campaigns_pubsub),
+        Supervisor.child_spec({Phoenix.PubSub, name: Accounts.PubSub}, id: :accounts_pubsub)
+      ]
+
+  Which modules may bind which manifest is a separate, ordinary dependency-boundary
+  question. A manifest is just a module, so `mix xref` or the `boundary` package enforces
+  that better than this library could.
+
   ## Messages this module does not expect
 
   Defining any `handle_info/2` clause discards the default that `use GenServer` and

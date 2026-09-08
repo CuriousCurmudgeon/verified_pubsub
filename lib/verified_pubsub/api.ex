@@ -19,8 +19,34 @@ defmodule VerifiedPubSub.Api do
   may be built at runtime; a literal params map is checked at compile time, and a dynamic
   one raises `KeyError` from `Map.fetch!/2` when a key is missing.
 
+  ## Why macros rather than functions
+
+  Plain functions taking atoms cannot be verified at compile time. Elixir's type inference
+  does not narrow across clause heads on a remote call, so a `broadcast/4` defined as
+
+      def broadcast(:campaigns, %{account_id: id}, :created, payload), do: ...
+
+  produces **no diagnostic at all** for `broadcast(:campaigns, params, :creatd, ...)`
+  — verified empirically on Elixir 1.20.4. It fails at runtime instead. A macro can look
+  the topic and event up in the manifest while your code compiles.
+
   The costs: every calling module needs the import, and macros cannot be piped into,
   captured with `&`, or called via `apply/3`.
+
+  ## Skipping the sender
+
+  `broadcast_from/5` and `broadcast_from!/5` mirror `Phoenix.PubSub.broadcast_from/4`,
+  `from` leading for the same reason it does there, and carry the same semantics:
+
+      broadcast_from!(self(), :campaigns, %{account_id: id}, :created, payload)
+
+  The usual reason to want this is a LiveView that both writes to a topic and subscribes
+  to it, which would otherwise apply its own change twice.
+
+  `from` is whichever pid you pass, so `self()` is the *calling* process. When the
+  broadcast happens inside a context function, a `Task`, or an Oban job, `self()` is
+  *that* process rather than the one that started the request — pass the originating pid
+  explicitly there.
   """
 
   alias VerifiedPubSub.Info

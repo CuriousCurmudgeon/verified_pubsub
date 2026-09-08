@@ -5,6 +5,15 @@ defmodule VerifiedPubSub.PayloadError do
   Raised by both `broadcast/4` and `broadcast!/4`: a shape violation is a bug in the
   calling code, not an operational condition, so `{:error, _}` stays reserved for
   transport failures a caller might reasonably handle.
+
+  Every problem is reported at once rather than the first:
+
+      invalid payload for :campaigns :created in MyApp.Topics:
+
+        * missing required key: :id
+        * unexpected key: :extra — not declared on this event
+        * :name is declared as :string, got: 42
+
   """
 
   defexception [:manifest, :topic, :event, :problems, :payload]
