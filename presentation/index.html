@@ -286,6 +286,45 @@ Manifest: MyApp.Topics</code></pre>
         hljs.highlightElement(block);
       });
 
+      // Give every code block the largest type that still fits its slide, so a
+      // four-line snippet is not set at the size the longest listing needs. Text
+      // metrics rather than measured layout, because slides that are not on screen
+      // have no layout to measure.
+      const CHAR_W = 0.6; // monospace advance, as a fraction of the font size
+      const LINE_H = 1.45; // keep in step with --code-line-height in theme.css
+      const PAD = 1.8; // the 0.9em top and bottom padding on a block
+      const GAP = 24; // the 0.6em margin between two stacked blocks
+      const MIN_PX = 12;
+      const MAX_PX = 26;
+      const CONTENT_W = 1150; // usable width inside the 1280x800 slide
+      const CONTENT_H = 620;
+      const HEADING_H = 110; // an h2 plus its bottom margin
+
+      document.querySelectorAll(".slides > section").forEach((section) => {
+        const blocks = [...section.querySelectorAll("pre > code")];
+        if (!blocks.length) return;
+
+        const shape = blocks.map((b) => {
+          const lines = b.textContent.split("\n");
+          return { rows: lines.length, cols: Math.max(...lines.map((l) => l.length)) };
+        });
+        const rows = shape.reduce((n, s) => n + s.rows, 0);
+        const budget =
+          CONTENT_H -
+          (section.querySelector("h2") ? HEADING_H : 0) -
+          GAP * (blocks.length - 1);
+
+        // One height-derived size for the slide keeps stacked blocks consistent;
+        // width is then capped per block by its own longest line.
+        const byHeight = budget / (rows * LINE_H + PAD * blocks.length);
+
+        blocks.forEach((block, i) => {
+          const byWidth = CONTENT_W / (shape[i].cols * CHAR_W);
+          const px = Math.max(MIN_PX, Math.min(MAX_PX, byHeight, byWidth));
+          block.parentElement.style.fontSize = px.toFixed(1) + "px";
+        });
+      });
+
       Reveal.initialize({
         plugins: [RevealNotes],
         center: true,

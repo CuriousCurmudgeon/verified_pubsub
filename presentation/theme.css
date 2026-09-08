@@ -7,6 +7,8 @@
   --accent: #4b2ea8;
   --warn: #a01f2e;
   --code-bg: #23272e; /* matches atom-one-dark's background */
+  --code-line-height: 1.45; /* LINE_H in the code-fitting script must match this */
+  --mono: "SF Mono", Menlo, Monaco, Consolas, monospace;
 }
 
 .reveal {
@@ -30,12 +32,13 @@
   font-weight: 700;
   line-height: 1.12;
   letter-spacing: -0.02em;
-  margin: 0 0 0.7em 0;
+  margin: 0 0 0.55em 0;
   text-transform: none;
+  text-wrap: balance;
 }
 
 .reveal h1 {
-  font-size: 2.1em;
+  font-size: 2.4em;
 }
 
 .reveal h2 {
@@ -60,14 +63,6 @@
   line-height: 1.35;
 }
 
-.reveal ul.tight {
-  font-size: 0.8em;
-}
-
-.reveal ul.tight li {
-  margin-bottom: 0.45em;
-}
-
 .reveal .kicker {
   margin-top: 0.9em;
   font-size: 0.72em;
@@ -75,14 +70,30 @@
   line-height: 1.4;
 }
 
-/* ---- title slide ---- */
+/* ---- slides that are nothing but a heading ----------------------------------
+   A lone heading in the left-aligned content layout reads as a stranded label,
+   so these get the full-slide treatment instead: centered and much larger. The
+   :has() test is what keeps this automatic -- add or remove body content on a
+   slide and it moves in or out of this style with no class to remember. Note
+   the `>` in each test: notes carry <p> tags, and those must not count.        */
 
-.reveal .title {
-  text-align: left;
+.reveal .slides > section:has(> h2):not(:has(> pre)):not(:has(> p)):not(:has(> ul)):not(:has(> div)),
+.reveal .slides > section.title,
+.reveal .slides > section.statement,
+.reveal .slides > section.outro {
+  text-align: center;
 }
 
+.reveal .slides > section:has(> h2):not(:has(> pre)):not(:has(> p)):not(:has(> ul)):not(:has(> div)) > h2 {
+  font-size: 2.4em;
+  margin: 0 auto;
+  max-width: 22ch;
+}
+
+/* ---- title slide ---- */
+
 .reveal .title h1 {
-  margin-bottom: 0.5em;
+  margin-bottom: 0.45em;
 }
 
 .reveal .title .byline {
@@ -99,61 +110,40 @@
 
 /* ---- big statement slides ---- */
 
-.reveal .statement {
-  text-align: left;
-}
-
 .reveal .statement .big {
-  font-size: 1.35em;
+  font-size: 2.4em;
+  text-wrap: balance;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
   letter-spacing: -0.02em;
-  margin: 0 0 0.6em 0;
+  margin: 0;
 }
 
 .reveal .statement .big.em {
   color: var(--accent);
-  margin-bottom: 0;
 }
 
-/* ---- the two positions in the debate ---- */
-
-.reveal .two-up {
-  display: flex;
-  gap: 0.6em;
-  margin: 0.2em 0 0 0;
-}
-
-.reveal .two-up .pos {
-  flex: 1;
-  border-top: 3px solid var(--rule);
-  padding-top: 0.4em;
-  font-size: 0.85em;
-  line-height: 1.3;
-}
-
-.reveal .two-up .who {
-  display: block;
-  font-size: 0.62em;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.35em;
-}
-
-/* ---- code ---- */
+/* ---- code ----
+   Sized by the fitting script in index.html, which sets a px font-size per
+   block. The em value here is only the pre-script fallback. A block shrinks to
+   its contents rather than ruling a full-width band across the slide for the
+   sake of one short line.                                                      */
 
 .reveal pre {
   display: block;
-  width: 100%;
-  margin: 0 0 0.6em 0;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 0.6em 0;
   padding: 0;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
   border-radius: 8px;
   background: var(--code-bg);
   font-size: 0.46em;
-  overflow: visible;
+  overflow-x: auto;
+}
+
+.reveal pre:last-of-type {
+  margin-bottom: 0;
 }
 
 .reveal pre code {
@@ -161,18 +151,17 @@
   padding: 0.9em 1.1em;
   border-radius: 8px;
   background: var(--code-bg);
-  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 1em;
-  line-height: 1.45;
+  line-height: var(--code-line-height);
   max-height: none;
   overflow: visible;
-  word-wrap: normal;
   white-space: pre;
   tab-size: 2;
 }
 
 .reveal code.inline {
-  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 0.9em;
   background: #eef0f3;
   border-radius: 4px;
@@ -180,39 +169,40 @@
   color: var(--ink);
 }
 
-/* Compiler output: same dark panel, but plain and a size smaller, since the lines
-   are long and it is meant to be scanned rather than read. */
+/* Compiler output: the same dark panel, but unstyled by the highlighter and
+   marked with a red edge, so it reads as the compiler talking back rather than
+   as more code to study. */
 .reveal pre.term {
   box-shadow: none;
   border-left: 4px solid var(--warn);
-  font-size: 0.34em;
 }
 
 .reveal pre.term code {
   color: #c8cdd6;
   border-radius: 0 8px 8px 0;
-  white-space: pre-wrap;
 }
 
-/* ---- outro ---- */
+/* ---- outro ----
+   column-reverse puts the QR above the URL while leaving the markup order
+   alone, so the code is the thing people look at and the URL reads as its
+   caption. */
 
 .reveal .outro-grid {
   display: flex;
+  flex-direction: column-reverse;
   align-items: center;
-  gap: 1.2em;
+  gap: 0.45em;
 }
 
 .reveal .outro .repo {
-  margin: 0.7em 0 0 0;
-  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  margin: 0;
+  font-family: var(--mono);
   font-size: 0.6em;
   color: var(--accent);
-  word-break: break-all;
 }
 
 .reveal .outro .qr {
-  flex: 0 0 auto;
-  width: 300px;
+  width: 340px;
 }
 
 .reveal .outro .qr svg {
