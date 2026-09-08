@@ -66,4 +66,27 @@ defmodule VerifiedPubSub.TestManifests do
       end
     end
   end
+
+  # Two manifests sharing a pubsub and declaring the *same* wire pattern with different
+  # payload contracts. Disjointness is checked within a manifest, not across them, so this
+  # is legal -- and it is how a message can reach a subscriber bound to the other one.
+  defmodule CollideA do
+    use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
+
+    topic :campaigns, "collide:%{account_id}:campaigns" do
+      message :created do
+        field :id, :string
+      end
+    end
+  end
+
+  defmodule CollideB do
+    use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
+
+    topic :campaigns, "collide:%{account_id}:campaigns" do
+      message :created do
+        field :email, :string
+      end
+    end
+  end
 end

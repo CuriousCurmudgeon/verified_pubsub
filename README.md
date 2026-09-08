@@ -200,6 +200,8 @@ works too, for anything else it carries.
   handle like a network blip.
 - topic param values — a value must be non-empty and must not contain `:`. Raises
   `VerifiedPubSub.TopicError`. See "Topic patterns" below for why.
+- the sending manifest — a subscriber refuses a message declared by any manifest other
+  than its own. Raises `VerifiedPubSub.ManifestMismatchError`.
 
 **Not checked:**
 
@@ -276,12 +278,50 @@ rather than being logged. That is normal for any GenServer with a custom
 `handle_info/2`, and it cannot be avoided: Elixir 1.20 made `super/2` for GenServer
 callbacks a hard error, so the default body is unreachable.
 
-The generated clause is emitted at the `use` site, so your own `handle_info/2` clauses
-are matched after it. Add a catch-all if your process receives other messages:
+The generated clauses are emitted at the `use` site, so your own `handle_info/2` clauses
+are matched after them. Add a catch-all if your process receives other messages:
 
 ```elixir
 def handle_info(_other, state), do: {:noreply, state}
 ```
+
+## Several manifests in one application
+
+Nothing stops an application declaring a manifest per context, and a module is bound to
+exactly one — binding a second is a compile error.
+
+Isolation between them is *not* automatic. Two manifests that share a `:pubsub` can
+declare patterns that build the same wire topic, because disjointness is checked within a
+manifest and a manifest cannot see its siblings while it compiles. `Phoenix.PubSub` then
+delivers the message, and its topic and event atoms may match a clause in the wrong
+subscriber — while its payload follows the *sender's* declarations.
+
+A subscriber therefore refuses any message from a manifest other than its own, raising
+`VerifiedPubSub.ManifestMismatchError`:
+
+```
+MyAppWeb.CampaignsLive is bound to Campaigns.Manifest but received a message
+declared by Accounts.Manifest:
+
+  topic :campaigns, event :created
+```
+
+That clause precedes your own `handle_info/2`, so a catch-all does not absorb it — a
+silently swallowed collision would never be found.
+
+For hard isolation, give each manifest its own `Phoenix.PubSub`; separate instances are
+separate registries, so a colliding topic is never delivered at all:
+
+```elixir
+children = [
+  Supervisor.child_spec({Phoenix.PubSub, name: Campaigns.PubSub}, id: :campaigns_pubsub),
+  Supervisor.child_spec({Phoenix.PubSub, name: Accounts.PubSub}, id: :accounts_pubsub)
+]
+```
+
+Which modules may use which manifest is an ordinary dependency-boundary question — a
+manifest is just a module, so `mix xref` or the `boundary` package enforces it better than
+this library could.
 
 ## Transport
 

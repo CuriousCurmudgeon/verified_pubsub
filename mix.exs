@@ -39,7 +39,8 @@ defmodule VerifiedPubSub.MixProject do
           VerifiedPubSub.Subscriber,
           VerifiedPubSub.Message,
           VerifiedPubSub.PayloadError,
-          VerifiedPubSub.TopicError
+          VerifiedPubSub.TopicError,
+          VerifiedPubSub.ManifestMismatchError
         ],
         Internals: [
           VerifiedPubSub.Broadcast,

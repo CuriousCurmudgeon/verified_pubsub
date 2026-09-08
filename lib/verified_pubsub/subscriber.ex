@@ -29,9 +29,11 @@ defmodule VerifiedPubSub.Subscriber do
 
   ## Generated code
 
-  A single `handle_info/2` clause matching `VerifiedPubSub.Message` is generated at the
-  `use` site. It delegates to private `__verified_pubsub_dispatch__/4` clauses, emitted
-  at `@before_compile`.
+  Two `handle_info/2` clauses are generated at the `use` site. The first matches a
+  `VerifiedPubSub.Message` from *this module's* manifest and delegates to private
+  `__verified_pubsub_dispatch__/4` clauses, emitted at `@before_compile`. The second
+  matches a message from any other manifest and raises
+  `VerifiedPubSub.ManifestMismatchError` — see "Messages from another manifest" below.
 
   `handle_message/5` therefore emits no code of its own; it accumulates the clause into a
   module attribute. That is required because coverage can only be checked once every
@@ -42,8 +44,25 @@ defmodule VerifiedPubSub.Subscriber do
 
   Emitting `handle_info/2` at the `use` site rather than at `@before_compile` is what
   makes your own `handle_info/2` clauses work: they are matched *after* the generated
-  one, so a catch-all of yours receives every non-verified message without shadowing
+  ones, so a catch-all of yours receives every non-verified message without shadowing
   verified ones.
+
+  ## Messages from another manifest
+
+  An application may declare several manifests. Two of them can produce the same wire
+  topic if they share a `:pubsub` and declare patterns that build the same string —
+  disjointness is checked *within* a manifest, since a manifest cannot see its siblings
+  while it compiles.
+
+  When that happens `Phoenix.PubSub` delivers the message, and its `topic` and `event`
+  atoms may well match a clause here. Its payload, though, follows the *sender's* field
+  declarations, so dispatching it would hand a handler a shape the compiler never checked.
+  The generated clause raises `VerifiedPubSub.ManifestMismatchError` instead.
+
+  That clause deliberately precedes any `handle_info/2` you write, so a catch-all of yours
+  does **not** absorb a cross-manifest message. A catch-all is the documented way to
+  ignore unrelated messages, and letting it swallow this one would hide the collision
+  permanently.
 
   ## Messages this module does not expect
 
@@ -59,7 +78,7 @@ defmodule VerifiedPubSub.Subscriber do
         {:noreply, state}
       end
 
-      # Matched after the generated clause, so verified messages still reach it.
+      # Matched after the generated clauses, so verified messages still reach them.
       def handle_info(_other, state), do: {:noreply, state}
   """
 
@@ -112,12 +131,29 @@ defmodule VerifiedPubSub.Subscriber do
       @before_compile VerifiedPubSub.Subscriber
 
       # Defined here, not at @before_compile, so that any handle_info/2 the user
-      # writes is matched after this one. Being quote-generated, this clause carries
-      # `generated: true` metadata, which is why it raises neither the clause-grouping
+      # writes is matched after these. Being quote-generated, they carry
+      # `generated: true` metadata, which is why they raise neither the clause-grouping
       # warning nor the missing-@impl warning. `__verified_pubsub_dispatch__/4` is a
       # forward reference, defined at @before_compile.
-      def handle_info(%VerifiedPubSub.Message{} = message, state) do
+      def handle_info(
+            %VerifiedPubSub.Message{manifest: unquote(manifest)} = message,
+            state
+          ) do
         __verified_pubsub_dispatch__(message.topic, message.event, message, state)
+      end
+
+      # A message from another manifest matches nothing this module verified: the topic
+      # and event atoms may coincide, but the payload follows the sender's declarations.
+      # This clause sits ahead of any user-written handle_info deliberately -- a catch-all
+      # is the documented way to absorb unrelated messages, and letting it swallow a
+      # cross-manifest message would hide the collision permanently.
+      def handle_info(%VerifiedPubSub.Message{} = message, _state) do
+        raise VerifiedPubSub.ManifestMismatchError,
+          subscriber: __MODULE__,
+          expected: unquote(manifest),
+          got: message.manifest,
+          topic: message.topic,
+          event: message.event
       end
     end
   end
