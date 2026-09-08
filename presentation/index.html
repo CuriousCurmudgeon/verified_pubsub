@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verified PubSub — ElixirConf 2026 Lightning Talk</title>
+
+    <link rel="stylesheet" href="vendor/reset.css" />
+    <link rel="stylesheet" href="vendor/reveal.css" />
+    <link rel="stylesheet" href="vendor/atom-one-dark.min.css" />
+    <link rel="stylesheet" href="theme.css" />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+
+        <!-- 1 -->
+        <section class="title">
+          <h1>Verified PubSub</h1>
+          <p class="byline">Brian Meeker</p>
+          <p class="affil">Engineering Manager, GetThru</p>
+          <aside class="notes">
+            Hi everybody! Thanks for coming out to lightning talks. My name is Brian
+            Meeker. I'm currently the engineering manager at GetThru and I'm here to talk
+            to you about pub/sub.
+          </aside>
+        </section>
+
+        <!-- 2 -->
+        <section>
+          <h2>A process gets an event it doesn't expect.</h2>
+          <div class="two-up">
+            <div class="pos"><span class="who">Me</span>It should not crash.</div>
+            <div class="pos"><span class="who">Him</span>It should crash.</div>
+          </div>
+          <p class="kicker">Neither is wrong. Being inconsistent is.</p>
+          <aside class="notes">
+            A couple of years ago one of my co-workers and I were having a debate over how
+            our system should handle pub/sub events. My position was that a process that
+            receives unexpected pub/sub events on a topic should not crash. His opinion was
+            that it should. I don't think there is a right or wrong answer here. I think it
+            depends on your use case. The important thing is to be consistent about your
+            philosophy.
+          </aside>
+        </section>
+
+        <!-- 3 -->
+        <section>
+          <h2>So I went and read our pub/sub code.</h2>
+          <ul>
+            <li>No coherent philosophy for how it should be used or organized</li>
+            <li>No way to see the topics and events our system used</li>
+            <li>Modules called <code class="inline">subscribe</code> and
+              <code class="inline">broadcast</code> directly</li>
+          </ul>
+          <aside class="notes">
+            This took me down a rabbit hole of evaluating our pub/sub code. Frankly, it was
+            a mess. There had never been a coherent philosophy for how it should be used or
+            organized. There was no way to easily see the pub/sub topics and events our
+            system used. Modules called subscribe and broadcast directly.
+          </aside>
+        </section>
+
+        <!-- 4 -->
+        <section class="statement">
+          <p class="big">The same event, broadcast from three modules.</p>
+          <p class="big em">None of them agreed on the shape of the payload.</p>
+          <aside class="notes">
+            The deeper I went, the worse it got. This wasn't surprising. We knew it was bad,
+            but it was still disheartening. The breaking point for me was seeing the same
+            event broadcast from three different modules and none of them agreed on what the
+            shape of the payload should be.
+          </aside>
+        </section>
+
+        <!-- 5 -->
+        <section>
+          <h2>What I wanted was <em>verified routes</em>, for pub/sub.</h2>
+          <p class="kicker">But I'm lazy. I have kids and hobbies. This was metaprogramming
+            well beyond my skill set.</p>
+          <aside class="notes">
+            It would have been really great if we could have some compile-time verification
+            of this stuff. Verified routes was in the realm of what I wanted. But, I'm lazy.
+            I talked to some people about it, but didn't do anything. They were usually
+            intrigued, but I have kids and hobbies. This was metaprogramming work well
+            beyond my current skill set.
+          </aside>
+        </section>
+
+        <!-- 6 -->
+        <section class="statement">
+          <p class="big">We have LLMs now.</p>
+          <p class="big em">Let's talk about Verified PubSub.</p>
+          <aside class="notes">
+            We have LLMs now. Let's talk about verified pub/sub.
+          </aside>
+        </section>
+
+        <!-- 7 -->
+        <section>
+          <h2 class="warn">Do not use any of this in production.</h2>
+          <ul>
+            <li>I haven't used it on a project yet</li>
+            <li>Purely a proof of concept</li>
+            <li>I'll be talking about it at ExMex in November — hopefully much more
+              fleshed out by then</li>
+          </ul>
+          <aside class="notes">
+            But before that. You should not use anything I'm about to show you in production
+            yet! I haven't even used it on any projects yet. This is purely a proof of
+            concept at the moment. I'll be talking about this at ExMex in November. It will
+            hopefully be much more fleshed out by then.
+          </aside>
+        </section>
+
+        <!-- 8 -->
+        <section class="statement">
+          <p class="big">A Phoenix router is a pile of macros that build a data model
+            for verified routes to check against.</p>
+          <p class="big em">Why can't we do that for pub/sub?</p>
+          <aside class="notes">
+            Verified routes works because of the Phoenix router module. For our purposes,
+            the router is a whole bunch of macros that build up a data model for a verified
+            route to validate against. Why can't we do the same thing for pub/sub?
+          </aside>
+        </section>
+
+        <!-- 9 -->
+        <section>
+          <h2>The manifest</h2>
+          <pre><code class="language-elixir">defmodule MyApp.Topics do
+  use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
+
+  topic :campaigns, "accounts:%{account_id}:campaigns" do
+    message :created do
+      field :id, :string
+      field :name, :string, required: false
+    end
+
+    message :updated do
+      field :id, :string
+    end
+
+    message :deleted do
+      field :id, :string
+    end
+  end
+end</code></pre>
+          <aside class="notes">
+            Here we're defining a what I'm calling a manifest module. Think shipping
+            manifest. The DSL is currently implemented in Spark, so if you've ever looked at
+            Ash code, this is probably pretty familiar.
+
+            First, we have a topic. This is a topic about campaigns. The shape of the topic
+            is "accounts:%{account_id}:campaigns". So, this will be messages about campaigns
+            for a specific account.
+
+            Then we have the messages we expect to publish on this topic. We have some
+            simple create, update, delete messages that we'll publish along with the
+            expected shape of those messages. When creating a campaign, we expect the
+            payload to have an id and optionally a name. We see that updated and deleted
+            only expect ids.
+          </aside>
+        </section>
+
+        <!-- 10 -->
+        <section>
+          <h2>One place that says what is on the wire.</h2>
+          <ul>
+            <li>What can be broadcast and received on this topic</li>
+            <li>What each of those messages looks like</li>
+          </ul>
+          <p class="kicker">Here we send minimal information and let subscribers load from
+            the DB. You could just as easily send everything. Either way, it's explicit.</p>
+          <aside class="notes">
+            This immediately makes clear to us the what messages we can expect to broadcast
+            and receive on this topic. It makes clear what those messages would like. In this
+            case, we're sending over minimal information. If the subscriber wants more info
+            about the campaign, they'll have to load it from the DB. Alternatively, you could
+            define a pub/sub topic that sends a lot of information over the wire so
+            subscribers don't have to load it from the DB. Either way, this is making the
+            usage very clear.
+          </aside>
+        </section>
+
+        <!-- 11 -->
+        <section>
+          <h2>Broadcast</h2>
+          <pre><code class="language-elixir">defmodule MyApp.Campaigns do
+  use VerifiedPubSub, manifest: MyApp.Topics
+
+  def create(attrs) do
+    # ...
+    broadcast(:campaigns, %{account_id: "7"}, :created, %{id: "c1"})
+  end
+end</code></pre>
+          <p class="kicker"><code class="inline">broadcast/4</code> returns
+            <code class="inline">:ok | {:error, term}</code>.
+            <code class="inline">broadcast!/4</code> raises instead.</p>
+          <aside class="notes">
+            Now, let's look at the usage of this. I tried to keep an API that looks pretty
+            similar to the Phoenix pub/sub that you're used to. In the module you're
+            broadcasting from, you need to use VerifiedPubsub and give the manifest module
+            you're using. We're going to broadcast a campaign created message. You can see
+            that we're broadcasting on the campaign topic. That topic is parameterized with
+            an account_id. Then we have the :created atom and the payload itself, which is
+            just a map with a single id key. Name was optional in our manifest, so that is
+            fine.
+          </aside>
+        </section>
+
+        <!-- 12 -->
+        <section>
+          <h2>Subscribe</h2>
+          <pre><code class="language-elixir">defmodule MyApp.Worker do
+  use GenServer
+  use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
+
+  def init(_arg) do
+    :ok = subscribe(:campaigns, %{account_id: "7"})
+    {:ok, %{}}
+  end
+end</code></pre>
+          <aside class="notes">
+            Subcribing to this will feel pretty similar to Phoenix pub/sub as well. We use
+            VerifiedPubsub again and pass our manifest. We subscribe to it like this.
+          </aside>
+        </section>
+
+        <!-- 13 -->
+        <section>
+          <h2>Handling messages</h2>
+          <pre><code class="language-elixir">handle_message :campaigns, :created, payload, state do
+  # ...
+end
+
+handle_message :campaigns,
+               :updated,
+               %Message{payload: %{id: id}},
+               state do
+  # ...
+end</code></pre>
+          <aside class="notes">
+            To handle messages, we're back to a macro. We define handle_message. It handles
+            messages on the campaigns topic. We handle both the :created and :updated
+            messages here. We pattern match the id out of the message and then handle it like
+            normal in our process. It's just a message sent to a process at that point.
+          </aside>
+        </section>
+
+        <!-- 14 -->
+        <section>
+          <h2>Now the interesting part.</h2>
+          <pre><code class="language-elixir">handle_message :campaigns, :invalid, payload, state do
+  send(state.owner, {:created, payload})
+  {:noreply, state}
+end</code></pre>
+          <pre class="term"><code class="language-plaintext">** (CompileError) lib/my_app/worker.ex:12: MyApp.Worker handles messages that MyApp.Topics does not declare:
+
+  * :campaigns, :invalid — MyApp.Topics declares [:created, :updated, :deleted] on :campaigns
+
+Fix the event name, or declare it in the manifest.</code></pre>
+          <aside class="notes">
+            Where it gets more interesting is the compile time support we have. Change the
+            message name to :invalid and it doesn't compile.
+          </aside>
+        </section>
+
+        <!-- 15 -->
+        <section>
+          <h2>Events you don't care about must be ignored on purpose.</h2>
+          <pre><code class="language-elixir">ignore_message :campaigns, :deleted</code></pre>
+          <aside class="notes">
+            And circling all the way back to the original debate with my co-worker, what if
+            the topic defines messages we don't care about in this process? We must
+            explicitly ignore them.
+          </aside>
+        </section>
+
+        <!-- 16 -->
+        <section>
+          <h2>Otherwise it doesn't compile.</h2>
+          <pre class="term"><code class="language-plaintext">** (CompileError) lib/my_app/worker.ex:12: MyApp.Worker subscribes to topics with events it does not account for:
+
+  * :campaigns, :deleted
+
+Add a `handle_message` clause for each, or dismiss it explicitly:
+
+    ignore_message :campaigns, :deleted
+
+Manifest: MyApp.Topics</code></pre>
+          <p class="kicker">Add an event to a topic, and every subscriber has to decide
+            what to do about it — at compile time.</p>
+          <aside class="notes">
+            If we don't, we get a compilation error like this. As we add messages to our
+            topics, we must explicitly decide how to handle it at compile time.
+          </aside>
+        </section>
+
+        <!-- 17 -->
+        <section class="outro">
+          <h2>I'd love your feedback.</h2>
+          <div class="outro-grid">
+            <div>
+              <ul class="tight">
+                <li>The API is very much in flux</li>
+                <li>My language isn't precise yet — I say "topic" when I mean a short
+                  label for one</li>
+                <li>Only deps: Spark and Phoenix.PubSub</li>
+              </ul>
+              <p class="repo">github.com/CuriousCurmudgeon/verified_pubsub</p>
+            </div>
+            <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#000000" d="M1 1.5h7m1 0h1m4 0h1m2 0h2m1 0h3m1 0h1m2 0h7M1 2.5h1m5 0h1m1 0h2m3 0h1m4 0h1m3 0h3m1 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m5 0h1m2 0h3m1 0h2m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m1 0h3m4 0h2m1 0h1m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m4 0h1m1 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h1m3 0h1m4 0h1m1 0h2m2 0h2M1 9.5h1m1 0h2m1 0h3m4 0h1m1 0h1m2 0h6m1 0h1m1 0h1m2 0h1m1 0h2M2 10.5h2m1 0h1m4 0h1m1 0h1m2 0h1m1 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1M2 11.5h1m1 0h2m1 0h5m3 0h1m1 0h2m3 0h3m1 0h5m1 0h2M5 12.5h2m1 0h4m1 0h3m3 0h1m8 0h1m1 0h1m2 0h1M2 13.5h1m1 0h1m2 0h2m1 0h4m2 0h1m2 0h1m3 0h4m1 0h3m1 0h1M8 14.5h1m1 0h2m1 0h2m2 0h1m1 0h2m1 0h2m1 0h2m1 0h1m3 0h1M3 15.5h1m3 0h3m1 0h3m1 0h3m2 0h3m2 0h1m1 0h1m2 0h1M8 16.5h2m1 0h5m1 0h1m3 0h2m2 0h3m2 0h2M1 17.5h1m3 0h1m1 0h3m5 0h3m1 0h1m1 0h3m2 0h2m1 0h3M1 18.5h1m2 0h3m1 0h2m2 0h2m2 0h1m1 0h1m1 0h2m1 0h5m1 0h2m1 0h2M3 19.5h3m1 0h1m2 0h1m1 0h2m1 0h4m2 0h2m2 0h1m2 0h2m1 0h2M2 20.5h3m3 0h4m1 0h4m3 0h1m3 0h2m3 0h1m3 0h1M7 21.5h1m2 0h1m1 0h1m1 0h1m4 0h1m1 0h2m5 0h1m1 0h2M1 22.5h1m2 0h2m6 0h2m1 0h2m1 0h7m2 0h1m2 0h1m2 0h1M3 23.5h2m2 0h1m1 0h1m3 0h1m3 0h1m1 0h1m2 0h1m1 0h1m1 0h4m1 0h3M2 24.5h1m1 0h3m2 0h3m2 0h2m1 0h1m1 0h1m4 0h2m1 0h2m1 0h1m1 0h1M1 25.5h1m1 0h2m2 0h1m2 0h1m2 0h4m1 0h1m4 0h1m1 0h5m2 0h1M9 26.5h1m2 0h1m1 0h2m1 0h5m3 0h1m3 0h2M1 27.5h7m1 0h4m2 0h1m4 0h2m2 0h2m1 0h1m1 0h1M1 28.5h1m5 0h1m1 0h1m1 0h1m2 0h1m6 0h5m3 0h4M1 29.5h1m1 0h3m1 0h1m2 0h3m1 0h1m3 0h1m1 0h1m1 0h8m1 0h3M1 30.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m3 0h1m1 0h4m3 0h1m1 0h2m1 0h1M1 31.5h1m1 0h3m1 0h1m1 0h1m4 0h2m7 0h1m3 0h2M1 32.5h1m5 0h1m2 0h1m4 0h7m1 0h3m2 0h3m2 0h1M1 33.5h7m1 0h1m1 0h2m1 0h3m1 0h3m1 0h1m1 0h1m4 0h1m1 0h1"/></svg></div>
+          </div>
+          <aside class="notes">
+            I would love to get feedback on this. The API is very much in flux. Maybe the
+            current API is good. Maybe not. The language I'm using also isn't quite precise.
+            I'm saying topic a lot when I really mean a short label for a topic. The
+            parameterized string is what really gets turned into the topic. I want to get
+            that locked down a bit more before I put up a Hex package and start trying this
+            in anger on my own projects.
+
+            So, if you have thoughts, come chat with me tonight or tomorrow. I'm easy to
+            find. Just find the lanky guy with long hair and a blue arm. Thanks everybody!
+          </aside>
+        </section>
+
+      </div>
+    </div>
+
+    <script src="vendor/reveal.js"></script>
+    <script src="vendor/notes/notes.js"></script>
+    <script src="vendor/hljs.min.js"></script>
+    <script src="vendor/hljs-elixir.min.js"></script>
+    <script>
+      // Code blocks are indented to match the surrounding HTML; strip that shared
+      // indentation before highlighting so it does not show up on the slide.
+      document.querySelectorAll("pre > code").forEach((block) => {
+        const lines = block.textContent.replace(/^\n/, "").replace(/\s+$/, "").split("\n");
+        const indent = Math.min(
+          ...lines.filter((l) => l.trim()).map((l) => l.match(/^ */)[0].length)
+        );
+        block.textContent = lines.map((l) => l.slice(indent)).join("\n");
+        hljs.highlightElement(block);
+      });
+
+      Reveal.initialize({
+        plugins: [RevealNotes],
+        center: true,
+        hash: true,
+        slideNumber: "c/t",
+        transition: "none",
+        controls: true,
+        progress: true,
+        width: 1280,
+        height: 800,
+        margin: 0.06,
+      });
+    </script>
+  </body>
+</html>
