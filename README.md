@@ -49,6 +49,10 @@ end
 `:campaigns` is the name call sites use, and the string is the wire topic.
 `%{account_id}` marks a parameter.
 
+Each `message` declares one event on that topic, and its `field`s declare the keys that
+event's payload must carry. A payload is a map of exactly those fields — add
+`required: false` to a field to make it optional.
+
 ## Broadcast
 
 ```elixir
