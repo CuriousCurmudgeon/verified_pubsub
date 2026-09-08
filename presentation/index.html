@@ -21,8 +21,7 @@
           <p class="affil">Engineering Manager, GetThru</p>
           <aside class="notes">
             Hi everybody! Thanks for coming out to lightning talks. My name is Brian
-            Meeker. I'm currently the engineering manager at GetThru and I'm here to talk
-            to you about pub/sub.
+            Meeker. I'm currently the engineering manager at GetThru. Let's talk about pub/sub.
           </aside>
         </section>
 
@@ -33,9 +32,7 @@
             A couple of years ago one of my co-workers and I were having a debate over how
             our system should handle pub/sub events. My position was that a process that
             receives unexpected pub/sub events on a topic should not crash. His opinion was
-            that it should. I don't think there is a right or wrong answer here. I think it
-            depends on your use case. The important thing is to be consistent about your
-            philosophy.
+            that it should.
           </aside>
         </section>
 
@@ -112,28 +109,16 @@
   end
 end</code></pre>
           <aside class="notes">
-            <p>Here we're defining a what I'm calling a manifest module. Think shipping
-               manifest. The DSL is currently implemented in Spark, so if you've ever
-               looked at Ash code, this is probably pretty familiar. I've only recently
-               started dabbling in Ash and this is my first foray in into Spark.</p>
+            <p>This is a manifest module. Think shipping manifest. It's a lot of macros using Spark.</p>
 
-            <p>First, we have a topic. This one is about campaigns. The shape of the
-               topic is "accounts:%{account_id}:campaigns". So, this will be messages
-               about campaigns for a specific account.</p>
+            <p>First, the topic. This one is about campaigns, and its shape is
+               "accounts:%{account_id}:campaigns". So, messages about campaigns for a
+               specific account.</p>
 
-            <p>Then we have the messages we expect to publish on this topic. We have some
-               simple create, update, delete messages that we'll publish along with the
-               expected shape of those messages. When creating a campaign, we expect the
-               payload to have an id and optionally a name. We see that updated and
-               deleted only expect ids.</p>
-
-            <p>This immediately makes clear to us the what messages we can expect to broadcast
-            and receive on this topic. It makes clear what those messages would like. In this
-            case, we're sending over minimal information. If the subscriber wants more info
-            about the campaign, they'll have to load it from the DB. Alternatively, you could
-            define a pub/sub topic that sends a lot of information over the wire so
-            subscribers don't have to load it from the DB. Either way, this is making the
-            usage very clear.</p>
+            <p>Then the messages we expect to publish on it. Created carries an id and
+               optionally a name. Updated and deleted only carry ids. That is the whole
+               contract, in one place: what we can broadcast on this topic, and what each
+               message looks like.</p>
           </aside>
         </section>
 
@@ -149,7 +134,7 @@ end</code></pre>
   end
 end</code></pre>
           <aside class="notes">
-            Now, let's look at the usage of this. I tried to keep an API that looks pretty
+            I tried to keep an API that looks pretty
             similar to the Phoenix pub/sub that you're used to. In the module you're
             broadcasting from, you need to use VerifiedPubsub and give the manifest module
             you're using. We're going to broadcast a campaign created message. You can see
@@ -192,7 +177,7 @@ handle_message :campaigns,
   # ...
 end</code></pre>
           <aside class="notes">
-            To handle messages, we're back to a macro. We define handle_message. It handles
+            In our subscribing process, we define handle_message. This one handles
             messages on the campaigns topic. We handle both the :created and :updated
             messages here. We pattern match the id out of the message and then handle it like
             normal in our process. It's just a message sent to a process at that point.
@@ -254,16 +239,12 @@ Manifest: MyApp.Topics</code></pre>
             <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#000000" d="M1 1.5h7m1 0h1m4 0h1m2 0h2m1 0h3m1 0h1m2 0h7M1 2.5h1m5 0h1m1 0h2m3 0h1m4 0h1m3 0h3m1 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m5 0h1m2 0h3m1 0h2m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m1 0h3m4 0h2m1 0h1m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m4 0h1m1 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h1m3 0h1m4 0h1m1 0h2m2 0h2M1 9.5h1m1 0h2m1 0h3m4 0h1m1 0h1m2 0h6m1 0h1m1 0h1m2 0h1m1 0h2M2 10.5h2m1 0h1m4 0h1m1 0h1m2 0h1m1 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1M2 11.5h1m1 0h2m1 0h5m3 0h1m1 0h2m3 0h3m1 0h5m1 0h2M5 12.5h2m1 0h4m1 0h3m3 0h1m8 0h1m1 0h1m2 0h1M2 13.5h1m1 0h1m2 0h2m1 0h4m2 0h1m2 0h1m3 0h4m1 0h3m1 0h1M8 14.5h1m1 0h2m1 0h2m2 0h1m1 0h2m1 0h2m1 0h2m1 0h1m3 0h1M3 15.5h1m3 0h3m1 0h3m1 0h3m2 0h3m2 0h1m1 0h1m2 0h1M8 16.5h2m1 0h5m1 0h1m3 0h2m2 0h3m2 0h2M1 17.5h1m3 0h1m1 0h3m5 0h3m1 0h1m1 0h3m2 0h2m1 0h3M1 18.5h1m2 0h3m1 0h2m2 0h2m2 0h1m1 0h1m1 0h2m1 0h5m1 0h2m1 0h2M3 19.5h3m1 0h1m2 0h1m1 0h2m1 0h4m2 0h2m2 0h1m2 0h2m1 0h2M2 20.5h3m3 0h4m1 0h4m3 0h1m3 0h2m3 0h1m3 0h1M7 21.5h1m2 0h1m1 0h1m1 0h1m4 0h1m1 0h2m5 0h1m1 0h2M1 22.5h1m2 0h2m6 0h2m1 0h2m1 0h7m2 0h1m2 0h1m2 0h1M3 23.5h2m2 0h1m1 0h1m3 0h1m3 0h1m1 0h1m2 0h1m1 0h1m1 0h4m1 0h3M2 24.5h1m1 0h3m2 0h3m2 0h2m1 0h1m1 0h1m4 0h2m1 0h2m1 0h1m1 0h1M1 25.5h1m1 0h2m2 0h1m2 0h1m2 0h4m1 0h1m4 0h1m1 0h5m2 0h1M9 26.5h1m2 0h1m1 0h2m1 0h5m3 0h1m3 0h2M1 27.5h7m1 0h4m2 0h1m4 0h2m2 0h2m1 0h1m1 0h1M1 28.5h1m5 0h1m1 0h1m1 0h1m2 0h1m6 0h5m3 0h4M1 29.5h1m1 0h3m1 0h1m2 0h3m1 0h1m3 0h1m1 0h1m1 0h8m1 0h3M1 30.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m3 0h1m1 0h4m3 0h1m1 0h2m1 0h1M1 31.5h1m1 0h3m1 0h1m1 0h1m4 0h2m7 0h1m3 0h2M1 32.5h1m5 0h1m2 0h1m4 0h7m1 0h3m2 0h3m2 0h1M1 33.5h7m1 0h1m1 0h2m1 0h3m1 0h3m1 0h1m1 0h1m4 0h1m1 0h1"/></svg></div>
           </div>
           <aside class="notes">
-            <p>I would love to get feedback on this. The API is very much in flux. Maybe
-               the current API is good. Maybe not. The language I'm using also isn't quite
-               precise. I'm saying topic a lot when I really mean a short label for a
-               topic. The parameterized string is what really gets turned into the topic.
-               I want to get that locked down a bit more before I put up a Hex package and
-               start trying this in anger on my own projects.</p>
+            <p>I would love feedback on this. The API is very much in flux, and I want it
+               locked down a bit more before I put up a Hex package and start trying this
+               in anger on my own projects.</p>
 
-            <p>So, if you have thoughts, come chat with me tonight or tomorrow. I'm easy
-               to find. Just find the lanky guy with long hair and a blue arm. Thanks
-               everybody!</p>
+            <p>So, if you have thoughts, come chat with me tonight or tomorrow. Just find
+               the lanky guy with long hair and a blue arm. Thanks everybody!</p>
           </aside>
         </section>
 
