@@ -58,7 +58,7 @@ defmodule VerifiedPubSub.Info do
     end
   end
 
-  @doc "Parameter names for a topic, in the order they appear in the pattern."
+  @doc "Parameter names for a topic, in the order they appear in the segments."
   @spec params(module(), atom()) :: [atom()]
   def params(manifest, name) do
     manifest |> topic!(name) |> Map.fetch!(:params)

@@ -5,7 +5,7 @@ defmodule VerifiedPubSub.Manifest do
       defmodule MyApp.Topics do
         use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
-        topic :campaigns, "accounts:%{account_id}:campaigns" do
+        topic :campaigns, ["accounts", :account_id, "campaigns"] do
           message :created do
             field :id, :string
           end
@@ -18,10 +18,10 @@ defmodule VerifiedPubSub.Manifest do
 
   ## Topics
 
-  `:campaigns` is the name call sites use; the string is the wire topic, so renaming the
-  pattern never touches a call site. `%{account_id}` marks a parameter, and the parameter
-  list is derived from the pattern rather than declared twice — see `VerifiedPubSub.Topic`
-  for the rules a pattern must satisfy.
+  `:campaigns` is the name call sites use; the list is the wire topic, so changing its
+  segments never touches a call site. Segments are joined with `:`. A string is a literal
+  and an atom is a parameter, and the parameter list is derived from the segments rather
+  than declared twice — see `VerifiedPubSub.Topic` for the rules segments must satisfy.
 
   ## Fields
 

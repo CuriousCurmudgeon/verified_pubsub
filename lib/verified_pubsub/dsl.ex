@@ -40,20 +40,21 @@ defmodule VerifiedPubSub.Dsl do
 
   @topic Entity.new(:topic, VerifiedPubSub.Dsl.Topic,
            describe: "A topic and the events that may be broadcast on it.",
-           args: [:name, :pattern],
+           args: [:name, :segments],
            identifier: :name,
            entities: [messages: [@message]],
            schema: [
              name: [
                type: :atom,
                required: true,
-               doc: "The name call sites use. Independent of the wire pattern."
+               doc: "The name call sites use. Independent of the wire segments."
              ],
-             pattern: [
-               type: :string,
+             segments: [
+               type: {:list, {:or, [:string, :atom]}},
                required: true,
                doc:
-                 ~S|Wire topic. `%{name}` marks a parameter, e.g. "accounts:%{account_id}:campaigns".|
+                 "Wire topic segments, joined with `:`. A string is a literal and an atom is " <>
+                   ~S|a parameter, e.g. `["accounts", :account_id, "campaigns"]`.|
              ]
            ]
          )

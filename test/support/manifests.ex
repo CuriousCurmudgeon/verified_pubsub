@@ -4,7 +4,7 @@ defmodule VerifiedPubSub.TestManifests do
   defmodule Basic do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-    topic :campaigns, "accounts:%{account_id}:campaigns" do
+    topic :campaigns, ["accounts", :account_id, "campaigns"] do
       message :created do
         field :id, :string
         field :name, :string, required: false
@@ -19,14 +19,14 @@ defmodule VerifiedPubSub.TestManifests do
       end
     end
 
-    topic :system, "system" do
+    topic :system, ["system"] do
       message :alert do
         field :text, :string
       end
     end
 
     # Exercises every field type and both required settings.
-    topic :shapes, "shapes:%{owner_id}" do
+    topic :shapes, ["shapes", :owner_id] do
       message :typed do
         field :name, :string
         field :count, :integer
@@ -54,13 +54,13 @@ defmodule VerifiedPubSub.TestManifests do
   defmodule Adjacent do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-    topic :short, "adj:%{x}" do
+    topic :short, ["adj", :x] do
       message :ping do
         field :tag, :string
       end
     end
 
-    topic :long, "adj:%{x}:b" do
+    topic :long, ["adj", :x, "b"] do
       message :pong do
         field :tag, :string
       end
@@ -73,7 +73,7 @@ defmodule VerifiedPubSub.TestManifests do
   defmodule CollideA do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-    topic :campaigns, "collide:%{account_id}:campaigns" do
+    topic :campaigns, ["collide", :account_id, "campaigns"] do
       message :created do
         field :id, :string
       end
@@ -83,7 +83,7 @@ defmodule VerifiedPubSub.TestManifests do
   defmodule CollideB do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-    topic :campaigns, "collide:%{account_id}:campaigns" do
+    topic :campaigns, ["collide", :account_id, "campaigns"] do
       message :created do
         field :email, :string
       end

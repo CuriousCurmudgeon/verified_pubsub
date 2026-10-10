@@ -8,7 +8,7 @@ defmodule VerifiedPubSub.ManifestMismatchError do
   checked — which is the one thing this library exists to prevent.
 
   Two manifests can produce the same wire topic when they share a `:pubsub` and declare
-  patterns that overlap. Disjointness is checked *within* a manifest, not across manifests,
+  topics that overlap. Disjointness is checked *within* a manifest, not across manifests,
   because a manifest cannot see its siblings at compile time.
   """
 
@@ -26,8 +26,8 @@ defmodule VerifiedPubSub.ManifestMismatchError do
     follows #{inspect(error.got)}'s field declarations, so it was not dispatched.
 
     Two manifests produce the same wire topic when they share a `:pubsub` and declare \
-    patterns that can build the same string. Either give each manifest its own \
-    `Phoenix.PubSub`, or make the patterns distinct.
+    topics that can build the same string. Either give each manifest its own \
+    `Phoenix.PubSub`, or make the topics distinct.
     """
   end
 end

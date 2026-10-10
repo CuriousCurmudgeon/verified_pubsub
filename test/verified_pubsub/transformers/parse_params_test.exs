@@ -7,33 +7,43 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
 
   describe "parse/1" do
     test "extracts params in order" do
-      assert {:ok, [:account_id]} = ParseParams.parse("accounts:%{account_id}:campaigns")
-      assert {:ok, [:org_id, :user_id]} = ParseParams.parse("o:%{org_id}:u:%{user_id}")
+      assert {:ok, [:account_id]} = ParseParams.parse(["accounts", :account_id, "campaigns"])
+      assert {:ok, [:org_id, :user_id]} = ParseParams.parse(["o", :org_id, "u", :user_id])
     end
 
-    test "returns an empty list for a static pattern" do
-      assert {:ok, []} = ParseParams.parse("system")
+    test "returns an empty list for a static topic" do
+      assert {:ok, []} = ParseParams.parse(["system"])
     end
 
-    test "rejects an unclosed parameter" do
-      assert {:error, msg} = ParseParams.parse("accounts:%{account_id")
-      assert msg =~ "unterminated"
+    test "rejects an empty segment list" do
+      assert {:error, msg} = ParseParams.parse([])
+      assert msg =~ "at least one segment"
     end
 
-    test "rejects an empty parameter name" do
-      assert {:error, msg} = ParseParams.parse("accounts:%{}")
+    test "rejects an empty literal" do
+      assert {:error, msg} = ParseParams.parse(["accounts", ""])
       assert msg =~ "empty"
     end
 
-    test "rejects a duplicate parameter name" do
-      assert {:error, msg} = ParseParams.parse("a:%{id}:b:%{id}")
-      assert msg =~ "duplicate"
-      assert msg =~ "id"
+    # A literal carrying the separator would be several segments pretending to be one,
+    # which hides them from the disjointness check.
+    test "rejects a literal containing the separator" do
+      assert {:error, msg} = ParseParams.parse(["accounts:campaigns"])
+      assert msg =~ "accounts:campaigns"
+      assert msg =~ "its own list element"
     end
 
-    test "rejects a parameter name that is not a valid identifier" do
-      assert {:error, msg} = ParseParams.parse("a:%{account-id}")
-      assert msg =~ "account-id"
+    test "rejects nil and booleans as params" do
+      for atom <- [nil, true, false] do
+        assert {:error, msg} = ParseParams.parse(["a", atom])
+        assert msg =~ "not a parameter name"
+      end
+    end
+
+    test "rejects a duplicate parameter name" do
+      assert {:error, msg} = ParseParams.parse(["a", :id, "b", :id])
+      assert msg =~ "duplicate"
+      assert msg =~ "id"
     end
   end
 

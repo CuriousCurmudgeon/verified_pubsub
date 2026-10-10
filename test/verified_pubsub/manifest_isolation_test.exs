@@ -118,8 +118,8 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       ref = Process.monitor(pid)
 
       # Identical wire topics, so Phoenix.PubSub really does deliver it.
-      assert VerifiedPubSub.Info.topic!(CollideA, :campaigns).pattern ==
-               VerifiedPubSub.Info.topic!(CollideB, :campaigns).pattern
+      assert VerifiedPubSub.Info.topic!(CollideA, :campaigns).segments ==
+               VerifiedPubSub.Info.topic!(CollideB, :campaigns).segments
 
       assert :ok = Publisher.announce(id)
 

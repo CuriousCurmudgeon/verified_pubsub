@@ -287,7 +287,7 @@ defmodule VerifiedPubSub.PayloadTest do
         defmodule #{unique_module("VPTest.BadType")} do
           use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-          topic :t, "t" do
+          topic :t, ["t"] do
             message :e do
               field :id, :strng
             end
@@ -307,7 +307,7 @@ defmodule VerifiedPubSub.PayloadTest do
         defmodule #{unique_module("VPTest.BadInner")} do
           use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-          topic :t, "t" do
+          topic :t, ["t"] do
             message :e do
               field :tags, {:list, :strng}
             end
@@ -325,7 +325,7 @@ defmodule VerifiedPubSub.PayloadTest do
                defmodule #{unique_module("VPTest.StructType")} do
                  use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-                 topic :t, "t" do
+                 topic :t, ["t"] do
                    message :e do
                      field :thing, SomeApp.NotCompiledYet
                    end

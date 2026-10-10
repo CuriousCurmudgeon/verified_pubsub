@@ -11,7 +11,7 @@ defmodule VerifiedPubSub.DslTest do
 
   test "topic/2 returns the topic by name" do
     assert {:ok, topic} = Info.topic(Basic, :campaigns)
-    assert topic.pattern == "accounts:%{account_id}:campaigns"
+    assert topic.segments == ["accounts", :account_id, "campaigns"]
   end
 
   test "topic/2 returns :error for an unknown topic" do
@@ -46,7 +46,7 @@ defmodule VerifiedPubSub.DslTest do
       defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.NoPubSub")} do
         use VerifiedPubSub.Manifest
 
-        topic :campaigns, "campaigns" do
+        topic :campaigns, ["campaigns"] do
           message :created do
           end
         end

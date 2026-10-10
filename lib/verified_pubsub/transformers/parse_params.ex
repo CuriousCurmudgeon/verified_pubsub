@@ -1,46 +1,46 @@
 defmodule VerifiedPubSub.Transformers.ParseParams do
   @moduledoc """
-  Derives each topic's parameter list from its wire pattern, so params are declared
-  exactly once.
+  Validates each topic's segments and derives its parameter list from them, so params are
+  declared exactly once.
   """
 
   use Spark.Dsl.Transformer
 
-  @param_regex ~r/%\{([^}]*)\}/
-  @identifier_regex ~r/^[a-z_][a-zA-Z0-9_]*$/
-
   @doc """
-  Extracts parameter names from a wire pattern.
+  Validates a segment list and extracts its parameter names, in order.
 
-      iex> VerifiedPubSub.Transformers.ParseParams.parse("accounts:%{account_id}:campaigns")
+      iex> VerifiedPubSub.Transformers.ParseParams.parse(["accounts", :account_id, "campaigns"])
       {:ok, [:account_id]}
   """
-  @spec parse(String.t()) :: {:ok, [atom()]} | {:error, String.t()}
-  def parse(pattern) when is_binary(pattern) do
-    found = Regex.scan(@param_regex, pattern, capture: :all_but_first) |> List.flatten()
-    opens = pattern |> String.split("%{") |> length() |> Kernel.-(1)
+  @spec parse([String.t() | atom()]) :: {:ok, [atom()]} | {:error, String.t()}
+  def parse([]), do: {:error, "a topic needs at least one segment"}
+
+  def parse(segments) when is_list(segments) do
+    separator = VerifiedPubSub.Topic.separator()
 
     cond do
-      opens != length(found) ->
-        {:error, "unterminated parameter in pattern #{inspect(pattern)}: expected a closing `}`"}
+      Enum.any?(segments, &(&1 == "")) ->
+        {:error, "empty literal segment in #{inspect(segments)}"}
 
-      Enum.any?(found, &(&1 == "")) ->
-        {:error, "empty parameter name in pattern #{inspect(pattern)}"}
-
-      invalid = Enum.find(found, &(not Regex.match?(@identifier_regex, &1))) ->
+      literal = Enum.find(segments, &(is_binary(&1) and String.contains?(&1, separator))) ->
         {:error,
-         "invalid parameter name #{inspect(invalid)} in pattern #{inspect(pattern)}: " <>
-           "must be a lowercase Elixir identifier"}
+         "literal segment #{inspect(literal)} in #{inspect(segments)} contains " <>
+           "#{inspect(separator)}: give each part its own list element"}
+
+      # Enum.find/2 would return nil for a nil segment, so filter instead.
+      (invalid = Enum.filter(segments, &(&1 in [nil, true, false]))) != [] ->
+        {:error,
+         "#{inspect(hd(invalid))} in #{inspect(segments)} is not a parameter name: " <>
+           "a segment must be a string literal or a parameter atom"}
 
       true ->
-        params = Enum.map(found, &String.to_atom/1)
+        params = Enum.filter(segments, &is_atom/1)
         duplicates = params -- Enum.uniq(params)
 
         if duplicates == [] do
           {:ok, params}
         else
-          {:error,
-           "duplicate parameter #{inspect(hd(duplicates))} in pattern #{inspect(pattern)}"}
+          {:error, "duplicate parameter #{inspect(hd(duplicates))} in #{inspect(segments)}"}
         end
     end
   end
@@ -50,7 +50,7 @@ defmodule VerifiedPubSub.Transformers.ParseParams do
     dsl
     |> Spark.Dsl.Transformer.get_entities([:topics])
     |> Enum.reduce_while({:ok, dsl}, fn topic, {:ok, acc} ->
-      case parse(topic.pattern) do
+      case parse(topic.segments) do
         {:ok, params} ->
           {:cont, {:ok, replace_topic(acc, %{topic | params: params})}}
 

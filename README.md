@@ -33,7 +33,7 @@ And add the formatter import, so the DSL reads without parentheses:
 defmodule MyApp.Topics do
   use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
-  topic :campaigns, "accounts:%{account_id}:campaigns" do
+  topic :campaigns, ["accounts", :account_id, "campaigns"] do
     message :created do
       field :id, :string
       field :name, :string
@@ -46,8 +46,9 @@ defmodule MyApp.Topics do
 end
 ```
 
-`:campaigns` is the name call sites use, and the string is the wire topic.
-`%{account_id}` marks a parameter.
+`:campaigns` is the name call sites use, and the list is the wire topic: its segments are
+joined with `:`, so this one is `"accounts:<account_id>:campaigns"`. A string is a literal
+segment and an atom is a parameter.
 
 Each `message` declares one event on that topic, and its `field`s declare the keys that
 event's payload must carry. A payload is a map of exactly those fields — add

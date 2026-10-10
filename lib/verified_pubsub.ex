@@ -12,7 +12,7 @@ defmodule VerifiedPubSub do
       defmodule MyApp.Topics do
         use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
-        topic :campaigns, "accounts:%{account_id}:campaigns" do
+        topic :campaigns, ["accounts", :account_id, "campaigns"] do
           message :created do
             field :id, :string
             field :name, :string
@@ -24,10 +24,10 @@ defmodule VerifiedPubSub do
         end
       end
 
-  `:campaigns` is the name call sites use; the string is the wire topic, so renaming the
-  pattern never touches a call site.
-  `%{account_id}` marks a parameter, and the parameter list is derived from the pattern
-  rather than declared twice.
+  `:campaigns` is the name call sites use; the list is the wire topic, so changing its
+  segments never touches a call site. Segments are joined with `:`. A string is a literal
+  and an atom is a parameter, and the parameter list is derived from the segments rather
+  than declared twice.
 
   ## Broadcasting
 
@@ -49,7 +49,7 @@ defmodule VerifiedPubSub do
   topic that does take them is a compile error naming them.
 
   A topic is always followed immediately by its params. Params exist only to fill in the
-  topic pattern, so `{topic, params}` is the address and `{event, payload}` is the
+  topic segments, so `{topic, params}` is the address and `{event, payload}` is the
   message — the same address-then-message shape as `Phoenix.PubSub.broadcast/3`.
 
   To skip the sender, use `broadcast_from!/5`, which mirrors
@@ -98,9 +98,8 @@ defmodule VerifiedPubSub do
     * a subscriber that does not account for every event on a topic it subscribes to
     * a subscriber that handles an event the manifest does not declare, or names a
       topic the manifest does not declare
-    * duplicate topics, duplicate events on one topic, and malformed topic patterns
-    * a `%{param}` that does not fill a whole `:`-delimited segment of its pattern
-    * two topics whose patterns can match the same wire topic
+    * duplicate topics, duplicate events on one topic, and malformed topic segments
+    * two topics whose segments can match the same wire topic
 
     * broadcasting an unknown topic, an unknown event, or an event that belongs to a
       different topic
@@ -144,12 +143,12 @@ defmodule VerifiedPubSub do
 
   `required: false` allows the key to be absent, or present as `nil`.
 
-  ## Topic patterns
+  ## Topic segments
 
-  Topics are `:`-delimited and each `%{param}` must fill a whole segment, so
-  `"accounts:acct%{account_id}"` is a compile error. Param values are checked on every
-  call: a value must be non-empty and contain no `:`, or `VerifiedPubSub.TopicError` is
-  raised. Together with pattern disjointness this guarantees an interpolated topic can
+  A topic is a list of segments joined with `:`, so each param fills a whole segment by
+  construction. A literal segment may not be empty or contain `:`. Param values are
+  checked on every call: a value must be non-empty and contain no `:`, or
+  `VerifiedPubSub.TopicError` is raised. Together with topic disjointness this guarantees an interpolated topic can
   only be the topic its call site names — see `VerifiedPubSub.Topic`.
 
   ## Transport

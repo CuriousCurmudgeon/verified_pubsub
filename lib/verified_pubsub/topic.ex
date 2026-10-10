@@ -2,16 +2,19 @@ defmodule VerifiedPubSub.Topic do
   @moduledoc """
   Builds the segment of a wire topic that a param fills.
 
-  Topics are colon-delimited, and every `%{param}` must occupy a whole segment. Three properties together guarantee that an interpolated topic can only ever be
-  the topic its call site names:
+  A topic is declared as a list of segments joined with `:`, where a string is a literal
+  and an atom is a param. Three properties together guarantee that an interpolated topic
+  can only ever be the topic its call site names:
 
-    1. every `%{param}` fills a whole segment — checked when the manifest compiles
-    2. no two declared patterns can match the same topic string — likewise
+    1. every param fills a whole segment — guaranteed by the list shape, since a param is
+       its own element and literals may not contain the separator
+    2. no two declared topics can match the same topic string — checked when the manifest
+       compiles
     3. a param value is non-empty and free of the separator — checked here, per call
 
-  Dropping any one of them reopens the hole. `"a:%{x}"` and `"a:%{x}:b"` differ in segment
-  count, so (2) holds, yet `x = "1:b"` on the first builds `"a:1:b"` — precisely what the
-  second builds from `x = "1"`. Without (3) a broadcast reaches the other topic's
+  Dropping any one of them reopens the hole. `["a", :x]` and `["a", :x, "b"]` differ in
+  segment count, so (2) holds, yet `x = "1:b"` on the first builds `"a:1:b"` — precisely
+  what the second builds from `x = "1"`. Without (3) a broadcast reaches the other topic's
   subscribers.
   """
 
@@ -22,7 +25,7 @@ defmodule VerifiedPubSub.Topic do
   def separator, do: @separator
 
   @doc """
-  Stringifies `value` and checks it can fill one segment of the topic pattern.
+  Stringifies `value` and checks it can fill one segment of the topic.
 
   Raises `VerifiedPubSub.TopicError` if it cannot.
   """
@@ -46,7 +49,7 @@ defmodule VerifiedPubSub.Topic do
     raise VerifiedPubSub.TopicError,
       manifest: manifest,
       topic: topic,
-      pattern: VerifiedPubSub.Info.topic!(manifest, topic).pattern,
+      segments: VerifiedPubSub.Info.topic!(manifest, topic).segments,
       param: param,
       value: value,
       reason: reason

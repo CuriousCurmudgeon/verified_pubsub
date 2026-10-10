@@ -50,7 +50,7 @@ defmodule VerifiedPubSub.Subscriber do
   ## Messages from another manifest
 
   An application may declare several manifests. Two of them can produce the same wire
-  topic if they share a `:pubsub` and declare patterns that build the same string —
+  topic if they share a `:pubsub` and declare topics that build the same string —
   disjointness is checked *within* a manifest, since a manifest cannot see its siblings
   while it compiles.
 

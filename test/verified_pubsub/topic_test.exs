@@ -7,7 +7,7 @@ defmodule VerifiedPubSub.TopicTest do
   alias VerifiedPubSub.TopicError
 
   # Interpolating a param value that contains the segment separator would let a caller
-  # build a topic other than the one the call site names. "a:%{x}" and "a:%{x}:b" are
+  # build a topic other than the one the call site names. ["a", :x] and ["a", :x, "b"] are
   # disjoint as declared, but x = "1:b" makes the first build what the second builds.
   describe "a param value carrying the separator" do
     test "raises rather than forging a topic" do
@@ -76,7 +76,7 @@ defmodule VerifiedPubSub.TopicTest do
     end
 
     test "a separator in a param cannot reach another topic's subscribers" do
-      # :short is "adj:%{x}" and :long is "adj:%{x}:b" -- disjoint as declared. Before the
+      # :short is ["adj", :x] and :long is ["adj", :x, "b"] -- disjoint as declared. Before the
       # guard, x = "1:b" on :short built "adj:1:b", exactly what :long builds from x = "1",
       # so a :short broadcast was delivered to :long subscribers as an unhandled event.
       assert :ok = Adjacent.listen_long("1")

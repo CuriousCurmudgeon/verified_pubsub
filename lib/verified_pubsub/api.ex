@@ -9,7 +9,7 @@ defmodule VerifiedPubSub.Api do
       broadcast!(:campaigns, %{account_id: id}, :created, payload)
 
   A topic is always followed immediately by its params, in every macro here. The params
-  exist only to fill in the topic pattern, so `{topic, params}` is the address and
+  exist only to fill in the topic segments, so `{topic, params}` is the address and
   `{event, payload}` is the message -- the same address-then-message shape as
   `Phoenix.PubSub.broadcast/3`. It also means the two atoms are never adjacent, so they
   cannot be silently transposed.
@@ -208,23 +208,25 @@ defmodule VerifiedPubSub.Api do
   defp bind_topic(manifest, topic_struct, params) do
     pvar = Macro.var(:vp_params, __MODULE__)
     tvar = Macro.var(:vp_topic, __MODULE__)
-    literals = String.split(topic_struct.pattern, ~r/%\{[^}]*\}/)
 
     interpolation =
-      topic_struct.params
-      |> Enum.zip(tl(literals))
-      |> Enum.reduce(hd(literals), fn {param, literal}, acc ->
-        quote do
-          unquote(acc) <>
+      topic_struct.segments
+      |> Enum.map(fn
+        literal when is_binary(literal) ->
+          literal
+
+        param ->
+          quote do
             VerifiedPubSub.Topic.segment!(
               unquote(manifest),
               unquote(topic_struct.name),
               unquote(param),
               Map.fetch!(unquote(pvar), unquote(param))
-            ) <>
-            unquote(literal)
-        end
+            )
+          end
       end)
+      |> Enum.intersperse(VerifiedPubSub.Topic.separator())
+      |> Enum.reduce(&quote(do: unquote(&2) <> unquote(&1)))
 
     quote do
       unquote(pvar) = unquote(params)
@@ -403,7 +405,7 @@ defmodule VerifiedPubSub.Api do
 
     #{detail}
 
-    #{inspect(topic_struct.name)} is #{inspect(topic_struct.pattern)}, so it takes exactly #{inspect(topic_struct.params)}.
+    #{inspect(topic_struct.name)} is #{inspect(topic_struct.segments)}, so it takes exactly #{inspect(topic_struct.params)}.
     """
   end
 
