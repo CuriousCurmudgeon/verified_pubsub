@@ -87,7 +87,8 @@ defmodule VerifiedPubSub.MixProject do
       {:phoenix_pubsub, "~> 2.1"},
       {:igniter, "~> 0.6", optional: true},
       {:phoenix_live_view, "~> 1.0", only: :test},
-      {:ex_doc, "~> 0.40", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:benchee, "~> 1.3", only: :dev}
     ]
   end
 end
