@@ -6,7 +6,7 @@ defmodule VerifiedPubSub.Api do
   Imported by `use VerifiedPubSub, manifest: MyApp.Topics`, and by
   `use VerifiedPubSub.Subscriber`:
 
-      broadcast!(:campaigns, %{account_id: id}, :created, payload)
+      broadcast!(:pets, %{owner_id: id}, :adopted, payload)
 
   A topic is always followed immediately by its params, in every macro here. The params
   exist only to fill in the topic segments, so `{topic, params}` is the address and
@@ -24,9 +24,9 @@ defmodule VerifiedPubSub.Api do
   Plain functions taking atoms cannot be verified at compile time. Elixir's type inference
   does not narrow across clause heads on a remote call, so a `broadcast/4` defined as
 
-      def broadcast(:campaigns, %{account_id: id}, :created, payload), do: ...
+      def broadcast(:pets, %{owner_id: id}, :adopted, payload), do: ...
 
-  produces **no diagnostic at all** for `broadcast(:campaigns, params, :creatd, ...)`
+  produces **no diagnostic at all** for `broadcast(:pets, params, :adoptd, ...)`
   — verified empirically on Elixir 1.20.4. It fails at runtime instead. A macro can look
   the topic and event up in the manifest while your code compiles.
 
@@ -38,7 +38,7 @@ defmodule VerifiedPubSub.Api do
   `broadcast_from/5` and `broadcast_from!/5` mirror `Phoenix.PubSub.broadcast_from/4`,
   `from` leading for the same reason it does there, and carry the same semantics:
 
-      broadcast_from!(self(), :campaigns, %{account_id: id}, :created, payload)
+      broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, payload)
 
   The usual reason to want this is a LiveView that both writes to a topic and subscribes
   to it, which would otherwise apply its own change twice.

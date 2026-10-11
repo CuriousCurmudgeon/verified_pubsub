@@ -5,8 +5,8 @@ defmodule VerifiedPubSub.Manifest do
       defmodule MyApp.Topics do
         use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
-        topic :campaigns, ["accounts", :account_id, "campaigns"] do
-          message :created do
+        topic :pets, ["owners", :owner_id, "pets"] do
+          message :adopted do
             field :id, :string
           end
         end
@@ -18,7 +18,7 @@ defmodule VerifiedPubSub.Manifest do
 
   ## Topics
 
-  `:campaigns` is the name call sites use; the list is the wire topic, so changing its
+  `:pets` is the name call sites use; the list is the wire topic, so changing its
   segments never touches a call site. Segments are joined with `:`. A string is a literal
   and an atom is a parameter, and the parameter list is derived from the segments rather
   than declared twice — see `VerifiedPubSub.Topic` for the rules segments must satisfy.
@@ -27,9 +27,9 @@ defmodule VerifiedPubSub.Manifest do
 
   Each `field` declares a key the payload must carry:
 
-      message :created do
+      message :adopted do
         field :id, :string
-        field :campaign, MyApp.Campaign
+        field :pet, MyApp.Pet
         field :tags, {:list, :string}
         field :note, :string, required: false
       end
@@ -43,7 +43,7 @@ defmodule VerifiedPubSub.Manifest do
   struct cannot be the payload itself — it carries `__struct__` and every one of its own
   keys — so put it in a field:
 
-      broadcast!(:campaigns, %{account_id: id}, :created, %{campaign: campaign})
+      broadcast!(:pets, %{owner_id: id}, :adopted, %{pet: pet})
   """
 
   use Spark.Dsl,

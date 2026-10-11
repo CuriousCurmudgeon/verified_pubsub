@@ -33,21 +33,29 @@ And add the formatter import, so the DSL reads without parentheses:
 defmodule MyApp.Topics do
   use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
-  topic :campaigns, ["accounts", :account_id, "campaigns"] do
-    message :created do
+  topic :pets, ["owners", :owner_id, "pets"] do
+    message :adopted do
       field :id, :string
       field :name, :string
     end
 
-    message :deleted do
+    message :rehomed do
       field :id, :string
+    end
+  end
+
+  topic :treats, ["owners", :owner_id, "treats"] do
+    message :given do
+      field :pet_id, :string
+      field :from_owner_id, :string
+      field :treat, :atom
     end
   end
 end
 ```
 
-`:campaigns` is the name call sites use, and the list is the wire topic: its segments are
-joined with `:`, so this one is `"accounts:<account_id>:campaigns"`. A string is a literal
+`:pets` is the name call sites use, and the list is the wire topic: its segments are
+joined with `:`, so this one is `"owners:<owner_id>:pets"`. A string is a literal
 segment and an atom is a parameter.
 
 Each `message` declares one event on that topic, and its `field`s declare the keys that
@@ -57,48 +65,58 @@ event's payload must carry. A payload is a map of exactly those fields — add
 ## Broadcast
 
 ```elixir
-defmodule MyApp.Campaigns do
+defmodule MyApp.Pets do
   use VerifiedPubSub, manifest: MyApp.Topics
 
-  def create(attrs) do
-    with {:ok, campaign} <- insert(attrs) do
-      broadcast!(:campaigns, %{account_id: campaign.account_id}, :created, %{
-        id: campaign.id,
-        name: campaign.name
+  def adopt(attrs) do
+    with {:ok, pet} <- insert(attrs) do
+      broadcast!(:pets, %{owner_id: pet.owner_id}, :adopted, %{
+        id: pet.id,
+        name: pet.name
       })
 
-      {:ok, campaign}
+      {:ok, pet}
     end
   end
 end
 ```
 
+Anyone can give a treat to anyone's pet. The broadcast goes to the pet's owner:
+
+```elixir
+broadcast!(:treats, %{owner_id: pet.owner_id}, :given, %{
+  pet_id: pet.id,
+  from_owner_id: giver.id,
+  treat: :biscuit
+})
+```
+
 To skip the sender, which a LiveView that both writes and subscribes usually wants:
 
 ```elixir
-broadcast_from!(self(), :campaigns, %{account_id: id}, :created, payload)
+broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, payload)
 ```
 
 ## Subscribe
 
 ```elixir
-defmodule MyAppWeb.CampaignsLive do
+defmodule MyAppWeb.PetsLive do
   use MyAppWeb, :live_view
   use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      :ok = subscribe(:campaigns, %{account_id: socket.assigns.account.id})
+      :ok = subscribe(:pets, %{owner_id: socket.assigns.owner.id})
     end
 
-    {:ok, stream(socket, :campaigns, [])}
+    {:ok, stream(socket, :pets, [])}
   end
 
-  handle_message :campaigns, :created, payload, socket do
-    {:noreply, stream_insert(socket, :campaigns, payload)}
+  handle_message :pets, :adopted, payload, socket do
+    {:noreply, stream_insert(socket, :pets, payload)}
   end
 
-  ignore_message :campaigns, :deleted
+  ignore_message :pets, :rehomed
 end
 ```
 
@@ -106,8 +124,8 @@ Every event on a subscribed topic must be handled or explicitly ignored. To matc
 topic params, put them where a broadcast takes them:
 
 ```elixir
-handle_message :campaigns, %{account_id: acct}, :created, payload, socket do
-  {:noreply, assign(socket, :account_id, acct)}
+handle_message :pets, %{owner_id: owner}, :adopted, payload, socket do
+  {:noreply, assign(socket, :owner_id, owner)}
 end
 ```
 
@@ -116,14 +134,14 @@ end
 A typo'd event:
 
 ```elixir
-broadcast!(:campaigns, %{account_id: id}, :creatd, %{id: "c1", name: "n"})
+broadcast!(:pets, %{owner_id: id}, :adoptd, %{id: "p1", name: "Biscuit"})
 ```
 
 ```
-** (CompileError) lib/my_app_web/live/campaign_live.ex:42: unknown event :creatd on topic :campaigns (accounts:<account_id>:campaigns).
+** (CompileError) lib/my_app_web/live/pet_live.ex:42: unknown event :adoptd on topic :pets (owners:<owner_id>:pets).
 
-Declared events: [:created, :deleted]
-:campaigns is declared at lib/my_app/topics.ex:7.
+Declared events: [:adopted, :rehomed]
+:pets is declared at lib/my_app/topics.ex:7.
 ```
 
 Errors that a manifest change could fix point at the declaration. A manifest error is
@@ -132,20 +150,20 @@ also reported as a diagnostic on the offending line, so an editor can mark it.
 A subscriber that does not account for every event:
 
 ```elixir
-handle_message :campaigns, :created, payload, socket do
+handle_message :pets, :adopted, payload, socket do
   {:noreply, socket}
 end
 ```
 
 ```
-** (CompileError) MyAppWeb.CampaignsLive subscribes to topics with events it does not
+** (CompileError) MyAppWeb.PetsLive subscribes to topics with events it does not
 account for:
 
-  * :campaigns, :deleted
+  * :pets, :rehomed
 
 Add a `handle_message` clause for each, or dismiss it explicitly:
 
-    ignore_message :campaigns, :deleted
+    ignore_message :pets, :rehomed
 
 Manifest: MyApp.Topics
 ```
@@ -158,11 +176,11 @@ fields all fail the same way.
 A payload built at runtime is checked on every broadcast, in every environment:
 
 ```elixir
-broadcast!(:campaigns, %{account_id: id}, :created, %{id: 42, extra: true})
+broadcast!(:pets, %{owner_id: id}, :adopted, %{id: 42, extra: true})
 ```
 
 ```
-** (VerifiedPubSub.PayloadError) invalid payload for :campaigns :created in MyApp.Topics:
+** (VerifiedPubSub.PayloadError) invalid payload for :pets :adopted in MyApp.Topics:
 
   * missing required key: :name
   * unexpected key: :extra — not declared on this event

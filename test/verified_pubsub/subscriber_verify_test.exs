@@ -16,15 +16,15 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
 
   defp all_handled do
     """
-    handle_message :campaigns, :created, p, s do
+    handle_message :pets, :adopted, p, s do
       {:noreply, {p, s}}
     end
 
-    handle_message :campaigns, :updated, p, s do
+    handle_message :pets, :renamed, p, s do
       {:noreply, {p, s}}
     end
 
-    handle_message :campaigns, :deleted, p, s do
+    handle_message :pets, :rehomed, p, s do
       {:noreply, {p, s}}
     end
     """
@@ -38,7 +38,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     error =
       compile_error(
         subscriber_source("""
-        handle_message :campaigns, :created, p, s do
+        handle_message :pets, :adopted, p, s do
           {:noreply, {p, s}}
         end
         """)
@@ -46,8 +46,8 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
 
     assert error, "expected a missing event to fail compilation"
     message = Exception.message(error)
-    assert message =~ ":updated"
-    assert message =~ ":deleted"
+    assert message =~ ":renamed"
+    assert message =~ ":rehomed"
     assert message =~ "ignore_message"
   end
 
@@ -55,12 +55,12 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     assert is_atom(
              compile!(
                subscriber_source("""
-               handle_message :campaigns, :created, p, s do
+               handle_message :pets, :adopted, p, s do
                  {:noreply, {p, s}}
                end
 
-               ignore_message :campaigns, :updated
-               ignore_message :campaigns, :deleted
+               ignore_message :pets, :renamed
+               ignore_message :pets, :rehomed
                """)
              )
            )
@@ -72,7 +72,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
         subscriber_source("""
         #{all_handled()}
 
-        handle_message :campaigns, :exploded, p, s do
+        handle_message :pets, :exploded, p, s do
           {:noreply, {p, s}}
         end
         """)
@@ -107,16 +107,16 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
           {:noreply, {p, s}}
         end
 
-        handle_message :campaigns, :created, p, s do
+        handle_message :pets, :adopted, p, s do
           {:noreply, {p, s}}
         end
       end
       """)
 
-    assert error, "expected the inferred :campaigns topic to require full coverage"
+    assert error, "expected the inferred :pets topic to require full coverage"
     message = Exception.message(error)
-    assert message =~ ":updated"
-    assert message =~ ":deleted"
+    assert message =~ ":renamed"
+    assert message =~ ":rehomed"
   end
 
   test "a typo'd topic is a compile error naming the declared topics" do
@@ -125,7 +125,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       defmodule #{unique_module("VPTest.TypoTopic")} do
         use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
-        handle_message :campaign, :created, p, s do
+        handle_message :pet, :adopted, p, s do
           {:noreply, {p, s}}
         end
       end
@@ -133,10 +133,10 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
 
     assert error, "expected a typo'd topic to fail compilation"
     message = Exception.message(error)
-    assert message =~ "unknown topic :campaign"
+    assert message =~ "unknown topic :pet"
 
     assert message =~
-             ~r{:campaigns\s+accounts:<account_id>:campaigns\s+test/support/manifests\.ex:\d+}
+             ~r{:pets\s+owners:<owner_id>:pets\s+test/support/manifests\.ex:\d+}
   end
 
   test "the removed :topics option gives a migration error" do
@@ -145,7 +145,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       defmodule #{unique_module("VPTest.OldTopics")} do
         use VerifiedPubSub.Subscriber,
           manifest: VerifiedPubSub.TestManifests.Basic,
-          topics: [:campaigns]
+          topics: [:pets]
       end
       """)
 
@@ -159,29 +159,29 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     error =
       compile_error(
         subscriber_source("""
-        handle_message :campaigns, :created, p, s do
+        handle_message :pets, :adopted, p, s do
           {:noreply, {p, s}}
         end
 
-        ignore_message :campaigns, [:created, :updated, :deleted]
+        ignore_message :pets, [:adopted, :renamed, :rehomed]
         """)
       )
 
     assert error, "expected a contradictory declaration to fail compilation"
     message = Exception.message(error)
     assert message =~ "both handles and ignores"
-    assert message =~ ":created"
+    assert message =~ ":adopted"
   end
 
   test "ignore_message accepts a list of events" do
     assert is_atom(
              compile!(
                subscriber_source("""
-               handle_message :campaigns, :created, p, s do
+               handle_message :pets, :adopted, p, s do
                  {:noreply, {p, s}}
                end
 
-               ignore_message :campaigns, [:updated, :deleted]
+               ignore_message :pets, [:renamed, :rehomed]
                """)
              )
            )
@@ -191,16 +191,16 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     error =
       compile_error(
         subscriber_source("""
-        handle_message :campaigns, :created, p, s do
+        handle_message :pets, :adopted, p, s do
           {:noreply, {p, s}}
         end
 
-        ignore_message :campaigns, [:updated]
+        ignore_message :pets, [:renamed]
         """)
       )
 
-    assert error, "expected the uncovered :deleted event to fail compilation"
-    assert Exception.message(error) =~ ":deleted"
+    assert error, "expected the uncovered :rehomed event to fail compilation"
+    assert Exception.message(error) =~ ":rehomed"
   end
 
   test "an empty ignore_message list is rejected" do
@@ -209,7 +209,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
         subscriber_source("""
         #{all_handled()}
 
-        ignore_message :campaigns, []
+        ignore_message :pets, []
         """)
       )
 
@@ -219,20 +219,20 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
 
   test "several clauses for one event are allowed" do
     # Regression guard for set semantics: with list subtraction the duplicate
-    # {:campaigns, :created} would leave a residue and be misreported as undeclared.
+    # {:pets, :adopted} would leave a residue and be misreported as undeclared.
     assert is_atom(
              compile!(
                subscriber_source("""
-               handle_message :campaigns, :created, %{id: "special"}, s do
+               handle_message :pets, :adopted, %{id: "special"}, s do
                  {:noreply, s}
                end
 
-               handle_message :campaigns, :created, p, s do
+               handle_message :pets, :adopted, p, s do
                  {:noreply, {p, s}}
                end
 
-               ignore_message :campaigns, :updated
-               ignore_message :campaigns, :deleted
+               ignore_message :pets, :renamed
+               ignore_message :pets, :rehomed
                """)
              )
            )
@@ -243,7 +243,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
              compile!(
                subscriber_source(
                  """
-                 handle_message :campaigns, :created, p, s do
+                 handle_message :pets, :adopted, p, s do
                    {:noreply, {p, s}}
                  end
                  """,
@@ -259,7 +259,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
         compile_error(
           subscriber_source(
             """
-            handle_message :campaigns, :created, p, s do
+            handle_message :pets, :adopted, p, s do
               {:noreply, {p, s}}
             end
             """,
@@ -270,7 +270,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
 
     refute result, "expected on_missing: :warn not to raise"
 
-    assert Enum.any?(diagnostics, &(&1.severity == :warning and &1.message =~ ":updated")),
+    assert Enum.any?(diagnostics, &(&1.severity == :warning and &1.message =~ ":renamed")),
            "expected a warning naming the missing event, got: #{inspect(diagnostics)}"
   end
 
@@ -278,8 +278,8 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     error =
       compile_error(
         subscriber_source("""
-        @t :campaigns
-        handle_message @t, :created, p, s do
+        @t :pets
+        handle_message @t, :adopted, p, s do
           {:noreply, {p, s}}
         end
         """)

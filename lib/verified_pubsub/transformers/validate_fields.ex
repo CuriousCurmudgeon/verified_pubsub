@@ -60,7 +60,7 @@ defmodule VerifiedPubSub.Transformers.ValidateFields do
            invalid type #{inspect(field.type)} for field #{inspect(field.name)}.
 
            Valid types are #{inspect(@primitives)}, a {:list, type} tuple, or a struct
-           module such as MyApp.Campaign.
+           module such as MyApp.Pet.
            """,
            path: [:topics, topic, event, field.name],
            module: module,

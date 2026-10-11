@@ -13,7 +13,7 @@ subscription goes through the manifest:
   not build its topic string by hand. Use the macros below.
 - Do not hand-write `handle_info/2` clauses that match `%VerifiedPubSub.Message{}`. Use
   `handle_message`.
-- Do not send it a tuple like `{:created, campaign}`. Broadcast a declared event with a
+- Do not send it a tuple like `{:adopted, pet}`. Broadcast a declared event with a
   payload map.
 
 Leave raw `Phoenix.PubSub` code for undeclared topics as it is unless asked to migrate it.
@@ -26,16 +26,25 @@ only known at runtime.
 defmodule MyApp.Topics do
   use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
-  topic :campaigns, ["accounts", :account_id, "campaigns"] do
-    message :created do
+  topic :pets, ["owners", :owner_id, "pets"] do
+    message :adopted do
       field :id, :string
-      field :campaign, MyApp.Campaign
-      field :tags, {:list, :string}
-      field :note, :string, required: false
+      field :pet, MyApp.Pet
+      field :species, :atom
+      field :tricks, {:list, :string}
+      field :nickname, :string, required: false
     end
 
-    message :deleted do
+    message :rehomed do
       field :id, :string
+    end
+  end
+
+  topic :treats, ["owners", :owner_id, "treats"] do
+    message :given do
+      field :pet_id, :string
+      field :from_owner_id, :string
+      field :treat, :atom
     end
   end
 
@@ -57,14 +66,24 @@ end
 ## Broadcast
 
 ```elixir
-defmodule MyApp.Campaigns do
+defmodule MyApp.Pets do
   use VerifiedPubSub, manifest: MyApp.Topics
 
-  def notify(campaign) do
-    broadcast!(:campaigns, %{account_id: campaign.account_id}, :created, %{
-      id: campaign.id,
-      campaign: campaign,
-      tags: campaign.tags
+  def notify_adopted(pet) do
+    broadcast!(:pets, %{owner_id: pet.owner_id}, :adopted, %{
+      id: pet.id,
+      pet: pet,
+      species: pet.species,
+      tricks: pet.tricks
+    })
+  end
+
+  # Anyone can give a treat to anyone's pet. The broadcast goes to the pet's owner.
+  def give_treat(pet, giver, treat) do
+    broadcast!(:treats, %{owner_id: pet.owner_id}, :given, %{
+      pet_id: pet.id,
+      from_owner_id: giver.id,
+      treat: treat
     })
   end
 end
@@ -77,35 +96,35 @@ end
   at runtime.
 - The payload is a map of **exactly** the declared fields. Never pass a struct or an Ecto
   schema as the payload, and never add undeclared keys. Put a struct inside a field
-  instead: `%{campaign: campaign}`.
+  instead: `%{pet: pet}`.
 - `broadcast!/4` raises on failure, and `broadcast/4` returns `:ok | {:error, term}`. Both
   raise `VerifiedPubSub.PayloadError` for an invalid payload.
-- `broadcast_from!(self(), :campaigns, params, :created, payload)` skips the sender. Use it
+- `broadcast_from!(self(), :pets, params, :adopted, payload)` skips the sender. Use it
   in a LiveView that both writes to a topic and subscribes to it. Inside a `Task`, an Oban
   job or a context function, pass the originating pid, not `self()`.
-- `topic(:campaigns, %{account_id: id})` returns the wire string, if you need it.
+- `topic(:pets, %{owner_id: id})` returns the wire string, if you need it.
 
 ## Subscribe and handle
 
 ```elixir
-defmodule MyAppWeb.CampaignsLive do
+defmodule MyAppWeb.PetsLive do
   use MyAppWeb, :live_view
   use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      :ok = subscribe(:campaigns, %{account_id: socket.assigns.account.id})
+      :ok = subscribe(:pets, %{owner_id: socket.assigns.owner.id})
     end
 
-    {:ok, stream(socket, :campaigns, [])}
+    {:ok, stream(socket, :pets, [])}
   end
 
-  handle_message :campaigns, :created, payload, socket do
-    {:noreply, stream_insert(socket, :campaigns, payload.campaign)}
+  handle_message :pets, :adopted, payload, socket do
+    {:noreply, stream_insert(socket, :pets, payload.pet)}
   end
 
-  handle_message :campaigns, %{account_id: account_id}, :deleted, %{id: id}, socket do
-    {:noreply, assign(socket, :last_deleted, {account_id, id})}
+  handle_message :pets, %{owner_id: owner_id}, :rehomed, %{id: id}, socket do
+    {:noreply, assign(socket, :last_rehomed, {owner_id, id})}
   end
 end
 ```
@@ -119,7 +138,7 @@ end
   a subset of the params.
 - **Every event on a topic the module handles must be handled or ignored**, or the module
   does not compile. Dismiss the ones you don't care about:
-  `ignore_message :campaigns, :deleted` or `ignore_message :campaigns, [:created, :deleted]`.
+  `ignore_message :pets, :rehomed` or `ignore_message :pets, [:adopted, :rehomed]`.
 - In a LiveView, subscribe only when `connected?(socket)`.
 - Your own `handle_info/2` clauses still work alongside `handle_message`. They are matched
   after the generated clauses, so keep any existing clauses for topics that are not in the
@@ -146,9 +165,9 @@ Moving a topic into the manifest changes what goes over the wire. Subscribers re
 left behind stops matching without any error.
 
 1. Search the whole project for the topic string, including interpolated forms like
-   `"accounts:#{id}:campaigns"`, to find every broadcaster and subscriber.
+   `"owners:#{id}:pets"`, to find every broadcaster and subscriber.
 2. Declare the topic with segments that build the same wire string. Segments are joined
-   with `:`, so a topic that uses another separator, such as `"users/#{id}"`, cannot be
+   with `:`, so a topic that uses another separator, such as `"pets/#{id}"`, cannot be
    declared as is.
 3. Convert every broadcaster and every subscriber **in the same change**. Never convert
    only one side.

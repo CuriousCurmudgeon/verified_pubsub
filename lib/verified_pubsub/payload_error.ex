@@ -8,7 +8,7 @@ defmodule VerifiedPubSub.PayloadError do
 
   Every problem is reported at once rather than the first:
 
-      invalid payload for :campaigns :created in MyApp.Topics:
+      invalid payload for :pets :adopted in MyApp.Topics:
 
         * missing required key: :id
         * unexpected key: :extra — not declared on this event

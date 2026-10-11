@@ -12,31 +12,31 @@ defmodule VerifiedPubSub do
       defmodule MyApp.Topics do
         use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
 
-        topic :campaigns, ["accounts", :account_id, "campaigns"] do
-          message :created do
+        topic :pets, ["owners", :owner_id, "pets"] do
+          message :adopted do
             field :id, :string
             field :name, :string
           end
 
-          message :deleted do
+          message :rehomed do
             field :id, :string
           end
         end
       end
 
-  `:campaigns` is the name call sites use; the list is the wire topic, so changing its
+  `:pets` is the name call sites use; the list is the wire topic, so changing its
   segments never touches a call site. Segments are joined with `:`. A string is a literal
   and an atom is a parameter, and the parameter list is derived from the segments rather
   than declared twice.
 
   ## Broadcasting
 
-      defmodule MyApp.Campaigns do
+      defmodule MyApp.Pets do
         use VerifiedPubSub, manifest: MyApp.Topics
 
         def create(attrs) do
           # ...
-          broadcast!(:campaigns, %{account_id: attrs.account_id}, :created, payload)
+          broadcast!(:pets, %{owner_id: attrs.owner_id}, :adopted, payload)
         end
       end
 
@@ -55,7 +55,7 @@ defmodule VerifiedPubSub do
   To skip the sender, use `broadcast_from!/5`, which mirrors
   `Phoenix.PubSub.broadcast_from/4` (`from` leads, as it does there):
 
-      broadcast_from!(self(), :campaigns, %{account_id: id}, :created, payload)
+      broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, payload)
 
   ## Subscribing
 
@@ -63,16 +63,16 @@ defmodule VerifiedPubSub do
         use GenServer
         use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
 
-        def init(account_id) do
-          :ok = subscribe(:campaigns, %{account_id: account_id})
-          {:ok, account_id}
+        def init(owner_id) do
+          :ok = subscribe(:pets, %{owner_id: owner_id})
+          {:ok, owner_id}
         end
 
-        handle_message :campaigns, :created, payload, state do
+        handle_message :pets, :adopted, payload, state do
           {:noreply, state}
         end
 
-        ignore_message :campaigns, :deleted
+        ignore_message :pets, :rehomed
       end
 
   Every event declared on a subscribed topic must be handled or explicitly dismissed.
@@ -84,8 +84,8 @@ defmodule VerifiedPubSub do
   topic. The leading arguments are the same in both; a broadcast builds them, a handler
   matches them:
 
-      broadcast!     :campaigns, %{account_id: id},   :created, payload
-      handle_message :campaigns, %{account_id: acct}, :created, payload, state
+      broadcast!     :pets, %{owner_id: id},    :adopted, payload
+      handle_message :pets, %{owner_id: owner}, :adopted, payload, state
 
   The params argument is optional, and a pattern may name a subset of the params. Matching
   the whole `%VerifiedPubSub.Message{}` in the payload position still works for anything
@@ -124,9 +124,9 @@ defmodule VerifiedPubSub do
 
   Each `field` declares a key the payload must carry:
 
-      message :created do
+      message :adopted do
         field :id, :string
-        field :campaign, MyApp.Campaign
+        field :pet, MyApp.Pet
         field :tags, {:list, :string}
         field :note, :string, required: false
       end
@@ -139,7 +139,7 @@ defmodule VerifiedPubSub do
   struct cannot be the payload itself — it carries `__struct__` and every one of its own
   keys — so put it in a field:
 
-      broadcast!(:campaigns, %{account_id: id}, :created, %{campaign: campaign})
+      broadcast!(:pets, %{owner_id: id}, :adopted, %{pet: pet})
 
   `required: false` allows the key to be absent, or present as `nil`.
 
@@ -168,7 +168,7 @@ defmodule VerifiedPubSub do
   The call-site API is macros rather than functions so that the topic and event can be
   checked while your code compiles. Plain functions taking atoms cannot be: Elixir's
   type inference does not narrow across clause heads on a remote call, so
-  `broadcast(:campaigns, params, :creatd, ...)` would fail only at runtime.
+  `broadcast(:pets, params, :adoptd, ...)` would fail only at runtime.
 
   The cost is that every calling module needs `use VerifiedPubSub, manifest: ...`, and
   macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules that

@@ -4,17 +4,17 @@ defmodule VerifiedPubSub.TestManifests do
   defmodule Basic do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-    topic :campaigns, ["accounts", :account_id, "campaigns"] do
-      message :created do
+    topic :pets, ["owners", :owner_id, "pets"] do
+      message :adopted do
         field :id, :string
         field :name, :string, required: false
       end
 
-      message :updated do
+      message :renamed do
         field :id, :string
       end
 
-      message :deleted do
+      message :rehomed do
         field :id, :string
       end
     end
@@ -73,8 +73,8 @@ defmodule VerifiedPubSub.TestManifests do
   defmodule CollideA do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-    topic :campaigns, ["collide", :account_id, "campaigns"] do
-      message :created do
+    topic :pets, ["collide", :owner_id, "pets"] do
+      message :adopted do
         field :id, :string
       end
     end
@@ -83,8 +83,8 @@ defmodule VerifiedPubSub.TestManifests do
   defmodule CollideB do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
-    topic :campaigns, ["collide", :account_id, "campaigns"] do
-      message :created do
+    topic :pets, ["collide", :owner_id, "pets"] do
+      message :adopted do
         field :email, :string
       end
     end

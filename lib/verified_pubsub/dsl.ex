@@ -54,7 +54,7 @@ defmodule VerifiedPubSub.Dsl do
                required: true,
                doc:
                  "Wire topic segments, joined with `:`. A string is a literal and an atom is " <>
-                   ~S|a parameter, e.g. `["accounts", :account_id, "campaigns"]`.|
+                   ~S|a parameter, e.g. `["owners", :owner_id, "pets"]`.|
              ]
            ]
          )

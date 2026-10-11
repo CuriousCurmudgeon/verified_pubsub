@@ -12,7 +12,7 @@ defmodule VerifiedPubSub.PayloadTest do
   alias VerifiedPubSub.TestStructs.Point
 
   setup do
-    %{owner_id: unique_account_id()}
+    %{owner_id: unique_owner_id()}
   end
 
   # Passing a payload through a function call hides it from the compile-time literal

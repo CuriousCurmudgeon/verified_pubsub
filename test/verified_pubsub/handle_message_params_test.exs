@@ -9,63 +9,63 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
     # Binds from the topic params, no %Message{} destructuring.
-    handle_message :campaigns, %{account_id: acct}, :created, payload, state do
-      {:noreply, [{:created, acct, payload.id} | state]}
+    handle_message :pets, %{owner_id: owner}, :adopted, payload, state do
+      {:noreply, [{:adopted, owner, payload.id} | state]}
     end
 
     # The params-free form still works, in the same module.
-    handle_message :campaigns, :updated, payload, state do
-      {:noreply, [{:updated, payload.id} | state]}
+    handle_message :pets, :renamed, payload, state do
+      {:noreply, [{:renamed, payload.id} | state]}
     end
 
-    ignore_message :campaigns, :deleted
+    ignore_message :pets, :rehomed
   end
 
   defmodule Narrowed do
     use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
     # A literal narrows to one param value. Order is load-bearing, as with any clauses.
-    handle_message :campaigns, %{account_id: "7"}, :created, payload, state do
+    handle_message :pets, %{owner_id: "7"}, :adopted, payload, state do
       {:noreply, [{:seven, payload.id} | state]}
     end
 
-    handle_message :campaigns, %{account_id: acct}, :created, payload, state do
-      {:noreply, [{:other, acct, payload.id} | state]}
+    handle_message :pets, %{owner_id: owner}, :adopted, payload, state do
+      {:noreply, [{:other, owner, payload.id} | state]}
     end
 
-    ignore_message :campaigns, [:updated, :deleted]
+    ignore_message :pets, [:renamed, :rehomed]
   end
 
-  defp message(event, account_id, payload) do
+  defp message(event, owner_id, payload) do
     %Message{
       manifest: VerifiedPubSub.TestManifests.Basic,
-      topic: :campaigns,
+      topic: :pets,
       event: event,
-      params: %{account_id: account_id},
+      params: %{owner_id: owner_id},
       payload: payload
     }
   end
 
   test "a params pattern binds the param" do
-    assert {:noreply, [{:created, "42", "c1"}]} =
-             Listener.handle_info(message(:created, "42", %{id: "c1"}), [])
+    assert {:noreply, [{:adopted, "42", "c1"}]} =
+             Listener.handle_info(message(:adopted, "42", %{id: "c1"}), [])
   end
 
   test "the params-free form still works alongside it" do
-    assert {:noreply, [{:updated, "c2"}]} =
-             Listener.handle_info(message(:updated, "1", %{id: "c2"}), [])
+    assert {:noreply, [{:renamed, "c2"}]} =
+             Listener.handle_info(message(:renamed, "1", %{id: "c2"}), [])
   end
 
   test "a literal param value narrows the clause" do
     assert {:noreply, [{:seven, "c1"}]} =
-             Narrowed.handle_info(message(:created, "7", %{id: "c1"}), [])
+             Narrowed.handle_info(message(:adopted, "7", %{id: "c1"}), [])
 
     assert {:noreply, [{:other, "8", "c1"}]} =
-             Narrowed.handle_info(message(:created, "8", %{id: "c1"}), [])
+             Narrowed.handle_info(message(:adopted, "8", %{id: "c1"}), [])
   end
 
   test "ignore_message is unchanged" do
-    assert {:noreply, []} = Listener.handle_info(message(:deleted, "1", %{id: "c1"}), [])
+    assert {:noreply, []} = Listener.handle_info(message(:rehomed, "1", %{id: "c1"}), [])
   end
 
   defp source(body) do
@@ -81,11 +81,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     error =
       compile_error(
         source("""
-        handle_message :campaigns, %{acount_id: a}, :created, p, s do
+        handle_message :pets, %{acount_id: a}, :adopted, p, s do
           {:noreply, [a, p | s]}
         end
 
-        ignore_message :campaigns, [:updated, :deleted]
+        ignore_message :pets, [:renamed, :rehomed]
         """)
       )
 
@@ -93,7 +93,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     message = Exception.message(error)
     assert message =~ ":acount_id"
     assert message =~ "could never match"
-    assert message =~ ~r{:campaigns is declared at test/support/manifests\.ex:\d+\.}
+    assert message =~ ~r{:pets is declared at test/support/manifests\.ex:\d+\.}
   end
 
   test "matching a subset of the params is allowed" do
@@ -102,11 +102,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     assert is_atom(
              compile!(
                source("""
-               handle_message :campaigns, %{}, :created, p, s do
+               handle_message :pets, %{}, :adopted, p, s do
                  {:noreply, [p | s]}
                end
 
-               ignore_message :campaigns, [:updated, :deleted]
+               ignore_message :pets, [:renamed, :rehomed]
                """)
              )
            )
@@ -116,12 +116,12 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     error =
       compile_error(
         source("""
-        handle_message :campaigns, %{account_id: a}, :created,
+        handle_message :pets, %{owner_id: a}, :adopted,
                        %VerifiedPubSub.Message{payload: p}, s do
           {:noreply, [a, p | s]}
         end
 
-        ignore_message :campaigns, [:updated, :deleted]
+        ignore_message :pets, [:renamed, :rehomed]
         """)
       )
 
@@ -133,7 +133,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     error =
       compile_error(
         source("""
-        handle_message :campaigns, %{account_id: a}, :created, p, s do
+        handle_message :pets, %{owner_id: a}, :adopted, p, s do
           {:noreply, [a, p | s]}
         end
         """)
@@ -148,11 +148,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     assert is_atom(
              compile!(
                source("""
-               handle_message :campaigns, params, :created, p, s do
+               handle_message :pets, params, :adopted, p, s do
                  {:noreply, [params, p | s]}
                end
 
-               ignore_message :campaigns, [:updated, :deleted]
+               ignore_message :pets, [:renamed, :rehomed]
                """)
              )
            )
@@ -163,11 +163,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       error =
         compile_error(
           source("""
-          handle_message :campaigns, :created, %{nope: x}, s do
+          handle_message :pets, :adopted, %{nope: x}, s do
             {:noreply, [x | s]}
           end
 
-          ignore_message :campaigns, [:updated, :deleted]
+          ignore_message :pets, [:renamed, :rehomed]
           """)
         )
 
@@ -175,7 +175,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       message = Exception.message(error)
       assert message =~ ":nope"
       assert message =~ "could never match"
-      assert message =~ ~r{:created on :campaigns is declared at test/support/manifests\.ex:\d+\.}
+      assert message =~ ~r{:adopted on :pets is declared at test/support/manifests\.ex:\d+\.}
     end
 
     test "params in the payload slot are named as such, with the right order shown" do
@@ -184,29 +184,29 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       error =
         compile_error(
           source("""
-          handle_message :campaigns, :created, %{account_id: a}, s do
+          handle_message :pets, :adopted, %{owner_id: a}, s do
             {:noreply, [a | s]}
           end
 
-          ignore_message :campaigns, [:updated, :deleted]
+          ignore_message :pets, [:renamed, :rehomed]
           """)
         )
 
       assert %CompileError{} = error
       message = Exception.message(error)
       assert message =~ "is a param"
-      assert message =~ "handle_message :campaigns, %{account_id: ...}, :created"
+      assert message =~ "handle_message :pets, %{owner_id: ...}, :adopted"
     end
 
     test "a subset of the declared fields is fine" do
       assert is_atom(
                compile!(
                  source("""
-                 handle_message :campaigns, :created, %{id: id}, s do
+                 handle_message :pets, :adopted, %{id: id}, s do
                    {:noreply, [id | s]}
                  end
 
-                 ignore_message :campaigns, [:updated, :deleted]
+                 ignore_message :pets, [:renamed, :rehomed]
                  """)
                )
              )
@@ -216,11 +216,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert is_atom(
                compile!(
                  source("""
-                 handle_message :campaigns, :created, %{name: n}, s do
+                 handle_message :pets, :adopted, %{name: n}, s do
                    {:noreply, [n | s]}
                  end
 
-                 ignore_message :campaigns, [:updated, :deleted]
+                 ignore_message :pets, [:renamed, :rehomed]
                  """)
                )
              )

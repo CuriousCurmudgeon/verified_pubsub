@@ -17,24 +17,24 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
+      :ok = subscribe(:pets, %{owner_id: opts[:owner_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :campaigns, :created, payload, state do
-      send(state.owner, {:created, payload})
+    handle_message :pets, :adopted, payload, state do
+      send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
 
-    handle_message :campaigns,
-                   :updated,
-                   %Message{params: %{account_id: account_id}, payload: payload},
+    handle_message :pets,
+                   :renamed,
+                   %Message{params: %{owner_id: owner_id}, payload: payload},
                    state do
-      send(state.owner, {:updated, account_id, payload})
+      send(state.owner, {:renamed, owner_id, payload})
       {:noreply, state}
     end
 
-    ignore_message :campaigns, :deleted
+    ignore_message :pets, :rehomed
   end
 
   defmodule WorkerWithOwnHandleInfo do
@@ -47,7 +47,7 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
+      :ok = subscribe(:pets, %{owner_id: opts[:owner_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
@@ -57,13 +57,13 @@ defmodule VerifiedPubSub.SubscriberTest do
       {:noreply, state}
     end
 
-    handle_message :campaigns, :created, payload, state do
-      send(state.owner, {:created, payload})
+    handle_message :pets, :adopted, payload, state do
+      send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
 
-    ignore_message :campaigns, :updated
-    ignore_message :campaigns, :deleted
+    ignore_message :pets, :renamed
+    ignore_message :pets, :rehomed
   end
 
   defmodule WorkerWithCatchAll do
@@ -76,17 +76,17 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
+      :ok = subscribe(:pets, %{owner_id: opts[:owner_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :campaigns, :created, payload, state do
-      send(state.owner, {:created, payload})
+    handle_message :pets, :adopted, payload, state do
+      send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
 
-    ignore_message :campaigns, :updated
-    ignore_message :campaigns, :deleted
+    ignore_message :pets, :renamed
+    ignore_message :pets, :rehomed
 
     @impl true
     def handle_info(other, state) do
@@ -96,28 +96,28 @@ defmodule VerifiedPubSub.SubscriberTest do
   end
 
   setup do
-    id = unique_account_id()
-    pid = start_supervised!({Worker, owner: self(), account_id: id})
-    %{account_id: id, worker: pid}
+    id = unique_owner_id()
+    pid = start_supervised!({Worker, owner: self(), owner_id: id})
+    %{owner_id: id, worker: pid}
   end
 
-  test "the payload form receives the payload", %{account_id: id} do
-    broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
+  test "the payload form receives the payload", %{owner_id: id} do
+    broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
-    assert_receive {:created, %{id: "c1"}}
+    assert_receive {:adopted, %{id: "c1"}}
   end
 
-  test "the Message form can match on topic params", %{account_id: id} do
-    broadcast!(:campaigns, %{account_id: id}, :updated, %{id: "c2"})
+  test "the Message form can match on topic params", %{owner_id: id} do
+    broadcast!(:pets, %{owner_id: id}, :renamed, %{id: "c2"})
 
-    assert_receive {:updated, ^id, %{id: "c2"}}
+    assert_receive {:renamed, ^id, %{id: "c2"}}
   end
 
-  test "an ignored event is received without crashing", %{account_id: id, worker: pid} do
-    broadcast!(:campaigns, %{account_id: id}, :deleted, %{id: "c3"})
+  test "an ignored event is received without crashing", %{owner_id: id, worker: pid} do
+    broadcast!(:pets, %{owner_id: id}, :rehomed, %{id: "c3"})
 
-    refute_receive {:created, _}, 50
-    refute_receive {:updated, _, _}, 50
+    refute_receive {:adopted, _}, 50
+    refute_receive {:renamed, _, _}, 50
     assert Process.alive?(pid)
   end
 
@@ -135,8 +135,8 @@ defmodule VerifiedPubSub.SubscriberTest do
   end
 
   test "a module-defined catch-all handles unrelated messages without shadowing" do
-    id = unique_account_id()
-    pid = start_supervised!({WorkerWithCatchAll, owner: self(), account_id: id})
+    id = unique_owner_id()
+    pid = start_supervised!({WorkerWithCatchAll, owner: self(), owner_id: id})
 
     send(pid, :something_unrelated)
     assert_receive {:catchall, :something_unrelated}
@@ -144,19 +144,19 @@ defmodule VerifiedPubSub.SubscriberTest do
 
     # The generated clause is emitted at the `use` site, so it is matched before the
     # user's catch-all and verified messages still dispatch correctly.
-    broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c7"})
-    assert_receive {:created, %{id: "c7"}}
+    broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c7"})
+    assert_receive {:adopted, %{id: "c7"}}
   end
 
   test "coexists with a user-defined handle_info clause" do
-    id = unique_account_id()
-    pid = start_supervised!({WorkerWithOwnHandleInfo, owner: self(), account_id: id})
+    id = unique_owner_id()
+    pid = start_supervised!({WorkerWithOwnHandleInfo, owner: self(), owner_id: id})
 
     send(pid, :tick)
     assert_receive :ticked
 
-    broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c9"})
-    assert_receive {:created, %{id: "c9"}}
+    broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c9"})
+    assert_receive {:adopted, %{id: "c9"}}
 
     assert Process.alive?(pid)
   end

@@ -15,53 +15,53 @@ defmodule VerifiedPubSub.TopicTest do
     test "raises rather than forging a topic" do
       error =
         assert_raise TopicError, fn ->
-          subscribe(:campaigns, %{account_id: "1:campaigns"})
+          subscribe(:pets, %{owner_id: "1:pets"})
         end
 
       message = Exception.message(error)
-      assert message =~ ":account_id"
-      assert message =~ "1:campaigns"
-      assert message =~ ":campaigns (accounts:<account_id>:campaigns)"
+      assert message =~ ":owner_id"
+      assert message =~ "1:pets"
+      assert message =~ ":pets (owners:<owner_id>:pets)"
     end
 
     test "raises from broadcast too" do
       assert_raise TopicError, fn ->
-        broadcast!(:campaigns, %{account_id: "1:x"}, :created, %{id: "c1"})
+        broadcast!(:pets, %{owner_id: "1:x"}, :adopted, %{id: "c1"})
       end
     end
 
     test "raises from topic/2" do
-      assert_raise TopicError, fn -> topic(:campaigns, %{account_id: "a:b"}) end
+      assert_raise TopicError, fn -> topic(:pets, %{owner_id: "a:b"}) end
     end
 
     test "raises from unsubscribe" do
-      assert_raise TopicError, fn -> unsubscribe(:campaigns, %{account_id: "a:b"}) end
+      assert_raise TopicError, fn -> unsubscribe(:pets, %{owner_id: "a:b"}) end
     end
 
     test "nothing is subscribed when the value is rejected" do
       # If the guard ran after Phoenix.PubSub.subscribe, the process would be left
       # subscribed to the forged topic.
-      assert_raise TopicError, fn -> subscribe(:campaigns, %{account_id: "9:campaigns"}) end
-      assert :ok = broadcast!(:campaigns, %{account_id: "9"}, :created, %{id: "leak"})
+      assert_raise TopicError, fn -> subscribe(:pets, %{owner_id: "9:pets"}) end
+      assert :ok = broadcast!(:pets, %{owner_id: "9"}, :adopted, %{id: "leak"})
       refute_receive %Message{payload: %{id: "leak"}}, 50
     end
   end
 
   describe "an empty param value" do
     test "raises, since it collapses a segment" do
-      error = assert_raise TopicError, fn -> subscribe(:campaigns, %{account_id: ""}) end
+      error = assert_raise TopicError, fn -> subscribe(:pets, %{owner_id: ""}) end
       assert Exception.message(error) =~ "empty"
     end
   end
 
   describe "values that are fine" do
     test "an integer is stringified" do
-      assert topic(:campaigns, %{account_id: 7}) == "accounts:7:campaigns"
+      assert topic(:pets, %{owner_id: 7}) == "owners:7:pets"
     end
 
     test "a UUID is fine" do
       uuid = "550e8400-e29b-41d4-a716-446655440000"
-      assert topic(:campaigns, %{account_id: uuid}) == "accounts:#{uuid}:campaigns"
+      assert topic(:pets, %{owner_id: uuid}) == "owners:#{uuid}:pets"
     end
 
     test "a param-free topic is unaffected" do

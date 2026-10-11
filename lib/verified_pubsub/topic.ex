@@ -27,8 +27,8 @@ defmodule VerifiedPubSub.Topic do
   @doc """
   Renders segments as a wire pattern, with each param in angle brackets.
 
-      iex> VerifiedPubSub.Topic.pattern(["accounts", :account_id, "campaigns"])
-      "accounts:<account_id>:campaigns"
+      iex> VerifiedPubSub.Topic.pattern(["owners", :owner_id, "pets"])
+      "owners:<owner_id>:pets"
 
   This is the form errors show a topic in, so a reader holding a wire string from a log
   can tell which declared topic it belongs to.
@@ -42,7 +42,7 @@ defmodule VerifiedPubSub.Topic do
   end
 
   @doc false
-  # `:campaigns (accounts:<account_id>:campaigns)`, for naming one topic in a message.
+  # `:pets (owners:<owner_id>:pets)`, for naming one topic in a message.
   @spec describe(VerifiedPubSub.Dsl.Topic.t()) :: String.t()
   def describe(topic), do: "#{inspect(topic.name)} (#{pattern(topic.segments)})"
 

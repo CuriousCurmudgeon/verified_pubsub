@@ -3,20 +3,20 @@ defmodule VerifiedPubSub.Subscriber do
   Declares that a module subscribes to topics from a manifest, and defines its
   handlers.
 
-      defmodule MyAppWeb.CampaignsLive do
+      defmodule MyAppWeb.PetsLive do
         use MyAppWeb, :live_view
         use VerifiedPubSub.Subscriber, manifest: MyApp.Topics
 
         def mount(_params, _session, socket) do
-          if connected?(socket), do: subscribe(:campaigns, %{account_id: socket.assigns.id})
+          if connected?(socket), do: subscribe(:pets, %{owner_id: socket.assigns.id})
           {:ok, socket}
         end
 
-        handle_message :campaigns, :created, payload, socket do
-          {:noreply, stream_insert(socket, :campaigns, payload)}
+        handle_message :pets, :adopted, payload, socket do
+          {:noreply, stream_insert(socket, :pets, payload)}
         end
 
-        ignore_message :campaigns, :deleted
+        ignore_message :pets, :rehomed
       end
 
   The topics this module subscribes to are **inferred** from its `handle_message/5` and
@@ -68,8 +68,8 @@ defmodule VerifiedPubSub.Subscriber do
   separate registries, so a colliding topic is never delivered at all:
 
       children = [
-        Supervisor.child_spec({Phoenix.PubSub, name: Campaigns.PubSub}, id: :campaigns_pubsub),
-        Supervisor.child_spec({Phoenix.PubSub, name: Accounts.PubSub}, id: :accounts_pubsub)
+        Supervisor.child_spec({Phoenix.PubSub, name: Pets.PubSub}, id: :pets_pubsub),
+        Supervisor.child_spec({Phoenix.PubSub, name: Treats.PubSub}, id: :treats_pubsub)
       ]
 
   Which modules may bind which manifest is a separate, ordinary dependency-boundary
@@ -86,7 +86,7 @@ defmodule VerifiedPubSub.Subscriber do
 
   If your process receives messages other than verified ones, add your own catch-all:
 
-      handle_message :campaigns, :created, payload, state do
+      handle_message :pets, :adopted, payload, state do
         {:noreply, state}
       end
 
@@ -188,13 +188,13 @@ defmodule VerifiedPubSub.Subscriber do
   The leading arguments are `broadcast!/4`'s, in the same order — the difference is that
   here they **match** rather than build:
 
-      broadcast!     :campaigns, %{account_id: id},   :created, payload
-      handle_message :campaigns, %{account_id: acct}, :created, payload, socket
+      broadcast!     :pets, %{owner_id: id},    :adopted, payload
+      handle_message :pets, %{owner_id: owner}, :adopted, payload, socket
 
-  So `acct` is bound from the topic params without destructuring the whole message, and a
+  So `owner` is bound from the topic params without destructuring the whole message, and a
   literal narrows the clause to that value:
 
-      handle_message :campaigns, %{account_id: "7"}, :created, payload, socket
+      handle_message :pets, %{owner_id: "7"}, :adopted, payload, socket
 
   Unlike a broadcast, a subset of the params is legitimate — a pattern that mentions one
   param of three still matches. Naming a param the topic does not declare is a compile
@@ -341,8 +341,8 @@ defmodule VerifiedPubSub.Subscriber do
   @doc """
   Declares that this module knowingly does nothing with an event, or a list of them.
 
-      ignore_message :campaigns, :deleted
-      ignore_message :campaigns, [:updated, :deleted]
+      ignore_message :pets, :rehomed
+      ignore_message :pets, [:renamed, :rehomed]
 
   Satisfies exhaustiveness without a handler. The generated clause returns
   `{:noreply, state}`, which is correct for both GenServer and LiveView.

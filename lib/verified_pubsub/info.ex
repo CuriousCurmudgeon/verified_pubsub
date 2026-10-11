@@ -61,8 +61,8 @@ defmodule VerifiedPubSub.Info do
   @doc """
   Finds the declared topic a wire topic string belongs to, and the params it carries.
 
-      iex> VerifiedPubSub.Info.match(MyApp.Topics, "accounts:42:campaigns")
-      {:ok, :campaigns, %{account_id: "42"}}
+      iex> VerifiedPubSub.Info.match(MyApp.Topics, "owners:42:pets")
+      {:ok, :pets, %{owner_id: "42"}}
 
   The reverse of building a topic: useful when all you have is the string, from a log, a
   trace or `Phoenix.PubSub` itself. Param values come back as the strings that were on the

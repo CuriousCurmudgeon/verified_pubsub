@@ -7,7 +7,7 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
 
   describe "parse/1" do
     test "extracts params in order" do
-      assert {:ok, [:account_id]} = ParseParams.parse(["accounts", :account_id, "campaigns"])
+      assert {:ok, [:owner_id]} = ParseParams.parse(["owners", :owner_id, "pets"])
       assert {:ok, [:org_id, :user_id]} = ParseParams.parse(["o", :org_id, "u", :user_id])
     end
 
@@ -21,15 +21,15 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
     end
 
     test "rejects an empty literal" do
-      assert {:error, msg} = ParseParams.parse(["accounts", ""])
+      assert {:error, msg} = ParseParams.parse(["owners", ""])
       assert msg =~ "empty"
     end
 
     # A literal carrying the separator would be several segments pretending to be one,
     # which hides them from the disjointness check.
     test "rejects a literal containing the separator" do
-      assert {:error, msg} = ParseParams.parse(["accounts:campaigns"])
-      assert msg =~ "accounts:campaigns"
+      assert {:error, msg} = ParseParams.parse(["owners:pets"])
+      assert msg =~ "owners:pets"
       assert msg =~ "its own list element"
     end
 
@@ -49,7 +49,7 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
 
   describe "integration with the DSL" do
     test "params land on the topic struct" do
-      assert [:account_id] = Info.params(Basic, :campaigns)
+      assert [:owner_id] = Info.params(Basic, :pets)
       assert [] = Info.params(Basic, :system)
     end
   end

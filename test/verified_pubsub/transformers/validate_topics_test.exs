@@ -16,8 +16,8 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     assert is_atom(
              compile!(
                manifest_source("""
-               topic :campaigns, ["accounts", :account_id, "campaigns"] do
-                 message :created do
+               topic :pets, ["owners", :owner_id, "pets"] do
+                 message :adopted do
                    field :id, :string
                  end
                end
@@ -30,13 +30,13 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     error =
       dsl_error(
         manifest_source("""
-        topic :campaigns, ["a"] do
-          message :created do
+        topic :pets, ["a"] do
+          message :adopted do
           end
         end
 
-        topic :campaigns, ["b"] do
-          message :created do
+        topic :pets, ["b"] do
+          message :adopted do
           end
         end
         """)
@@ -44,7 +44,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
 
     assert %Spark.Error.DslError{} = error
     assert Exception.message(error) =~ "duplicate topic"
-    assert Exception.message(error) =~ "campaigns"
+    assert Exception.message(error) =~ "pets"
     assert Exception.message(error) =~ "The first is declared at nofile:3."
     assert :erl_anno.line(error.location) == 8
   end
@@ -53,11 +53,11 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     error =
       dsl_error(
         manifest_source("""
-        topic :campaigns, ["a"] do
-          message :created do
+        topic :pets, ["a"] do
+          message :adopted do
           end
 
-          message :created do
+          message :adopted do
           end
         end
         """)
@@ -65,20 +65,20 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
 
     assert %Spark.Error.DslError{} = error
     assert Exception.message(error) =~ "duplicate event"
-    assert Exception.message(error) =~ "created"
+    assert Exception.message(error) =~ "adopted"
   end
 
   test "the same event name on two different topics is allowed" do
     assert is_atom(
              compile!(
                manifest_source("""
-               topic :campaigns, ["a"] do
-                 message :created do
+               topic :pets, ["a"] do
+                 message :adopted do
                  end
                end
 
-               topic :contacts, ["b"] do
-                 message :created do
+               topic :treats, ["b"] do
+                 message :adopted do
                  end
                end
                """)
@@ -90,8 +90,8 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     error =
       dsl_error(
         manifest_source("""
-        topic :campaigns, ["accounts:campaigns"] do
-          message :created do
+        topic :pets, ["owners:pets"] do
+          message :adopted do
           end
         end
         """)
@@ -105,8 +105,8 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     error =
       dsl_error(
         manifest_source("""
-        topic :campaigns, ["accounts", 1] do
-          message :created do
+        topic :pets, ["owners", 1] do
+          message :adopted do
           end
         end
         """)
@@ -119,7 +119,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     error =
       dsl_error(
         manifest_source("""
-        topic :campaigns, ["a"] do
+        topic :pets, ["a"] do
         end
         """)
       )
@@ -147,13 +147,13 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       error =
         dsl_error(
           manifest_source("""
-          topic :campaigns, ["accounts", :account_id, "campaigns"] do
-            message :created do
+          topic :pets, ["owners", :owner_id, "pets"] do
+            message :adopted do
               field :id, :string
             end
           end
 
-          topic :scoped, ["accounts", :account_id, :thing] do
+          topic :scoped, ["owners", :owner_id, :thing] do
             message :touched do
               field :id, :string
             end
@@ -164,7 +164,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert %Spark.Error.DslError{} = error
       message = Exception.message(error)
       assert message =~ "can match the same topic"
-      assert message =~ ~r/:campaigns — .*, at nofile:3$/m
+      assert message =~ ~r/:pets — .*, at nofile:3$/m
       assert message =~ ~r/:scoped — .*, at nofile:9$/m
       assert :erl_anno.line(error.location) == 3
     end
@@ -174,12 +174,12 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
         Code.with_diagnostics(fn ->
           compile_error(
             manifest_source("""
-            topic :campaigns, ["accounts", :account_id, "campaigns"] do
-              message :created do
+            topic :pets, ["owners", :owner_id, "pets"] do
+              message :adopted do
               end
             end
 
-            topic :scoped, ["accounts", :account_id, :thing] do
+            topic :scoped, ["owners", :owner_id, :thing] do
               message :touched do
               end
             end
@@ -195,14 +195,14 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert is_atom(
                compile!(
                  manifest_source("""
-                 topic :campaigns, ["accounts", :account_id, "campaigns"] do
-                   message :created do
+                 topic :pets, ["owners", :owner_id, "pets"] do
+                   message :adopted do
                      field :id, :string
                    end
                  end
 
-                 topic :contacts, ["accounts", :account_id, "contacts"] do
-                   message :created do
+                 topic :treats, ["owners", :owner_id, "treats"] do
+                   message :adopted do
                      field :id, :string
                    end
                  end

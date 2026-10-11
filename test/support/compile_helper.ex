@@ -29,13 +29,13 @@ defmodule VerifiedPubSub.CompileHelper do
   end
 
   @doc """
-  A unique account id.
+  A unique owner id.
 
   The suite shares one `VerifiedPubSub.Adapter.Local` manifest, so any test that
   subscribes must use a unique param value or a concurrent test broadcasting on the
   same topic string will deliver to it.
   """
-  def unique_account_id, do: "acct#{System.unique_integer([:positive])}"
+  def unique_owner_id, do: "owner#{System.unique_integer([:positive])}"
 
   @doc "A unique module name, so generated test modules never collide."
   def unique_module(prefix) do

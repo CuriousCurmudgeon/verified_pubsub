@@ -9,8 +9,8 @@ defmodule VerifiedPubSub.Transformers.ParseParams do
   @doc """
   Validates a segment list and extracts its parameter names, in order.
 
-      iex> VerifiedPubSub.Transformers.ParseParams.parse(["accounts", :account_id, "campaigns"])
-      {:ok, [:account_id]}
+      iex> VerifiedPubSub.Transformers.ParseParams.parse(["owners", :owner_id, "pets"])
+      {:ok, [:owner_id]}
   """
   @spec parse([String.t() | atom()]) :: {:ok, [atom()]} | {:error, String.t()}
   def parse([]), do: {:error, "a topic needs at least one segment"}

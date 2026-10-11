@@ -14,12 +14,12 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
+      :ok = subscribe(:pets, %{owner_id: opts[:owner_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :campaigns, :created, payload, state do
-      send(state.owner, {:created, payload})
+    handle_message :pets, :adopted, payload, state do
+      send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
   end
@@ -32,12 +32,12 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
 
     @impl true
     def init(opts) do
-      :ok = subscribe(:campaigns, %{account_id: opts[:account_id]})
+      :ok = subscribe(:pets, %{owner_id: opts[:owner_id]})
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :campaigns, :created, payload, state do
-      send(state.owner, {:created, payload})
+    handle_message :pets, :adopted, payload, state do
+      send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
 
@@ -51,15 +51,15 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
   defmodule Publisher do
     use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.CollideB
 
-    def announce(id), do: broadcast!(:campaigns, %{account_id: id}, :created, %{email: "a@b.c"})
+    def announce(id), do: broadcast!(:pets, %{owner_id: id}, :adopted, %{email: "a@b.c"})
   end
 
   defp message(manifest, payload) do
     %Message{
       manifest: manifest,
-      topic: :campaigns,
-      event: :created,
-      params: %{account_id: "7"},
+      topic: :pets,
+      event: :adopted,
+      params: %{owner_id: "7"},
       payload: payload
     }
   end
@@ -75,8 +75,8 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       assert text =~ inspect(CollideA)
       assert text =~ inspect(CollideB)
       assert text =~ inspect(Listener)
-      assert text =~ ":campaigns"
-      assert text =~ ":created"
+      assert text =~ ":pets"
+      assert text =~ ":adopted"
     end
 
     test "names the wire topic and the subscriber's topic it collided with" do
@@ -86,8 +86,8 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
         end
 
       text = Exception.message(error)
-      assert text =~ ~s|wire topic "collide:7:campaigns"|
-      assert text =~ "matches :campaigns (collide:<account_id>:campaigns) in #{inspect(CollideA)}"
+      assert text =~ ~s|wire topic "collide:7:pets"|
+      assert text =~ "matches :pets (collide:<owner_id>:pets) in #{inspect(CollideA)}"
     end
 
     test "does not reach the module's own handle_info clauses" do
@@ -103,7 +103,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
         Listener.handle_info(message(CollideB, %{email: "a@b.c"}), %{owner: self()})
       end
 
-      refute_receive {:created, _}, 20
+      refute_receive {:adopted, _}, 20
     end
   end
 
@@ -112,7 +112,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       assert {:noreply, _} =
                Listener.handle_info(message(CollideA, %{id: "c1"}), %{owner: self()})
 
-      assert_receive {:created, %{id: "c1"}}
+      assert_receive {:adopted, %{id: "c1"}}
     end
 
     test "a non-Message message still reaches the module's catch-all" do
@@ -125,17 +125,17 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
     @tag :capture_log
     test "a colliding broadcast from another manifest crashes the subscriber" do
       id = "iso-#{System.unique_integer([:positive])}"
-      pid = start_supervised!({Listener, owner: self(), account_id: id})
+      pid = start_supervised!({Listener, owner: self(), owner_id: id})
       ref = Process.monitor(pid)
 
       # Identical wire topics, so Phoenix.PubSub really does deliver it.
-      assert VerifiedPubSub.Info.topic!(CollideA, :campaigns).segments ==
-               VerifiedPubSub.Info.topic!(CollideB, :campaigns).segments
+      assert VerifiedPubSub.Info.topic!(CollideA, :pets).segments ==
+               VerifiedPubSub.Info.topic!(CollideB, :pets).segments
 
       assert :ok = Publisher.announce(id)
 
       assert_receive {:DOWN, ^ref, :process, ^pid, {%ManifestMismatchError{}, _stacktrace}}
-      refute_receive {:created, _}, 20
+      refute_receive {:adopted, _}, 20
     end
   end
 end

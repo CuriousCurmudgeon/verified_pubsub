@@ -6,7 +6,7 @@ defmodule VerifiedPubSub.LiveViewTest do
   alias VerifiedPubSub.Message
   alias VerifiedPubSub.TestManifests.Basic
 
-  defmodule CampaignsLive do
+  defmodule PetsLive do
     use Phoenix.LiveView
 
     use VerifiedPubSub.Subscriber,
@@ -14,64 +14,64 @@ defmodule VerifiedPubSub.LiveViewTest do
 
     @impl true
     def mount(_params, _session, socket) do
-      {:ok, assign(socket, :campaigns, [])}
+      {:ok, assign(socket, :pets, [])}
     end
 
     @impl true
-    def render(assigns), do: ~H"<div>{length(@campaigns)}</div>"
+    def render(assigns), do: ~H"<div>{length(@pets)}</div>"
 
     # `use VerifiedPubSub.Subscriber` imports VerifiedPubSub.Api, so the macros are
     # usable here without a second `use`.
-    def subscribe_to(account_id), do: subscribe(:campaigns, %{account_id: account_id})
+    def subscribe_to(owner_id), do: subscribe(:pets, %{owner_id: owner_id})
 
-    def announce(account_id, payload) do
-      broadcast!(:campaigns, %{account_id: account_id}, :created, payload)
+    def announce(owner_id, payload) do
+      broadcast!(:pets, %{owner_id: owner_id}, :adopted, payload)
     end
 
-    handle_message :campaigns, :created, payload, socket do
-      {:noreply, assign(socket, :campaigns, [payload | socket.assigns.campaigns])}
+    handle_message :pets, :adopted, payload, socket do
+      {:noreply, assign(socket, :pets, [payload | socket.assigns.pets])}
     end
 
-    ignore_message :campaigns, :updated
-    ignore_message :campaigns, :deleted
+    ignore_message :pets, :renamed
+    ignore_message :pets, :rehomed
   end
 
   defp message(event, payload) do
     %VerifiedPubSub.Message{
       manifest: Basic,
-      topic: :campaigns,
+      topic: :pets,
       event: event,
-      params: %{account_id: "7"},
+      params: %{owner_id: "7"},
       payload: payload
     }
   end
 
   test "the generated handle_info runs inside a LiveView" do
-    {:ok, socket} = CampaignsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:ok, socket} = PetsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
 
     assert {:noreply, updated} =
-             CampaignsLive.handle_info(message(:created, %{id: "c1"}), socket)
+             PetsLive.handle_info(message(:adopted, %{id: "c1"}), socket)
 
-    assert updated.assigns.campaigns == [%{id: "c1"}]
+    assert updated.assigns.pets == [%{id: "c1"}]
   end
 
   test "an ignored event leaves the socket untouched" do
-    {:ok, socket} = CampaignsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:ok, socket} = PetsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
 
     assert {:noreply, ^socket} =
-             CampaignsLive.handle_info(message(:deleted, %{id: "c1"}), socket)
+             PetsLive.handle_info(message(:rehomed, %{id: "c1"}), socket)
   end
 
   test "the API macros are imported into the LiveView, and round-trip a message" do
-    account_id = unique_account_id()
+    owner_id = unique_owner_id()
 
-    assert :ok = CampaignsLive.subscribe_to(account_id)
-    assert :ok = CampaignsLive.announce(account_id, %{id: "c1"})
+    assert :ok = PetsLive.subscribe_to(owner_id)
+    assert :ok = PetsLive.announce(owner_id, %{id: "c1"})
 
-    assert_receive %Message{topic: :campaigns, event: :created, payload: %{id: "c1"}} = message
+    assert_receive %Message{topic: :pets, event: :adopted, payload: %{id: "c1"}} = message
 
-    {:ok, socket} = CampaignsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
-    assert {:noreply, updated} = CampaignsLive.handle_info(message, socket)
-    assert updated.assigns.campaigns == [%{id: "c1"}]
+    {:ok, socket} = PetsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    assert {:noreply, updated} = PetsLive.handle_info(message, socket)
+    assert updated.assigns.pets == [%{id: "c1"}]
   end
 end

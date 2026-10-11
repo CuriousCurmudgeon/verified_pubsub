@@ -9,20 +9,20 @@ defmodule VerifiedPubSub.BroadcastTest do
   alias VerifiedPubSub.TestManifests.Basic
 
   setup do
-    %{account_id: unique_account_id()}
+    %{owner_id: unique_owner_id()}
   end
 
   test "topic/2 interpolates params into the wire pattern" do
-    assert topic(:campaigns, %{account_id: "7"}) == "accounts:7:campaigns"
+    assert topic(:pets, %{owner_id: "7"}) == "owners:7:pets"
   end
 
   test "topic/2 stringifies non-binary params" do
-    assert topic(:campaigns, %{account_id: 7}) == "accounts:7:campaigns"
+    assert topic(:pets, %{owner_id: 7}) == "owners:7:pets"
   end
 
   test "Info.match/2 recovers the name and params from what topic/2 builds" do
-    wire = topic(:campaigns, %{account_id: 42})
-    assert {:ok, :campaigns, %{account_id: "42"}} = VerifiedPubSub.Info.match(Basic, wire)
+    wire = topic(:pets, %{owner_id: 42})
+    assert {:ok, :pets, %{owner_id: "42"}} = VerifiedPubSub.Info.match(Basic, wire)
   end
 
   test "a failed broadcast! names the wire topic it was sent on" do
@@ -30,56 +30,56 @@ defmodule VerifiedPubSub.BroadcastTest do
       assert_raise RuntimeError, fn ->
         VerifiedPubSub.Broadcast.bang!(
           {:error, :boom},
-          :campaigns,
-          "accounts:7:campaigns",
-          :created
+          :pets,
+          "owners:7:pets",
+          :adopted
         )
       end
 
-    assert Exception.message(error) =~ ~s|:created on :campaigns ("accounts:7:campaigns"): :boom|
+    assert Exception.message(error) =~ ~s|:adopted on :pets ("owners:7:pets"): :boom|
   end
 
   test "a param-free topic takes no params argument" do
     assert topic(:system) == "system"
   end
 
-  test "broadcast_*! delivers a Message to subscribers of that topic", %{account_id: id} do
-    assert :ok = subscribe(:campaigns, %{account_id: id})
-    assert :ok = broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
+  test "broadcast_*! delivers a Message to subscribers of that topic", %{owner_id: id} do
+    assert :ok = subscribe(:pets, %{owner_id: id})
+    assert :ok = broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
     assert_receive %Message{
       manifest: Basic,
-      topic: :campaigns,
-      event: :created,
-      params: %{account_id: ^id},
+      topic: :pets,
+      event: :adopted,
+      params: %{owner_id: ^id},
       payload: %{id: "c1"}
     }
   end
 
-  test "broadcasts are scoped by param value", %{account_id: id} do
-    assert :ok = subscribe(:campaigns, %{account_id: id})
-    assert :ok = broadcast!(:campaigns, %{account_id: id <> "other"}, :created, %{id: "c1"})
+  test "broadcasts are scoped by param value", %{owner_id: id} do
+    assert :ok = subscribe(:pets, %{owner_id: id})
+    assert :ok = broadcast!(:pets, %{owner_id: id <> "other"}, :adopted, %{id: "c1"})
 
     refute_receive %Message{}, 50
   end
 
-  test "unsubscribe_* stops delivery", %{account_id: id} do
-    assert :ok = subscribe(:campaigns, %{account_id: id})
-    assert :ok = unsubscribe(:campaigns, %{account_id: id})
-    assert :ok = broadcast!(:campaigns, %{account_id: id}, :created, %{id: "c1"})
+  test "unsubscribe_* stops delivery", %{owner_id: id} do
+    assert :ok = subscribe(:pets, %{owner_id: id})
+    assert :ok = unsubscribe(:pets, %{owner_id: id})
+    assert :ok = broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
     refute_receive %Message{}, 50
   end
 
   test "the non-bang broadcast returns :ok" do
-    assert :ok = broadcast(:campaigns, %{account_id: "7"}, :created, %{id: "c1"})
+    assert :ok = broadcast(:pets, %{owner_id: "7"}, :adopted, %{id: "c1"})
   end
 
   test "a param-free topic broadcasts with only a payload" do
     # The :system topic has no params to make unique, and the suite shares one
     # Phoenix.PubSub, so the payload carries a token to keep concurrent tests on this
     # topic from matching each other's messages.
-    token = unique_account_id()
+    token = unique_owner_id()
     assert :ok = subscribe(:system)
     assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
 
@@ -92,44 +92,44 @@ defmodule VerifiedPubSub.BroadcastTest do
     params = Map.new([{String.to_atom("wrong"), "7"}])
 
     assert_raise KeyError, fn ->
-      broadcast!(:campaigns, params, :created, %{id: "c1"})
+      broadcast!(:pets, params, :adopted, %{id: "c1"})
     end
   end
 
-  test "broadcast_*_from! excludes the sender", %{account_id: id} do
-    assert :ok = subscribe(:campaigns, %{account_id: id})
+  test "broadcast_*_from! excludes the sender", %{owner_id: id} do
+    assert :ok = subscribe(:pets, %{owner_id: id})
 
     assert :ok =
-             broadcast_from!(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
+             broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
     refute_receive %Message{}, 50
   end
 
-  test "broadcast_*_from! still delivers to other subscribers", %{account_id: id} do
+  test "broadcast_*_from! still delivers to other subscribers", %{owner_id: id} do
     test_pid = self()
 
     other =
       spawn_link(fn ->
-        subscribe(:campaigns, %{account_id: id})
+        subscribe(:pets, %{owner_id: id})
         send(test_pid, :ready)
         receive do: (%Message{payload: p} -> send(test_pid, {:other_got, p}))
       end)
 
     assert_receive :ready
-    subscribe(:campaigns, %{account_id: id})
-    broadcast_from!(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
+    subscribe(:pets, %{owner_id: id})
+    broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
     assert_receive {:other_got, %{id: "c1"}}
     refute_receive %Message{}, 50
     Process.exit(other, :kill)
   end
 
-  test "the non-bang from variant returns :ok", %{account_id: id} do
-    assert :ok = broadcast_from(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
+  test "the non-bang from variant returns :ok", %{owner_id: id} do
+    assert :ok = broadcast_from(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
   end
 
   test "a param-free topic's from variant takes only from and payload" do
-    token = unique_account_id()
+    token = unique_owner_id()
     assert :ok = subscribe(:system)
     assert :ok = broadcast_from!(self(), :system, %{}, :alert, %{text: token})
 
@@ -137,26 +137,26 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   test "the from variant carries the same message shape as the base variant", %{
-    account_id: id
+    owner_id: id
   } do
     test_pid = self()
 
     other =
       spawn_link(fn ->
-        subscribe(:campaigns, %{account_id: id})
+        subscribe(:pets, %{owner_id: id})
         send(test_pid, :ready)
         receive do: (m -> send(test_pid, {:got, m}))
       end)
 
     assert_receive :ready
-    broadcast_from!(self(), :campaigns, %{account_id: id}, :created, %{id: "c1"})
+    broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
     assert_receive {:got,
                     %Message{
                       manifest: Basic,
-                      topic: :campaigns,
-                      event: :created,
-                      params: %{account_id: ^id},
+                      topic: :pets,
+                      event: :adopted,
+                      params: %{owner_id: ^id},
                       payload: %{id: "c1"}
                     }}
 
@@ -165,7 +165,7 @@ defmodule VerifiedPubSub.BroadcastTest do
 
   describe "the params-free arities" do
     test "broadcast!/3 reaches subscribers of a param-free topic" do
-      token = unique_account_id()
+      token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast!(:system, :alert, %{text: token})
 
@@ -173,7 +173,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     end
 
     test "broadcast/3 works too" do
-      token = unique_account_id()
+      token = unique_owner_id()
       assert :ok = subscribe(:system, %{})
       assert :ok = broadcast(:system, :alert, %{text: token})
 
@@ -181,7 +181,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     end
 
     test "broadcast_from!/4 skips the sender" do
-      token = unique_account_id()
+      token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast_from!(self(), :system, :alert, %{text: token})
 
@@ -189,7 +189,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     end
 
     test "broadcast_from/4 skips the sender" do
-      token = unique_account_id()
+      token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast_from(self(), :system, :alert, %{text: token})
 
@@ -197,7 +197,7 @@ defmodule VerifiedPubSub.BroadcastTest do
     end
 
     test "the four-argument form still takes an explicit empty map" do
-      token = unique_account_id()
+      token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
 
@@ -209,24 +209,24 @@ defmodule VerifiedPubSub.BroadcastTest do
         compile_error("""
         defmodule #{unique_module("VPTest.NoParams")} do
           use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
-          def go(payload), do: broadcast!(:campaigns, :created, payload)
+          def go(payload), do: broadcast!(:pets, :adopted, payload)
         end
         """)
 
       assert %CompileError{} = error
       message = Exception.message(error)
-      assert message =~ "missing: [:account_id]"
-      assert message =~ "takes exactly [:account_id]"
+      assert message =~ "missing: [:owner_id]"
+      assert message =~ "takes exactly [:owner_id]"
     end
 
     test "a forgotten payload is still caught as a non-atom event" do
-      # broadcast!(:campaigns, %{...}, :created) is also arity 3, so the params map lands
+      # broadcast!(:pets, %{...}, :adopted) is also arity 3, so the params map lands
       # in the event slot rather than being silently accepted.
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.NoPayload")} do
           use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
-          def go(id), do: broadcast!(:campaigns, %{account_id: id}, :created)
+          def go(id), do: broadcast!(:pets, %{owner_id: id}, :adopted)
         end
         """)
 

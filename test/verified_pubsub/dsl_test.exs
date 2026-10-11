@@ -5,13 +5,13 @@ defmodule VerifiedPubSub.DslTest do
   alias VerifiedPubSub.TestManifests.Basic
 
   test "topics are parsed at the top level, without a wrapper block" do
-    assert [:campaigns, :shapes, :system] =
+    assert [:pets, :shapes, :system] =
              Info.topics(Basic) |> Enum.map(& &1.name) |> Enum.sort()
   end
 
   test "topic/2 returns the topic by name" do
-    assert {:ok, topic} = Info.topic(Basic, :campaigns)
-    assert topic.segments == ["accounts", :account_id, "campaigns"]
+    assert {:ok, topic} = Info.topic(Basic, :pets)
+    assert topic.segments == ["owners", :owner_id, "pets"]
   end
 
   test "topic/2 returns :error for an unknown topic" do
@@ -19,19 +19,19 @@ defmodule VerifiedPubSub.DslTest do
   end
 
   test "topic!/2 raises for an unknown topic and names the known ones" do
-    assert_raise ArgumentError, ~r/unknown topic :nope.*:campaigns/s, fn ->
+    assert_raise ArgumentError, ~r/unknown topic :nope.*:pets/s, fn ->
       Info.topic!(Basic, :nope)
     end
   end
 
   test "topic!/2 shows each known topic's wire pattern" do
     error = assert_raise ArgumentError, fn -> Info.topic!(Basic, :nope) end
-    assert Exception.message(error) =~ ~r/:campaigns\s+accounts:<account_id>:campaigns/
+    assert Exception.message(error) =~ ~r/:pets\s+owners:<owner_id>:pets/
   end
 
   describe "match/2" do
     test "finds the topic a wire string belongs to, with its params" do
-      assert {:ok, :campaigns, %{account_id: "42"}} = Info.match(Basic, "accounts:42:campaigns")
+      assert {:ok, :pets, %{owner_id: "42"}} = Info.match(Basic, "owners:42:pets")
     end
 
     test "matches a param-free topic" do
@@ -39,13 +39,13 @@ defmodule VerifiedPubSub.DslTest do
     end
 
     test "is :error for a wrong literal or segment count" do
-      assert :error = Info.match(Basic, "acounts:42:campaigns")
-      assert :error = Info.match(Basic, "accounts:42")
-      assert :error = Info.match(Basic, "accounts:42:campaigns:extra")
+      assert :error = Info.match(Basic, "acounts:42:pets")
+      assert :error = Info.match(Basic, "owners:42")
+      assert :error = Info.match(Basic, "owners:42:pets:extra")
     end
 
     test "is :error when a param segment is empty, which no broadcast builds" do
-      assert :error = Info.match(Basic, "accounts::campaigns")
+      assert :error = Info.match(Basic, "owners::pets")
     end
 
     test "tells apart topics that differ only in segment count" do
@@ -56,15 +56,15 @@ defmodule VerifiedPubSub.DslTest do
   end
 
   test "events/2 returns declared event names in declaration order" do
-    assert [:created, :updated, :deleted] = Info.events(Basic, :campaigns)
+    assert [:adopted, :renamed, :rehomed] = Info.events(Basic, :pets)
     assert [:alert] = Info.events(Basic, :system)
   end
 
   test "payload fields are parsed and exposed but not enforced" do
-    {:ok, topic} = Info.topic(Basic, :campaigns)
-    created = Enum.find(topic.messages, &(&1.name == :created))
+    {:ok, topic} = Info.topic(Basic, :pets)
+    adopted = Enum.find(topic.messages, &(&1.name == :adopted))
 
-    assert [{:id, :string}, {:name, :string}] = Enum.map(created.fields, &{&1.name, &1.type})
+    assert [{:id, :string}, {:name, :string}] = Enum.map(adopted.fields, &{&1.name, &1.type})
   end
 
   test "the manifest records its Phoenix.PubSub name" do
@@ -77,8 +77,8 @@ defmodule VerifiedPubSub.DslTest do
       defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.NoPubSub")} do
         use VerifiedPubSub.Manifest
 
-        topic :campaigns, ["campaigns"] do
-          message :created do
+        topic :pets, ["pets"] do
+          message :adopted do
           end
         end
       end
