@@ -1,11 +1,14 @@
 defmodule VerifiedPubSub.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/CuriousCurmudgeon/verified_pubsub"
+
   def project do
     [
       app: :verified_pubsub,
-      version: "0.1.0",
-      elixir: "~> 1.17",
+      version: @version,
+      elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       # Spark records where DSL entities are declared only with debug_info on, and tests
       # assert on errors that point at a declaration.
@@ -14,6 +17,8 @@ defmodule VerifiedPubSub.MixProject do
       deps: deps(),
       name: "VerifiedPubSub",
       description: "Compile-time verified PubSub: verified routes, but for topics and events.",
+      source_url: @source_url,
+      homepage_url: @source_url,
       package: package(),
       docs: docs()
     ]
@@ -23,13 +28,16 @@ defmodule VerifiedPubSub.MixProject do
     [
       licenses: ["MIT"],
       files: ~w(lib .formatter.exs mix.exs README.md LICENSE usage-rules.md),
-      links: %{}
+      # Hex packages what is on disk, not what git tracks, so keep Vim swap files out.
+      exclude_patterns: [~r/\.sw[a-p]$/],
+      links: %{"GitHub" => @source_url}
     ]
   end
 
   defp docs do
     [
       main: "VerifiedPubSub",
+      source_ref: "v#{@version}",
       extras: ["README.md"],
       groups_for_modules: [
         "Declaring topics": [
@@ -75,9 +83,9 @@ defmodule VerifiedPubSub.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:spark, "~> 2.7"},
+      {:spark, "~> 2.5"},
       {:phoenix_pubsub, "~> 2.1"},
-      {:igniter, "~> 0.8", optional: true},
+      {:igniter, "~> 0.6", optional: true},
       {:phoenix_live_view, "~> 1.0", only: :test},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]
