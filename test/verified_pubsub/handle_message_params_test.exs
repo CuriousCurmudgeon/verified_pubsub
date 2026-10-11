@@ -93,6 +93,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     message = Exception.message(error)
     assert message =~ ":acount_id"
     assert message =~ "could never match"
+    assert message =~ ~r{:campaigns is declared at test/support/manifests\.ex:\d+\.}
   end
 
   test "matching a subset of the params is allowed" do
@@ -174,6 +175,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       message = Exception.message(error)
       assert message =~ ":nope"
       assert message =~ "could never match"
+      assert message =~ ~r{:created on :campaigns is declared at test/support/manifests\.ex:\d+\.}
     end
 
     test "params in the payload slot are named as such, with the right order shown" do

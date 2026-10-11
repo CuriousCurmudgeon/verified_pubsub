@@ -28,7 +28,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
 
   test "duplicate topic names are a compile error" do
     error =
-      compile_error(
+      dsl_error(
         manifest_source("""
         topic :campaigns, ["a"] do
           message :created do
@@ -45,11 +45,13 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     assert %Spark.Error.DslError{} = error
     assert Exception.message(error) =~ "duplicate topic"
     assert Exception.message(error) =~ "campaigns"
+    assert Exception.message(error) =~ "The first is declared at nofile:3."
+    assert :erl_anno.line(error.location) == 8
   end
 
   test "duplicate event names within a topic are a compile error" do
     error =
-      compile_error(
+      dsl_error(
         manifest_source("""
         topic :campaigns, ["a"] do
           message :created do
@@ -86,7 +88,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
 
   test "malformed segments are a compile error" do
     error =
-      compile_error(
+      dsl_error(
         manifest_source("""
         topic :campaigns, ["accounts:campaigns"] do
           message :created do
@@ -101,7 +103,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
 
   test "a segment that is neither a string nor an atom is a compile error" do
     error =
-      compile_error(
+      dsl_error(
         manifest_source("""
         topic :campaigns, ["accounts", 1] do
           message :created do
@@ -115,7 +117,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
 
   test "a topic with no events is a compile error" do
     error =
-      compile_error(
+      dsl_error(
         manifest_source("""
         topic :campaigns, ["a"] do
         end
@@ -143,7 +145,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   describe "topic disjointness" do
     test "two topics that can match the same topic string are a compile error" do
       error =
-        compile_error(
+        dsl_error(
           manifest_source("""
           topic :campaigns, ["accounts", :account_id, "campaigns"] do
             message :created do
@@ -162,8 +164,31 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert %Spark.Error.DslError{} = error
       message = Exception.message(error)
       assert message =~ "can match the same topic"
-      assert message =~ ":campaigns"
-      assert message =~ ":scoped"
+      assert message =~ ~r/:campaigns — .*, at nofile:3$/m
+      assert message =~ ~r/:scoped — .*, at nofile:9$/m
+      assert :erl_anno.line(error.location) == 3
+    end
+
+    test "the error is also a diagnostic placed at the first topic" do
+      {_error, diagnostics} =
+        Code.with_diagnostics(fn ->
+          compile_error(
+            manifest_source("""
+            topic :campaigns, ["accounts", :account_id, "campaigns"] do
+              message :created do
+              end
+            end
+
+            topic :scoped, ["accounts", :account_id, :thing] do
+              message :touched do
+              end
+            end
+            """)
+          )
+        end)
+
+      assert [%{severity: :warning, position: 3, message: message}] = diagnostics
+      assert message =~ "can match the same topic"
     end
 
     test "topics distinguished by a literal segment are fine" do

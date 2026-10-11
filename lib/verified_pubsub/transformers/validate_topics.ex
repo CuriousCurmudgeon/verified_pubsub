@@ -10,6 +10,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
   use Spark.Dsl.Transformer
 
   alias Spark.Dsl.Transformer
+  alias VerifiedPubSub.Topic
 
   @impl true
   def after?(VerifiedPubSub.Transformers.ParseParams), do: true
@@ -31,8 +32,18 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
     names = Enum.map(topics, & &1.name)
 
     case names -- Enum.uniq(names) do
-      [] -> :ok
-      [dup | _] -> error(module, [:topics, dup], "duplicate topic #{inspect(dup)}")
+      [] ->
+        :ok
+
+      [dup | _] ->
+        [first, second | _] = Enum.filter(topics, &(&1.name == dup))
+
+        error(
+          module,
+          [:topics, dup],
+          "duplicate topic #{inspect(dup)}#{Topic.declared_at("The first", first)}",
+          second
+        )
     end
   end
 
@@ -55,14 +66,20 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
           module,
           [:topics, topic.name],
           "topic #{inspect(topic.name)} declares no events. Add at least one `message`, " <>
-            "or remove the topic."
+            "or remove the topic.",
+          topic
         )
 
       duplicates != [] ->
+        dup = hd(duplicates)
+        [first, second | _] = Enum.filter(topic.messages, &(&1.name == dup))
+
         error(
           module,
-          [:topics, topic.name, hd(duplicates)],
-          "duplicate event #{inspect(hd(duplicates))} on topic #{inspect(topic.name)}"
+          [:topics, topic.name, dup],
+          "duplicate event #{inspect(dup)} on topic #{inspect(topic.name)}" <>
+            Topic.declared_at("The first", first),
+          second
         )
 
       true ->
@@ -93,12 +110,13 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
           """
           topics #{inspect(a.name)} and #{inspect(b.name)} can match the same topic string:
 
-            #{inspect(a.name)} — #{inspect(a.segments)}
-            #{inspect(b.name)} — #{inspect(b.segments)}
+            #{inspect(a.name)} — #{inspect(a.segments)}#{at(a)}
+            #{inspect(b.name)} — #{inspect(b.segments)}#{at(b)}
 
           A subscriber of one would receive the other's messages. Distinguish them with a \
           literal segment.
-          """
+          """,
+          a
         )
     end
   end
@@ -119,7 +137,22 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
 
   defp overlap?(_a, _b), do: false
 
-  defp error(module, path, message) do
-    {:error, Spark.Error.DslError.exception(message: message, path: path, module: module)}
+  defp at(topic) do
+    case Topic.location(topic) do
+      nil -> ""
+      location -> ", at #{location}"
+    end
+  end
+
+  # Giving Spark the entity's location makes it point the error at that declaration,
+  # and report it as a diagnostic an editor can place.
+  defp error(module, path, message, entity) do
+    {:error,
+     Spark.Error.DslError.exception(
+       message: message,
+       path: path,
+       module: module,
+       location: Topic.anno(entity)
+     )}
   end
 end

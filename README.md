@@ -120,10 +120,14 @@ broadcast!(:campaigns, %{account_id: id}, :creatd, %{id: "c1", name: "n"})
 ```
 
 ```
-** (CompileError) unknown event :creatd on topic :campaigns.
+** (CompileError) lib/my_app_web/live/campaign_live.ex:42: unknown event :creatd on topic :campaigns (accounts:<account_id>:campaigns).
 
 Declared events: [:created, :deleted]
+:campaigns is declared at lib/my_app/topics.ex:7.
 ```
+
+Errors that a manifest change could fix point at the declaration. A manifest error is
+also reported as a diagnostic on the offending line, so an editor can mark it.
 
 A subscriber that does not account for every event:
 

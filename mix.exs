@@ -7,6 +7,9 @@ defmodule VerifiedPubSub.MixProject do
       version: "0.1.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
+      # Spark records where DSL entities are declared only with debug_info on, and tests
+      # assert on errors that point at a declaration.
+      test_elixirc_options: [docs: false, debug_info: true],
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "VerifiedPubSub",

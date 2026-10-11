@@ -52,7 +52,7 @@ defmodule VerifiedPubSub.Transformers.ParseParams do
     |> Enum.reduce_while({:ok, dsl}, fn topic, {:ok, acc} ->
       case parse(topic.segments) do
         {:ok, params} ->
-          {:cont, {:ok, replace_topic(acc, %{topic | params: params})}}
+          {:cont, {:ok, replace_topic(acc, topic, %{topic | params: params})}}
 
         {:error, message} ->
           {:halt,
@@ -60,13 +60,16 @@ defmodule VerifiedPubSub.Transformers.ParseParams do
             Spark.Error.DslError.exception(
               message: message,
               path: [:topics, topic.name],
-              module: Spark.Dsl.Transformer.get_persisted(dsl, :module)
+              module: Spark.Dsl.Transformer.get_persisted(dsl, :module),
+              location: VerifiedPubSub.Topic.anno(topic)
             )}}
       end
     end)
   end
 
-  defp replace_topic(dsl, topic) do
-    Spark.Dsl.Transformer.replace_entity(dsl, [:topics], topic, &(&1.name == topic.name))
+  # Matched on the whole struct, not the name: a duplicate name is reported by
+  # ValidateTopics, and by then each duplicate must still be its own declaration.
+  defp replace_topic(dsl, original, topic) do
+    Spark.Dsl.Transformer.replace_entity(dsl, [:topics], topic, &(&1 == original))
   end
 end

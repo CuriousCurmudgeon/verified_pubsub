@@ -252,13 +252,16 @@ defmodule VerifiedPubSub.Subscriber do
           :ok
 
         unexpected ->
+          topic_struct = VerifiedPubSub.Info.topic!(manifest, topic)
+          declared_at = VerifiedPubSub.Topic.declared_at(inspect(topic), topic_struct)
+
           raise CompileError,
             file: caller.file,
             line: caller.line,
             description: """
             topic #{inspect(topic)} has no #{Enum.map_join(unexpected, ", ", &inspect/1)}.
 
-            #{inspect(topic)} takes #{inspect(declared)}, so this pattern could never match.
+            #{inspect(topic)} takes #{inspect(declared)}, so this pattern could never match.#{declared_at}
             """
       end
     end
@@ -296,7 +299,12 @@ defmodule VerifiedPubSub.Subscriber do
   defp validate_payload_pattern!(_caller, _topic, _event, _pattern), do: :ok
 
   defp payload_pattern_message(manifest, topic, event, declared, undeclared) do
-    params = VerifiedPubSub.Info.params(manifest, topic)
+    topic_struct = VerifiedPubSub.Info.topic!(manifest, topic)
+    params = topic_struct.params
+    message = Enum.find(topic_struct.messages, &(&1.name == event))
+
+    declared_at =
+      VerifiedPubSub.Topic.declared_at("#{inspect(event)} on #{inspect(topic)}", message)
 
     hint =
       if undeclared != [] and Enum.all?(undeclared, &(&1 in params)) do
@@ -317,7 +325,7 @@ defmodule VerifiedPubSub.Subscriber do
     #{inspect(event)} on #{inspect(topic)} declares no #{Enum.map_join(undeclared, ", ", &inspect/1)}.
 
     A payload carries exactly the declared fields #{inspect(declared)}, so this pattern \
-    could never match.
+    could never match.#{declared_at}
     #{hint}\
     """
   end

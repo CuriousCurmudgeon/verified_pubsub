@@ -47,16 +47,60 @@ defmodule VerifiedPubSub.Topic do
   def describe(topic), do: "#{inspect(topic.name)} (#{pattern(topic.segments)})"
 
   @doc false
-  # Every topic in a manifest as aligned `name  pattern` lines, sorted by name, for errors
-  # that list the alternatives.
+  # Every topic in a manifest as aligned `name  pattern  location` lines, sorted by name,
+  # for errors that list the alternatives.
   @spec listing([VerifiedPubSub.Dsl.Topic.t()]) :: String.t()
   def listing(topics) do
     sorted = Enum.sort_by(topics, & &1.name)
-    width = sorted |> Enum.map(&String.length(inspect(&1.name))) |> Enum.max(fn -> 0 end)
+    name_width = max_length(sorted, &inspect(&1.name))
+    pattern_width = max_length(sorted, &pattern(&1.segments))
 
     Enum.map_join(sorted, "\n", fn topic ->
-      "  " <> String.pad_trailing(inspect(topic.name), width) <> "   " <> pattern(topic.segments)
+      line =
+        "  " <>
+          String.pad_trailing(inspect(topic.name), name_width) <>
+          "   " <> String.pad_trailing(pattern(topic.segments), pattern_width)
+
+      case location(topic) do
+        nil -> String.trim_trailing(line)
+        location -> line <> "   " <> location
+      end
     end)
+  end
+
+  defp max_length(items, fun) do
+    items |> Enum.map(&String.length(fun.(&1))) |> Enum.max(fn -> 0 end)
+  end
+
+  @doc false
+  # Where a topic, message or field was declared, as `path:line` relative to the working
+  # directory, so a reader can jump from an error to the declaration. Nil when Spark
+  # recorded no location.
+  @spec location(map()) :: String.t() | nil
+  def location(entity) do
+    with anno when anno != nil <- anno(entity),
+         file when file != :undefined <- :erl_anno.file(anno) do
+      "#{Path.relative_to_cwd(to_string(file))}:#{:erl_anno.line(anno)}"
+    else
+      _ -> nil
+    end
+  end
+
+  @doc false
+  # The source annotation Spark recorded for a DSL entity, or nil.
+  @spec anno(map()) :: :erl_anno.anno() | nil
+  def anno(%{__spark_metadata__: %{anno: anno}}), do: anno
+  def anno(_entity), do: nil
+
+  @doc false
+  # A sentence naming where `entity` was declared, led by a newline so it can close a
+  # message line, or "" when the location is unknown.
+  @spec declared_at(String.t(), map()) :: String.t()
+  def declared_at(subject, entity) do
+    case location(entity) do
+      nil -> ""
+      location -> "\n#{subject} is declared at #{location}."
+    end
   end
 
   @doc """

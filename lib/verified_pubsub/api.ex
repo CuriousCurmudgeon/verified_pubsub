@@ -49,7 +49,7 @@ defmodule VerifiedPubSub.Api do
   explicitly there.
   """
 
-  alias VerifiedPubSub.Info
+  alias VerifiedPubSub.{Info, Topic}
 
   @doc "Subscribes the calling process to a topic."
   defmacro subscribe(topic, params \\ quote(do: %{})) do
@@ -142,7 +142,7 @@ defmodule VerifiedPubSub.Api do
     {manifest, topic_struct} = resolve!(caller, topic)
     event = validate_event!(caller, manifest, topic_struct, event)
     validate_params!(caller, topic_struct, params)
-    validate_literal_payload!(caller, manifest, topic_struct.name, event, payload)
+    validate_literal_payload!(caller, topic_struct, event, payload)
 
     call =
       if from do
@@ -251,7 +251,7 @@ defmodule VerifiedPubSub.Api do
         unknown topic #{inspect(topic)} in #{inspect(manifest)}.
 
         Declared topics:
-        #{VerifiedPubSub.Topic.listing(Info.topics(manifest))}
+        #{Topic.listing(Info.topics(manifest))}
         """)
     end
   end
@@ -276,10 +276,12 @@ defmodule VerifiedPubSub.Api do
           "\n#{inspect(event)} is declared on #{inspect(elsewhere)}, not #{inspect(topic_struct.name)}."
         end
 
-      raise_compile_error(caller, """
-      unknown event #{inspect(event)} on topic #{VerifiedPubSub.Topic.describe(topic_struct)}.
+      declared_at = Topic.declared_at(inspect(topic_struct.name), topic_struct)
 
-      Declared events: #{inspect(declared)}#{hint}
+      raise_compile_error(caller, """
+      unknown event #{inspect(event)} on topic #{Topic.describe(topic_struct)}.
+
+      Declared events: #{inspect(declared)}#{hint}#{declared_at}
       """)
     end
   end
@@ -309,10 +311,11 @@ defmodule VerifiedPubSub.Api do
   # A payload built at runtime can only be checked by VerifiedPubSub.Payload when the
   # broadcast runs. A literal map, though, is fully known here, so the same checks run at
   # compile time and fail the build instead.
-  defp validate_literal_payload!(caller, manifest, topic, event, {:%{}, _, pairs})
+  defp validate_literal_payload!(caller, topic_struct, event, {:%{}, _, pairs})
        when is_list(pairs) do
     with keys when is_list(keys) <- literal_keys(pairs) do
-      fields = Info.fields(manifest, topic, event)
+      message = Enum.find(topic_struct.messages, &(&1.name == event))
+      fields = message.fields
       declared = Enum.map(fields, & &1.name)
       required = fields |> Enum.filter(& &1.required) |> Enum.map(& &1.name)
 
@@ -325,7 +328,7 @@ defmodule VerifiedPubSub.Api do
       else
         raise_compile_error(
           caller,
-          literal_payload_message(topic, event, fields, missing, unexpected, type_problems)
+          literal_payload_message(topic_struct.name, message, missing, unexpected, type_problems)
         )
       end
     end
@@ -333,7 +336,7 @@ defmodule VerifiedPubSub.Api do
     :ok
   end
 
-  defp validate_literal_payload!(_caller, _manifest, _topic, _event, _payload), do: :ok
+  defp validate_literal_payload!(_caller, _topic_struct, _event, _payload), do: :ok
 
   # Only values that are literals in the AST can be judged. A variable or a call is left
   # to the runtime check.
@@ -351,7 +354,7 @@ defmodule VerifiedPubSub.Api do
       is_nil(value)
   end
 
-  defp literal_payload_message(topic, event, fields, missing, unexpected, type_problems) do
+  defp literal_payload_message(topic, message, missing, unexpected, type_problems) do
     detail =
       [
         if(missing != [], do: "  missing required: #{inspect(missing)}"),
@@ -366,20 +369,27 @@ defmodule VerifiedPubSub.Api do
       |> Enum.join("\n")
 
     declared =
-      Enum.map_join(fields, "\n", fn field ->
+      Enum.map_join(message.fields, "\n", fn field ->
         "    field #{inspect(field.name)}, #{inspect(field.type)}" <>
           if(field.required, do: "", else: ", required: false")
       end)
 
     """
-    invalid payload for #{inspect(topic)} #{inspect(event)}.
+    invalid payload for #{inspect(topic)} #{inspect(message.name)}.
 
     #{detail}
 
-    Declared:
+    #{declared_heading(message)}:
 
     #{declared}
     """
+  end
+
+  defp declared_heading(message) do
+    case Topic.location(message) do
+      nil -> "Declared"
+      location -> "Declared at #{location}"
+    end
   end
 
   # The keys of a literal map, or nil when the AST is not one we can read statically.
@@ -400,12 +410,14 @@ defmodule VerifiedPubSub.Api do
       |> Enum.reject(&is_nil/1)
       |> Enum.join("\n")
 
+    declared_at = Topic.declared_at(inspect(topic_struct.name), topic_struct)
+
     """
     wrong params for topic #{inspect(topic_struct.name)}.
 
     #{detail}
 
-    #{inspect(topic_struct.name)} is #{VerifiedPubSub.Topic.pattern(topic_struct.segments)}, so it takes exactly #{inspect(topic_struct.params)}.
+    #{inspect(topic_struct.name)} is #{Topic.pattern(topic_struct.segments)}, so it takes exactly #{inspect(topic_struct.params)}.#{declared_at}
     """
   end
 

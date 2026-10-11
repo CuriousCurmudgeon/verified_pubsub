@@ -63,7 +63,8 @@ defmodule VerifiedPubSub.Transformers.ValidateFields do
            module such as MyApp.Campaign.
            """,
            path: [:topics, topic, event, field.name],
-           module: module
+           module: module,
+           location: VerifiedPubSub.Topic.anno(field)
          )}
     end
   end

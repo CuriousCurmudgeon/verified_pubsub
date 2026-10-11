@@ -112,9 +112,11 @@ defmodule VerifiedPubSub.Subscriber.Verify do
       undeclared
       |> Enum.sort()
       |> Enum.map_join("\n", fn {topic, event} ->
+        topic_struct = Info.topic!(manifest, topic)
+
         "  * #{inspect(topic)}, #{inspect(event)} — #{inspect(manifest)} declares " <>
           "#{inspect(Info.events(manifest, topic))} on " <>
-          VerifiedPubSub.Topic.describe(Info.topic!(manifest, topic))
+          VerifiedPubSub.Topic.describe(topic_struct) <> at(topic_struct)
       end)
 
     """
@@ -124,6 +126,13 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
     Fix the event name, or declare it in the manifest.
     """
+  end
+
+  defp at(entity) do
+    case VerifiedPubSub.Topic.location(entity) do
+      nil -> ""
+      location -> " at #{location}"
+    end
   end
 
   defp missing_message(env, manifest, missing) do

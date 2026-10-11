@@ -18,6 +18,17 @@ defmodule VerifiedPubSub.CompileHelper do
   end
 
   @doc """
+  Like `compile_error/1`, for a manifest the DSL rejects.
+
+  Spark reports a DSL error twice: raised, and as a diagnostic placed at the offending
+  declaration. The diagnostic is dropped here so it stays out of the test output.
+  """
+  def dsl_error(source) do
+    {error, _diagnostics} = Code.with_diagnostics(fn -> compile_error(source) end)
+    error
+  end
+
+  @doc """
   A unique account id.
 
   The suite shares one `VerifiedPubSub.Adapter.Local` manifest, so any test that

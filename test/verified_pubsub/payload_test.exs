@@ -222,6 +222,7 @@ defmodule VerifiedPubSub.PayloadTest do
       message = Exception.message(error)
       assert message =~ "missing required: [:id]"
       assert message =~ "field :id, :string"
+      assert message =~ ~r{Declared at test/support/manifests\.ex:\d+:}
     end
 
     test "an unexpected key fails the compile" do
@@ -283,7 +284,7 @@ defmodule VerifiedPubSub.PayloadTest do
   describe "field type declarations" do
     test "an unknown type is a compile error listing the valid ones" do
       error =
-        compile_error("""
+        dsl_error("""
         defmodule #{unique_module("VPTest.BadType")} do
           use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
@@ -303,7 +304,7 @@ defmodule VerifiedPubSub.PayloadTest do
 
     test "a bad inner type in a list is a compile error" do
       error =
-        compile_error("""
+        dsl_error("""
         defmodule #{unique_module("VPTest.BadInner")} do
           use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
