@@ -24,3 +24,6 @@ verified_pubsub-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Vim swap files (.swp, and .swo, .swn, ... when one already exists).
+.*.sw[a-p]
