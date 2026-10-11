@@ -123,6 +123,16 @@ defmodule VerifiedPubSub.Subscriber do
 
     module = __CALLER__.module
 
+    # A second `use` would generate the handle_info/2 clauses and the @before_compile
+    # dispatch twice, the first copy shadowing the second.
+    if Module.has_attribute?(module, :verified_pubsub_on_missing) do
+      raise ArgumentError,
+            "#{inspect(module)} already uses VerifiedPubSub.Subscriber. A module " <>
+              "subscribes through exactly one manifest, so use it once."
+    end
+
+    VerifiedPubSub.bind_manifest!(module, manifest)
+
     # These MUST be set during expansion rather than from inside the quote below.
     # Elixir expands the macros in a module body before the body's runtime calls
     # execute, so a `Module.register_attribute` sitting in the quote would not be in
@@ -131,7 +141,6 @@ defmodule VerifiedPubSub.Subscriber do
     # accumulation is live before any `handle_message` in the body is expanded.
     Module.register_attribute(module, :verified_pubsub_clauses, accumulate: true)
     Module.register_attribute(module, :verified_pubsub_ignored, accumulate: true)
-    Module.put_attribute(module, :verified_pubsub_manifest, manifest)
     Module.put_attribute(module, :verified_pubsub_on_missing, on_missing)
 
     quote do

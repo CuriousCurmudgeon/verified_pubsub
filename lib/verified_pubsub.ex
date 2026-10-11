@@ -180,11 +180,24 @@ defmodule VerifiedPubSub do
   """
   defmacro __using__(opts) do
     manifest = opts |> Keyword.fetch!(:manifest) |> Macro.expand(__CALLER__)
-    module = __CALLER__.module
+    bind_manifest!(__CALLER__.module, manifest)
 
-    # Set during expansion, not from inside the quote: Elixir expands the macros in a
-    # module body before the body's runtime calls execute, so an assignment in the quote
-    # would not be visible to a `broadcast!` further down the same module.
+    quote do
+      import VerifiedPubSub.Api
+    end
+  end
+
+  @doc false
+  # Binds `module` to `manifest`, which the macros read to resolve topics and events. A
+  # module binds exactly one manifest: binding the same one again is a no-op, and binding
+  # another raises. Shared with `use VerifiedPubSub.Subscriber`, so neither `use` can
+  # silently rebind what the other bound.
+  #
+  # Called during expansion, not from inside a quote: Elixir expands the macros in a
+  # module body before the body's runtime calls execute, so an assignment in the quote
+  # would not be visible to a `broadcast!` further down the same module.
+  @spec bind_manifest!(module(), module()) :: :ok
+  def bind_manifest!(module, manifest) do
     case Module.get_attribute(module, :verified_pubsub_manifest) do
       nil ->
         Module.put_attribute(module, :verified_pubsub_manifest, manifest)
@@ -196,10 +209,6 @@ defmodule VerifiedPubSub do
         raise ArgumentError,
               "#{inspect(module)} is already bound to manifest #{inspect(other)}, " <>
                 "cannot also bind #{inspect(manifest)}"
-    end
-
-    quote do
-      import VerifiedPubSub.Api
     end
   end
 end
