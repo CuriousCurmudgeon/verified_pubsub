@@ -51,7 +51,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
   defmodule Publisher do
     use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.CollideB
 
-    def announce(id), do: broadcast!(:pets, %{owner_id: id}, :adopted, %{email: "a@b.c"})
+    def announce(id), do: broadcast!(:pets, %{owner_id: id}, :adopted, %{species: :cat})
   end
 
   defp message(manifest, payload) do
@@ -68,7 +68,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
     test "is not dispatched, and the error names both manifests" do
       error =
         assert_raise ManifestMismatchError, fn ->
-          Listener.handle_info(message(CollideB, %{email: "a@b.c"}), %{owner: self()})
+          Listener.handle_info(message(CollideB, %{species: :cat}), %{owner: self()})
         end
 
       text = Exception.message(error)
@@ -82,7 +82,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
     test "names the wire topic and the subscriber's topic it collided with" do
       error =
         assert_raise ManifestMismatchError, fn ->
-          Listener.handle_info(message(CollideB, %{email: "a@b.c"}), %{owner: self()})
+          Listener.handle_info(message(CollideB, %{species: :cat}), %{owner: self()})
         end
 
       text = Exception.message(error)
@@ -94,13 +94,13 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       # A catch-all is what the docs recommend for other messages. It must not swallow a
       # cross-manifest message, or the collision goes unnoticed forever.
       assert_raise ManifestMismatchError, fn ->
-        ListenerWithCatchAll.handle_info(message(CollideB, %{email: "x@y.z"}), %{owner: self()})
+        ListenerWithCatchAll.handle_info(message(CollideB, %{species: :dog}), %{owner: self()})
       end
     end
 
     test "never runs the handler, so a foreign payload cannot reach it" do
       assert_raise ManifestMismatchError, fn ->
-        Listener.handle_info(message(CollideB, %{email: "a@b.c"}), %{owner: self()})
+        Listener.handle_info(message(CollideB, %{species: :cat}), %{owner: self()})
       end
 
       refute_receive {:adopted, _}, 20

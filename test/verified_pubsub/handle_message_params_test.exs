@@ -97,8 +97,8 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
   end
 
   test "matching a subset of the params is allowed" do
-    # :shapes takes only :owner_id, but the point is that a partial match is legal where
-    # a partial broadcast would not be. Use a topic with one param and match nothing.
+    # A partial match is legal where a partial broadcast would not be. :pets takes only
+    # :owner_id, so the partial match here is matching nothing.
     assert is_atom(
              compile!(
                source("""

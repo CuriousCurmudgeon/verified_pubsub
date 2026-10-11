@@ -12,7 +12,7 @@ defmodule VerifiedPubSub.PayloadTest do
   alias VerifiedPubSub.TestStructs.Point
 
   setup do
-    %{owner_id: unique_owner_id()}
+    %{x: unique_owner_id()}
   end
 
   # Passing a payload through a function call hides it from the compile-time literal
@@ -38,10 +38,10 @@ defmodule VerifiedPubSub.PayloadTest do
     # payload, `Payload.validate!/4` returns it, and the macro puts that return value on
     # the message. The acceptance cases below go straight at the validator instead --
     # delivery is irrelevant to what they claim, and asserting it there only obscures it.
-    test "is delivered unchanged", %{owner_id: id} do
-      assert :ok = subscribe(:shapes, %{owner_id: id})
+    test "is delivered unchanged", %{x: id} do
+      assert :ok = subscribe(:typed_payloads, %{x: id})
       payload = valid_typed()
-      assert :ok = broadcast!(:shapes, %{owner_id: id}, :typed, payload)
+      assert :ok = broadcast!(:typed_payloads, %{x: id}, :typed, payload)
 
       assert_receive %Message{event: :typed, payload: ^payload}
     end
@@ -51,7 +51,7 @@ defmodule VerifiedPubSub.PayloadTest do
     # `validate!/4` returns the payload it was given, so asserting on the return value
     # states both halves of the claim: accepted, and unaltered.
     defp accept!(event, payload) do
-      assert payload == Payload.validate!(Basic, :shapes, event, payload)
+      assert payload == Payload.validate!(Basic, :typed_payloads, event, payload)
     end
 
     test "every declared type accepts a matching value, with the optional field omitted" do
@@ -77,31 +77,31 @@ defmodule VerifiedPubSub.PayloadTest do
   end
 
   describe "shape violations" do
-    test "a missing required key raises and names it", %{owner_id: id} do
+    test "a missing required key raises and names it", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, %{owner_id: id}, :bare, at_runtime(%{}))
+          broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime(%{}))
         end
 
       message = Exception.message(error)
       assert message =~ "missing required key: :id"
-      assert message =~ ":shapes"
+      assert message =~ ":typed_payloads"
       assert message =~ ":bare"
     end
 
-    test "an unexpected key raises and names it", %{owner_id: id} do
+    test "an unexpected key raises and names it", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, %{owner_id: id}, :bare, at_runtime(%{id: "x", nope: 1}))
+          broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime(%{id: "x", nope: 1}))
         end
 
       assert Exception.message(error) =~ "unexpected key: :nope"
     end
 
-    test "a wrong type raises, naming the field, declared type and value", %{owner_id: id} do
+    test "a wrong type raises, naming the field, declared type and value", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, %{owner_id: id}, :bare, at_runtime(%{id: 42}))
+          broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime(%{id: 42}))
         end
 
       message = Exception.message(error)
@@ -109,12 +109,12 @@ defmodule VerifiedPubSub.PayloadTest do
       assert message =~ "got: 42"
     end
 
-    test "every problem is reported at once, not just the first", %{owner_id: id} do
+    test "every problem is reported at once, not just the first", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
           broadcast!(
-            :shapes,
-            %{owner_id: id},
+            :typed_payloads,
+            %{x: id},
             :typed,
             at_runtime(%{count: "not an int", nope: 1})
           )
@@ -126,21 +126,21 @@ defmodule VerifiedPubSub.PayloadTest do
       assert message =~ ":count is declared as :integer"
     end
 
-    test "a {:list, :string} rejects a list with a bad element", %{owner_id: id} do
+    test "a {:list, :string} rejects a list with a bad element", %{x: id} do
       payload = Map.put(valid_typed(), :tags, ["ok", 1])
 
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, %{owner_id: id}, :typed, at_runtime(payload))
+          broadcast!(:typed_payloads, %{x: id}, :typed, at_runtime(payload))
         end
 
       assert Exception.message(error) =~ "{:list, :string}"
     end
 
-    test "a struct field rejects a different struct", %{owner_id: id} do
+    test "a struct field rejects a different struct", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, %{owner_id: id}, :structured, %{
+          broadcast!(:typed_payloads, %{x: id}, :structured, %{
             point: %Message{
               manifest: Basic,
               topic: :a,
@@ -152,19 +152,19 @@ defmodule VerifiedPubSub.PayloadTest do
       assert Exception.message(error) =~ "VerifiedPubSub.TestStructs.Point"
     end
 
-    test "a non-map payload raises", %{owner_id: id} do
+    test "a non-map payload raises", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, %{owner_id: id}, :bare, at_runtime("not a map"))
+          broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime("not a map"))
         end
 
       assert Exception.message(error) =~ "must be a map of the declared fields"
     end
 
-    test "a struct payload explains how to carry it in a field", %{owner_id: id} do
+    test "a struct payload explains how to carry it in a field", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
-          broadcast!(:shapes, %{owner_id: id}, :bare, at_runtime(%Point{x: 1, y: 2}))
+          broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime(%Point{x: 1, y: 2}))
         end
 
       message = Exception.message(error)
@@ -172,31 +172,31 @@ defmodule VerifiedPubSub.PayloadTest do
       assert message =~ "Declare a field to carry it"
     end
 
-    test "nothing is broadcast when validation fails", %{owner_id: id} do
-      assert :ok = subscribe(:shapes, %{owner_id: id})
+    test "nothing is broadcast when validation fails", %{x: id} do
+      assert :ok = subscribe(:typed_payloads, %{x: id})
 
       assert_raise PayloadError, fn ->
-        broadcast!(:shapes, %{owner_id: id}, :bare, at_runtime(%{}))
+        broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime(%{}))
       end
 
-      refute_receive %Message{topic: :shapes}, 50
+      refute_receive %Message{topic: :typed_payloads}, 50
     end
 
-    test "the non-bang broadcast raises too", %{owner_id: id} do
+    test "the non-bang broadcast raises too", %{x: id} do
       # A shape violation is a bug, not a transport failure, so it is not reported
       # through the {:error, _} channel that a caller might shrug off.
       assert_raise PayloadError, fn ->
-        broadcast(:shapes, %{owner_id: id}, :bare, at_runtime(%{}))
+        broadcast(:typed_payloads, %{x: id}, :bare, at_runtime(%{}))
       end
     end
 
-    test "the from variants validate as well", %{owner_id: id} do
+    test "the from variants validate as well", %{x: id} do
       assert_raise PayloadError, fn ->
-        broadcast_from!(self(), :shapes, %{owner_id: id}, :bare, at_runtime(%{}))
+        broadcast_from!(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
       end
 
       assert_raise PayloadError, fn ->
-        broadcast_from(self(), :shapes, %{owner_id: id}, :bare, at_runtime(%{}))
+        broadcast_from(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
       end
     end
   end
@@ -206,7 +206,7 @@ defmodule VerifiedPubSub.PayloadTest do
       """
       defmodule #{unique_module("VPTest.Payload")} do
         use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
-        def go(id), do: broadcast!(:shapes, %{owner_id: id}, :bare, #{payload})
+        def go(id), do: broadcast!(:typed_payloads, %{x: id}, :bare, #{payload})
       end
       """
     end
@@ -259,7 +259,7 @@ defmodule VerifiedPubSub.PayloadTest do
                  use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
                  def go(id, base) do
-                   broadcast!(:shapes, %{owner_id: id}, :bare, %{base | id: "x"})
+                   broadcast!(:typed_payloads, %{x: id}, :bare, %{base | id: "x"})
                  end
                end
                """)
@@ -273,7 +273,7 @@ defmodule VerifiedPubSub.PayloadTest do
                  use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
                  def go(base) do
-                   broadcast!(:shapes, %{base | owner_id: "1"}, :bare, %{id: "x"})
+                   broadcast!(:typed_payloads, %{base | x: "1"}, :bare, %{id: "x"})
                  end
                end
                """)
@@ -340,17 +340,19 @@ defmodule VerifiedPubSub.PayloadTest do
   describe "introspection" do
     test "Info.fields/3 exposes the declared fields" do
       assert [%{name: :id, type: :string, required: true}] =
-               VerifiedPubSub.Info.fields(Basic, :shapes, :bare)
+               VerifiedPubSub.Info.fields(Basic, :typed_payloads, :bare)
     end
 
     test "Info.fields/3 reports required: false" do
-      note = Enum.find(VerifiedPubSub.Info.fields(Basic, :shapes, :typed), &(&1.name == :note))
+      note =
+        Enum.find(VerifiedPubSub.Info.fields(Basic, :typed_payloads, :typed), &(&1.name == :note))
+
       assert note.required == false
     end
 
     test "Info.fields/3 raises for an unknown event" do
       assert_raise ArgumentError, ~r/unknown event :nope/, fn ->
-        VerifiedPubSub.Info.fields(Basic, :shapes, :nope)
+        VerifiedPubSub.Info.fields(Basic, :typed_payloads, :nope)
       end
     end
   end

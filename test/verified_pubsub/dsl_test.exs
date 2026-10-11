@@ -5,7 +5,7 @@ defmodule VerifiedPubSub.DslTest do
   alias VerifiedPubSub.TestManifests.Basic
 
   test "topics are parsed at the top level, without a wrapper block" do
-    assert [:pets, :shapes, :system] =
+    assert [:pets, :system, :typed_payloads] =
              Info.topics(Basic) |> Enum.map(& &1.name) |> Enum.sort()
   end
 

@@ -26,7 +26,7 @@ defmodule VerifiedPubSub.TestManifests do
     end
 
     # Exercises every field type and both required settings.
-    topic :shapes, ["shapes", :owner_id] do
+    topic :typed_payloads, ["payloads", :x] do
       message :typed do
         field :name, :string
         field :count, :integer
@@ -85,7 +85,7 @@ defmodule VerifiedPubSub.TestManifests do
 
     topic :pets, ["collide", :owner_id, "pets"] do
       message :adopted do
-        field :email, :string
+        field :species, :atom
       end
     end
   end
