@@ -8,7 +8,7 @@ defmodule VerifiedPubSub.MixProject do
     [
       app: :verified_pubsub,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.16",
       elixirc_paths: elixirc_paths(Mix.env()),
       # Spark records where DSL entities are declared only with debug_info on, and tests
       # assert on errors that point at a declaration.
@@ -83,7 +83,7 @@ defmodule VerifiedPubSub.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:spark, "~> 2.5"},
+      {:spark, "~> 2.7 and >= 2.7.4"},
       {:phoenix_pubsub, "~> 2.1"},
       {:igniter, "~> 0.6", optional: true},
       {:phoenix_live_view, "~> 1.0", only: :test},

@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           # The oldest versions mix.exs claims to support.
-          - elixir: "1.15"
+          - elixir: "1.16"
             otp: "26"
           # The versions in .tool-versions. Lint runs here only.
           - elixir: "1.20"
