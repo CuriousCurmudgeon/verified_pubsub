@@ -44,6 +44,27 @@ defmodule VerifiedPubSub.Manifest do
   keys — so put it in a field:
 
       broadcast!(:pets, %{owner_id: id}, :adopted, %{pet: pet})
+
+  ## Documentation
+
+  The manifest's `@moduledoc` gains a `## Topics` section, built from the declarations:
+  each topic's wire pattern, its events, and each event's fields and types. A
+  hand-written `@moduledoc` comes first, and `@moduledoc false` keeps the manifest
+  hidden.
+
+  A `description` on a topic, an event or a field adds its meaning to that section. Give
+  it inside the block, or as a keyword when there is no block:
+
+      topic :pets, ["owners", :owner_id, "pets"] do
+        description "Pets of one owner."
+
+        message :adopted do
+          description "The owner adopted a pet."
+          field :pet, MyApp.Pet, description: "The adopted pet."
+        end
+
+        message :rehomed, description: "The pet moved to a new owner."
+      end
   """
 
   use Spark.Dsl,

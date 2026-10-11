@@ -73,6 +73,29 @@ Each `message` declares one event on that topic, and its `field`s declare the ke
 event's payload must carry. A payload is a map of exactly those fields — add
 `required: false` to a field to make it optional.
 
+## Document your topics
+
+The manifest documents itself. Its `@moduledoc` gains a `## Topics` section listing each
+topic's wire pattern, its events, and each event's fields and types, so the docs cannot
+drift from what the manifest enforces. Add a `description` to say what a topic, event or
+field means — inside the block, or as a keyword when there is no block:
+
+```elixir
+topic :pets, ["owners", :owner_id, "pets"] do
+  description "Pets of one owner."
+
+  message :adopted do
+    description "The owner adopted a pet."
+    field :pet, MyApp.Pet, description: "The adopted pet."
+  end
+
+  message :rehomed, description: "The pet moved to a new owner."
+end
+```
+
+A hand-written `@moduledoc` stays first, and `@moduledoc false` keeps the manifest out of
+the docs.
+
 ## Broadcast
 
 ```elixir

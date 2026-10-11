@@ -87,4 +87,56 @@ defmodule VerifiedPubSub.DslTest do
     assert error, "expected a missing :pubsub option to fail compilation"
     assert Exception.message(error) =~ "pubsub"
   end
+
+  describe "description" do
+    test "is read from a block or a keyword on a topic, an event and a field" do
+      manifest =
+        VerifiedPubSub.CompileHelper.compile!("""
+        defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.Described")} do
+          use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
+
+          topic :pets, ["pets"] do
+            description "Pets."
+
+            message :adopted do
+              description "Adopted."
+              field :id, :string, description: "The pet."
+              field :name, :string
+            end
+
+            message :rehomed, description: "Rehomed."
+          end
+        end
+        """)
+
+      topic = Info.topic!(manifest, :pets)
+      [adopted, rehomed] = topic.messages
+
+      assert topic.description == "Pets."
+      assert adopted.description == "Adopted."
+      assert rehomed.description == "Rehomed."
+      assert [%{description: "The pet."}, %{description: nil}] = adopted.fields
+    end
+
+    test "defaults to nil" do
+      assert {:ok, %{description: nil, messages: [%{description: nil} | _]}} =
+               Info.topic(Basic, :pets)
+    end
+
+    test "must be a string" do
+      error =
+        VerifiedPubSub.CompileHelper.dsl_error("""
+        defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.BadDescription")} do
+          use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
+
+          topic :pets, ["pets"] do
+            message :adopted, description: :oops
+          end
+        end
+        """)
+
+      assert %Spark.Error.DslError{} = error
+      assert Exception.message(error) =~ "description"
+    end
+  end
 end

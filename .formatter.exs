@@ -6,6 +6,7 @@ locals_without_parens = [
   message: 2,
   field: 2,
   field: 3,
+  description: 1,
   # VerifiedPubSub.Subscriber macros
   handle_message: 5,
   handle_message: 6,

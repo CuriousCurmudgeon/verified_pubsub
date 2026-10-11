@@ -24,6 +24,10 @@ defmodule VerifiedPubSub.Dsl do
                type: :boolean,
                default: true,
                doc: "Whether the key must be present in the payload."
+             ],
+             description: [
+               type: :string,
+               doc: "What the field holds. Shown in the manifest's generated docs."
              ]
            ]
          )
@@ -34,7 +38,13 @@ defmodule VerifiedPubSub.Dsl do
              args: [:name],
              identifier: :name,
              entities: [fields: [@field]],
-             schema: [name: [type: :atom, required: true, doc: "The event name."]]
+             schema: [
+               name: [type: :atom, required: true, doc: "The event name."],
+               description: [
+                 type: :string,
+                 doc: "When the event is broadcast. Shown in the manifest's generated docs."
+               ]
+             ]
            )
            |> Entity.build!()
 
@@ -55,6 +65,10 @@ defmodule VerifiedPubSub.Dsl do
                doc:
                  "Wire topic segments, joined with `:`. A string is a literal and an atom is " <>
                    ~S|a parameter, e.g. `["owners", :owner_id, "pets"]`.|
+             ],
+             description: [
+               type: :string,
+               doc: "What the topic carries. Shown in the manifest's generated docs."
              ]
            ]
          )
@@ -75,4 +89,14 @@ defmodule VerifiedPubSub.Dsl do
       VerifiedPubSub.Transformers.ValidateFields,
       VerifiedPubSub.Transformers.DefinePayloadSchemas
     ]
+
+  # Spark appends what this returns to the manifest's @moduledoc, after any hand-written
+  # moduledoc, and skips a manifest with `@moduledoc false`.
+  @impl Spark.Dsl.Extension
+  def explain(dsl_state) do
+    case Spark.Dsl.Transformer.get_entities(dsl_state, [:topics]) do
+      [] -> nil
+      topics -> VerifiedPubSub.Docs.topics_section(topics)
+    end
+  end
 end

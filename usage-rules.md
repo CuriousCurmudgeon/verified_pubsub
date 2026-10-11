@@ -62,6 +62,12 @@ end
   `:any`, `{:list, type}`, or a struct module.
 - `required: false` lets the key be absent or `nil`. Fields are required by default.
 - `:pubsub` names a `Phoenix.PubSub` started in the supervision tree.
+- Document a topic, an event or a field with `description`. Put it inside the block, as
+  `description "..."`, or as a keyword when there is no block, as
+  `message :rehomed, description: "..."`. Keyword options and a `do` block together do not
+  compile.
+- The manifest's `@moduledoc` gets a generated `## Topics` section with every topic, event
+  and field. Do not list topics or events by hand in the `@moduledoc`.
 
 ## Broadcast
 

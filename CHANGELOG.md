@@ -15,3 +15,6 @@ The first release.
 - `mix igniter.install verified_pubsub` adds the formatter import, finds or starts a
   `Phoenix.PubSub`, and creates an empty manifest.
 - `usage-rules.md` for coding agents.
+- A `description` option on `topic`, `message` and `field`. The manifest's `@moduledoc`
+  gains a generated `## Topics` section with each topic's wire pattern, events, fields and
+  descriptions.

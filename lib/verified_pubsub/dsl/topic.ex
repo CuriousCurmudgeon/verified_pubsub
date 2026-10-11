@@ -6,9 +6,18 @@ defmodule VerifiedPubSub.Dsl.Topic do
   @type t :: %__MODULE__{
           name: atom(),
           segments: [segment()],
+          description: String.t() | nil,
           params: [atom()],
           messages: [VerifiedPubSub.Dsl.Message.t()]
         }
 
-  defstruct [:name, :segments, :__identifier__, params: [], messages: [], __spark_metadata__: nil]
+  defstruct [
+    :name,
+    :segments,
+    :description,
+    :__identifier__,
+    params: [],
+    messages: [],
+    __spark_metadata__: nil
+  ]
 end
