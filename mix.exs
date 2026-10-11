@@ -77,6 +77,7 @@ defmodule VerifiedPubSub.MixProject do
     [
       {:spark, "~> 2.7"},
       {:phoenix_pubsub, "~> 2.1"},
+      {:igniter, "~> 0.8", optional: true},
       {:phoenix_live_view, "~> 1.0", only: :test},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]

@@ -6,6 +6,17 @@ error instead of a message nobody receives.
 
 ## Installation
 
+With [Igniter](https://hexdocs.pm/igniter):
+
+```sh
+mix igniter.install verified_pubsub
+```
+
+This adds the formatter import, finds the `Phoenix.PubSub` your application starts (or
+adds one), and creates an empty `MyApp.Topics` manifest that uses it.
+
+To install by hand, add the dependency:
+
 ```elixir
 def deps do
   [
