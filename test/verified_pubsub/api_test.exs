@@ -129,7 +129,8 @@ defmodule VerifiedPubSub.ApiTest do
       assert %CompileError{} = error
       message = Exception.message(error)
       assert message =~ "unknown topic :nope"
-      assert message =~ ":campaigns"
+      assert message =~ ~r/:campaigns\s+accounts:<account_id>:campaigns/
+      assert message =~ ~r/:system\s+system/
     end
 
     test "a typo'd event is a hard compile error listing declared events" do
@@ -139,6 +140,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert %CompileError{} = error
       message = Exception.message(error)
       assert message =~ "unknown event :creatd"
+      assert message =~ "on topic :campaigns (accounts:<account_id>:campaigns)"
       assert message =~ ":created"
     end
 
@@ -158,7 +160,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert %CompileError{} = error
       message = Exception.message(error)
       assert message =~ "account_id"
-      assert message =~ ":campaigns"
+      assert message =~ ":campaigns is accounts:<account_id>:campaigns, so it takes"
     end
 
     test "a literal params map with an unexpected key is a hard compile error" do

@@ -12,7 +12,9 @@ defmodule VerifiedPubSub.ManifestMismatchError do
   because a manifest cannot see its siblings at compile time.
   """
 
-  defexception [:subscriber, :expected, :got, :topic, :event]
+  alias VerifiedPubSub.Info
+
+  defexception [:subscriber, :expected, :got, :topic, :event, params: %{}]
 
   @impl true
   def message(%__MODULE__{} = error) do
@@ -20,7 +22,7 @@ defmodule VerifiedPubSub.ManifestMismatchError do
     #{inspect(error.subscriber)} is bound to #{inspect(error.expected)} but received a \
     message declared by #{inspect(error.got)}:
 
-      topic #{inspect(error.topic)}, event #{inspect(error.event)}
+      topic #{inspect(error.topic)}, event #{inspect(error.event)}#{collision(error)}
 
     Nothing about that message was verified against #{inspect(error.expected)}. Its payload \
     follows #{inspect(error.got)}'s field declarations, so it was not dispatched.
@@ -29,5 +31,33 @@ defmodule VerifiedPubSub.ManifestMismatchError do
     topics that can build the same string. Either give each manifest its own \
     `Phoenix.PubSub`, or make the topics distinct.
     """
+  end
+
+  # Names the wire topic and which of the subscriber's own topics it collided with. Built
+  # from the sender's declaration, so it is best effort: an error message must not raise.
+  defp collision(error) do
+    with {:ok, sent} <- Info.topic(error.got, error.topic),
+         wire = build(sent.segments, error.params),
+         {:ok, ours, _params} <- Info.match(error.expected, wire) do
+      ours = Info.topic!(error.expected, ours)
+
+      """
+
+        sent as #{VerifiedPubSub.Topic.describe(sent)} by #{inspect(error.got)}
+        wire topic #{inspect(wire)}
+        matches #{VerifiedPubSub.Topic.describe(ours)} in #{inspect(error.expected)}\
+      """
+    else
+      _ -> ""
+    end
+  rescue
+    _ -> ""
+  end
+
+  defp build(segments, params) do
+    Enum.map_join(segments, VerifiedPubSub.Topic.separator(), fn
+      literal when is_binary(literal) -> literal
+      param -> params |> Map.get(param, "") |> to_string()
+    end)
   end
 end

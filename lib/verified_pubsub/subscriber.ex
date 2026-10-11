@@ -165,7 +165,8 @@ defmodule VerifiedPubSub.Subscriber do
           expected: unquote(manifest),
           got: message.manifest,
           topic: message.topic,
-          event: message.event
+          event: message.event,
+          params: message.params
       end
     end
   end

@@ -13,12 +13,12 @@ defmodule VerifiedPubSub.TopicError do
   @impl true
   def message(%__MODULE__{} = error) do
     """
-    invalid value for topic param #{inspect(error.param)} on #{inspect(error.topic)} in \
-    #{inspect(error.manifest)}:
+    invalid value for topic param #{inspect(error.param)} on #{inspect(error.topic)} \
+    (#{VerifiedPubSub.Topic.pattern(error.segments)}) in #{inspect(error.manifest)}:
 
       #{detail(error)}
 
-    A param value fills exactly one segment of #{inspect(error.segments)}, so it must be \
+    A param value fills exactly one segment, its <#{error.param}>, so it must be \
     non-empty and must not contain #{inspect(VerifiedPubSub.Topic.separator())}. Otherwise \
     it could build a topic other than the one this call names.
     """

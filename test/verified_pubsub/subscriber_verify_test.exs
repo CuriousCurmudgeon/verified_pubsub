@@ -134,7 +134,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     assert error, "expected a typo'd topic to fail compilation"
     message = Exception.message(error)
     assert message =~ "unknown topic :campaign"
-    assert message =~ ":campaigns"
+    assert message =~ ~r/:campaigns\s+accounts:<account_id>:campaigns/
   end
 
   test "the removed :topics option gives a migration error" do

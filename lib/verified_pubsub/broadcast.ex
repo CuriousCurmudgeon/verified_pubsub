@@ -12,10 +12,11 @@ defmodule VerifiedPubSub.Broadcast do
   # the topic and event rather than just the underlying failure.
 
   @doc false
-  @spec bang!(:ok | {:error, term()}, atom(), atom()) :: :ok
-  def bang!(:ok, _topic, _event), do: :ok
+  @spec bang!(:ok | {:error, term()}, atom(), String.t(), atom()) :: :ok
+  def bang!(:ok, _topic, _wire, _event), do: :ok
 
-  def bang!({:error, reason}, topic, event) do
-    raise "failed to broadcast #{inspect(event)} on #{inspect(topic)}: #{inspect(reason)}"
+  def bang!({:error, reason}, topic, wire, event) do
+    raise "failed to broadcast #{inspect(event)} on #{inspect(topic)} (#{inspect(wire)}): " <>
+            inspect(reason)
   end
 end

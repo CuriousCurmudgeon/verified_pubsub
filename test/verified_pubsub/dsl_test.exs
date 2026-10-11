@@ -24,6 +24,37 @@ defmodule VerifiedPubSub.DslTest do
     end
   end
 
+  test "topic!/2 shows each known topic's wire pattern" do
+    error = assert_raise ArgumentError, fn -> Info.topic!(Basic, :nope) end
+    assert Exception.message(error) =~ ~r/:campaigns\s+accounts:<account_id>:campaigns/
+  end
+
+  describe "match/2" do
+    test "finds the topic a wire string belongs to, with its params" do
+      assert {:ok, :campaigns, %{account_id: "42"}} = Info.match(Basic, "accounts:42:campaigns")
+    end
+
+    test "matches a param-free topic" do
+      assert {:ok, :system, %{}} = Info.match(Basic, "system")
+    end
+
+    test "is :error for a wrong literal or segment count" do
+      assert :error = Info.match(Basic, "acounts:42:campaigns")
+      assert :error = Info.match(Basic, "accounts:42")
+      assert :error = Info.match(Basic, "accounts:42:campaigns:extra")
+    end
+
+    test "is :error when a param segment is empty, which no broadcast builds" do
+      assert :error = Info.match(Basic, "accounts::campaigns")
+    end
+
+    test "tells apart topics that differ only in segment count" do
+      alias VerifiedPubSub.TestManifests.Adjacent
+      assert {:ok, :short, %{x: "1"}} = Info.match(Adjacent, "adj:1")
+      assert {:ok, :long, %{x: "1"}} = Info.match(Adjacent, "adj:1:b")
+    end
+  end
+
   test "events/2 returns declared event names in declaration order" do
     assert [:created, :updated, :deleted] = Info.events(Basic, :campaigns)
     assert [:alert] = Info.events(Basic, :system)

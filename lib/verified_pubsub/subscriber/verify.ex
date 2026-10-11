@@ -95,15 +95,14 @@ defmodule VerifiedPubSub.Subscriber.Verify do
         topic
 
       :error ->
-        known = manifest |> Info.topics() |> Enum.map(& &1.name) |> Enum.sort()
-
         raise CompileError,
           file: env.file,
           line: env.line,
           description: """
           #{inspect(env.module)} handles messages on unknown topic #{inspect(topic)}.
 
-          #{inspect(manifest)} declares: #{inspect(known)}
+          #{inspect(manifest)} declares:
+          #{VerifiedPubSub.Topic.listing(Info.topics(manifest))}
           """
     end
   end
@@ -114,7 +113,8 @@ defmodule VerifiedPubSub.Subscriber.Verify do
       |> Enum.sort()
       |> Enum.map_join("\n", fn {topic, event} ->
         "  * #{inspect(topic)}, #{inspect(event)} — #{inspect(manifest)} declares " <>
-          "#{inspect(Info.events(manifest, topic))} on #{inspect(topic)}"
+          "#{inspect(Info.events(manifest, topic))} on " <>
+          VerifiedPubSub.Topic.describe(Info.topic!(manifest, topic))
       end)
 
     """

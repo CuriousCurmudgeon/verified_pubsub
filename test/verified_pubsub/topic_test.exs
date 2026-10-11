@@ -6,6 +6,8 @@ defmodule VerifiedPubSub.TopicTest do
   alias VerifiedPubSub.Message
   alias VerifiedPubSub.TopicError
 
+  doctest VerifiedPubSub.Topic
+
   # Interpolating a param value that contains the segment separator would let a caller
   # build a topic other than the one the call site names. ["a", :x] and ["a", :x, "b"] are
   # disjoint as declared, but x = "1:b" makes the first build what the second builds.
@@ -19,7 +21,7 @@ defmodule VerifiedPubSub.TopicTest do
       message = Exception.message(error)
       assert message =~ ":account_id"
       assert message =~ "1:campaigns"
-      assert message =~ ":"
+      assert message =~ ":campaigns (accounts:<account_id>:campaigns)"
     end
 
     test "raises from broadcast too" do

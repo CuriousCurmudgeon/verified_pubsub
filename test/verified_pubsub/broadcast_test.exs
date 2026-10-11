@@ -20,6 +20,25 @@ defmodule VerifiedPubSub.BroadcastTest do
     assert topic(:campaigns, %{account_id: 7}) == "accounts:7:campaigns"
   end
 
+  test "Info.match/2 recovers the name and params from what topic/2 builds" do
+    wire = topic(:campaigns, %{account_id: 42})
+    assert {:ok, :campaigns, %{account_id: "42"}} = VerifiedPubSub.Info.match(Basic, wire)
+  end
+
+  test "a failed broadcast! names the wire topic it was sent on" do
+    error =
+      assert_raise RuntimeError, fn ->
+        VerifiedPubSub.Broadcast.bang!(
+          {:error, :boom},
+          :campaigns,
+          "accounts:7:campaigns",
+          :created
+        )
+      end
+
+    assert Exception.message(error) =~ ~s|:created on :campaigns ("accounts:7:campaigns"): :boom|
+  end
+
   test "a param-free topic takes no params argument" do
     assert topic(:system) == "system"
   end

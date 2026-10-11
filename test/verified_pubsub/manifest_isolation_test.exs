@@ -79,6 +79,17 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       assert text =~ ":created"
     end
 
+    test "names the wire topic and the subscriber's topic it collided with" do
+      error =
+        assert_raise ManifestMismatchError, fn ->
+          Listener.handle_info(message(CollideB, %{email: "a@b.c"}), %{owner: self()})
+        end
+
+      text = Exception.message(error)
+      assert text =~ ~s|wire topic "collide:7:campaigns"|
+      assert text =~ "matches :campaigns (collide:<account_id>:campaigns) in #{inspect(CollideA)}"
+    end
+
     test "does not reach the module's own handle_info clauses" do
       # A catch-all is what the docs recommend for other messages. It must not swallow a
       # cross-manifest message, or the collision goes unnoticed forever.

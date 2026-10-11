@@ -170,6 +170,7 @@ defmodule VerifiedPubSub.Api do
           VerifiedPubSub.Broadcast.bang!(
             unquote(call),
             unquote(topic_struct.name),
+            vp_topic,
             unquote(event)
           )
         end
@@ -246,12 +247,11 @@ defmodule VerifiedPubSub.Api do
         {manifest, topic_struct}
 
       :error ->
-        known = manifest |> Info.topics() |> Enum.map(& &1.name) |> Enum.sort()
-
         raise_compile_error(caller, """
         unknown topic #{inspect(topic)} in #{inspect(manifest)}.
 
-        Declared topics: #{inspect(known)}
+        Declared topics:
+        #{VerifiedPubSub.Topic.listing(Info.topics(manifest))}
         """)
     end
   end
@@ -277,7 +277,7 @@ defmodule VerifiedPubSub.Api do
         end
 
       raise_compile_error(caller, """
-      unknown event #{inspect(event)} on topic #{inspect(topic_struct.name)}.
+      unknown event #{inspect(event)} on topic #{VerifiedPubSub.Topic.describe(topic_struct)}.
 
       Declared events: #{inspect(declared)}#{hint}
       """)
@@ -405,7 +405,7 @@ defmodule VerifiedPubSub.Api do
 
     #{detail}
 
-    #{inspect(topic_struct.name)} is #{inspect(topic_struct.segments)}, so it takes exactly #{inspect(topic_struct.params)}.
+    #{inspect(topic_struct.name)} is #{VerifiedPubSub.Topic.pattern(topic_struct.segments)}, so it takes exactly #{inspect(topic_struct.params)}.
     """
   end
 

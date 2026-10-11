@@ -25,6 +25,41 @@ defmodule VerifiedPubSub.Topic do
   def separator, do: @separator
 
   @doc """
+  Renders segments as a wire pattern, with each param in angle brackets.
+
+      iex> VerifiedPubSub.Topic.pattern(["accounts", :account_id, "campaigns"])
+      "accounts:<account_id>:campaigns"
+
+  This is the form errors show a topic in, so a reader holding a wire string from a log
+  can tell which declared topic it belongs to.
+  """
+  @spec pattern([VerifiedPubSub.Dsl.Topic.segment()]) :: String.t()
+  def pattern(segments) do
+    Enum.map_join(segments, @separator, fn
+      literal when is_binary(literal) -> literal
+      param -> "<#{param}>"
+    end)
+  end
+
+  @doc false
+  # `:campaigns (accounts:<account_id>:campaigns)`, for naming one topic in a message.
+  @spec describe(VerifiedPubSub.Dsl.Topic.t()) :: String.t()
+  def describe(topic), do: "#{inspect(topic.name)} (#{pattern(topic.segments)})"
+
+  @doc false
+  # Every topic in a manifest as aligned `name  pattern` lines, sorted by name, for errors
+  # that list the alternatives.
+  @spec listing([VerifiedPubSub.Dsl.Topic.t()]) :: String.t()
+  def listing(topics) do
+    sorted = Enum.sort_by(topics, & &1.name)
+    width = sorted |> Enum.map(&String.length(inspect(&1.name))) |> Enum.max(fn -> 0 end)
+
+    Enum.map_join(sorted, "\n", fn topic ->
+      "  " <> String.pad_trailing(inspect(topic.name), width) <> "   " <> pattern(topic.segments)
+    end)
+  end
+
+  @doc """
   Stringifies `value` and checks it can fill one segment of the topic.
 
   Raises `VerifiedPubSub.TopicError` if it cannot.

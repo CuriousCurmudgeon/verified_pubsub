@@ -28,11 +28,10 @@ defmodule VerifiedPubSub.Info do
         topic
 
       :error ->
-        known = manifest |> topics() |> Enum.map(& &1.name) |> Enum.sort()
-
-        raise ArgumentError,
-              "unknown topic #{inspect(name)} in #{inspect(manifest)}. " <>
-                "Known topics: #{inspect(known)}"
+        raise ArgumentError, """
+        unknown topic #{inspect(name)} in #{inspect(manifest)}. Known topics:
+        #{VerifiedPubSub.Topic.listing(topics(manifest))}
+        """
     end
   end
 
@@ -50,13 +49,49 @@ defmodule VerifiedPubSub.Info do
     case Enum.find(topic_struct.messages, &(&1.name == event)) do
       nil ->
         raise ArgumentError,
-              "unknown event #{inspect(event)} on topic #{inspect(topic)} in " <>
+              "unknown event #{inspect(event)} on topic " <>
+                "#{VerifiedPubSub.Topic.describe(topic_struct)} in " <>
                 "#{inspect(manifest)}. Declared events: #{inspect(events(manifest, topic))}"
 
       message ->
         message.fields
     end
   end
+
+  @doc """
+  Finds the declared topic a wire topic string belongs to, and the params it carries.
+
+      iex> VerifiedPubSub.Info.match(MyApp.Topics, "accounts:42:campaigns")
+      {:ok, :campaigns, %{account_id: "42"}}
+
+  The reverse of building a topic: useful when all you have is the string, from a log, a
+  trace or `Phoenix.PubSub` itself. Param values come back as the strings that were on the
+  wire. Returns `:error` when no topic matches, including when a param segment is empty,
+  which no broadcast can produce.
+
+  At most one topic can match, since a manifest's topics are checked to be disjoint.
+  """
+  @spec match(module(), String.t()) :: {:ok, atom(), %{atom() => String.t()}} | :error
+  def match(manifest, wire) when is_binary(wire) do
+    parts = String.split(wire, VerifiedPubSub.Topic.separator())
+
+    Enum.find_value(topics(manifest), :error, fn topic ->
+      with {:ok, params} <- match_segments(topic.segments, parts, %{}) do
+        {:ok, topic.name, params}
+      end
+    end)
+  end
+
+  defp match_segments([], [], params), do: {:ok, params}
+
+  defp match_segments([literal | segs], [literal | parts], params) when is_binary(literal),
+    do: match_segments(segs, parts, params)
+
+  defp match_segments([param | segs], [value | parts], params)
+       when is_atom(param) and value != "",
+       do: match_segments(segs, parts, Map.put(params, param, value))
+
+  defp match_segments(_segments, _parts, _params), do: nil
 
   @doc "Parameter names for a topic, in the order they appear in the segments."
   @spec params(module(), atom()) :: [atom()]
