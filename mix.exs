@@ -27,7 +27,7 @@ defmodule VerifiedPubSub.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE usage-rules.md),
+      files: ~w(lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE usage-rules.md),
       # Hex packages what is on disk, not what git tracks, so keep Vim swap files out.
       exclude_patterns: [~r/\.sw[a-p]$/],
       links: %{"GitHub" => @source_url}
@@ -38,7 +38,7 @@ defmodule VerifiedPubSub.MixProject do
     [
       main: "VerifiedPubSub",
       source_ref: "v#{@version}",
-      extras: ["README.md"],
+      extras: ["README.md", "CHANGELOG.md"],
       groups_for_modules: [
         "Declaring topics": [
           VerifiedPubSub.Manifest,
