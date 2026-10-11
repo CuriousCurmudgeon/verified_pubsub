@@ -22,7 +22,7 @@ defmodule VerifiedPubSub.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE usage-rules.md),
       links: %{}
     ]
   end

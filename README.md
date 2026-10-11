@@ -169,6 +169,21 @@ broadcast!(:campaigns, %{account_id: id}, :created, %{id: 42, extra: true})
   * :id is declared as :string, got: 42
 ```
 
+## Using with LLMs
+
+VerifiedPubSub ships a `usage-rules.md` for coding agents. With
+[usage_rules](https://hex.pm/packages/usage_rules) installed, add it to `project/0` in your
+`mix.exs`:
+
+```elixir
+usage_rules: [
+  file: "AGENTS.md",
+  usage_rules: [:verified_pubsub]
+]
+```
+
+Then run `mix usage_rules.sync` to copy the rules into that file.
+
 ## Documentation
 
 `mix docs` builds the full documentation locally.
