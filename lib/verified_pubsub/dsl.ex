@@ -59,6 +59,10 @@ defmodule VerifiedPubSub.Dsl do
                required: true,
                doc: "The name call sites use. Independent of the wire segments."
              ],
+             # A list rather than an "owners:%{owner_id}:pets" string, so a param fills a
+             # whole segment by construction and can never complete a literal into a
+             # different topic. A string would need parsing and a whole-segment check; the
+             # readable wire form it would give is rendered by Topic.pattern/1 instead.
              segments: [
                type: {:list, {:or, [:string, :atom]}},
                required: true,
