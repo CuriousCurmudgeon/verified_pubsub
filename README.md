@@ -1,10 +1,20 @@
 # VerifiedPubSub
 
+[![CI](https://github.com/CuriousCurmudgeon/verified_pubsub/actions/workflows/ci.yml/badge.svg)](https://github.com/CuriousCurmudgeon/verified_pubsub/actions/workflows/ci.yml)
+[![Hex.pm](https://img.shields.io/hexpm/v/verified_pubsub.svg)](https://hex.pm/packages/verified_pubsub)
+[![Docs](https://img.shields.io/badge/hex-docs-purple.svg)](https://hexdocs.pm/verified_pubsub)
+
 Compile-time verified PubSub for Elixir — the idea behind verified routes, applied to
 topics and events. Declare your topics and events once, and a typo becomes a compile
 error instead of a message nobody receives.
 
+VerifiedPubSub is pre-1.0, so its API may still change between minor versions. The
+[changelog](CHANGELOG.md) lists every change.
+
 ## Installation
+
+VerifiedPubSub requires Elixir 1.16 or later, and it broadcasts through a
+[`Phoenix.PubSub`](https://hexdocs.pm/phoenix_pubsub) that your application starts.
 
 With [Igniter](https://hexdocs.pm/igniter):
 
@@ -172,7 +182,7 @@ broadcast!(:pets, %{owner_id: id}, :adoptd, %{id: "p1", name: "Biscuit"})
 ```
 
 ```
-** (CompileError) lib/my_app_web/live/pet_live.ex:42: unknown event :adoptd on topic :pets (owners:<owner_id>:pets).
+** (CompileError) lib/my_app_web/live/pets_live.ex:42: unknown event :adoptd on topic :pets (owners:<owner_id>:pets).
 
 Declared events: [:adopted, :rehomed]
 :pets is declared at lib/my_app/topics.ex:7.
@@ -238,4 +248,13 @@ Then run `mix usage_rules.sync` to copy the rules into that file.
 
 ## Documentation
 
-`mix docs` builds the full documentation locally.
+The full documentation is on [HexDocs](https://hexdocs.pm/verified_pubsub).
+
+## Contributing
+
+Please open an issue before sending a pull request. See
+[CONTRIBUTING.md](https://github.com/CuriousCurmudgeon/verified_pubsub/blob/main/CONTRIBUTING.md).
+
+## License
+
+MIT. See [LICENSE](https://github.com/CuriousCurmudgeon/verified_pubsub/blob/main/LICENSE).
