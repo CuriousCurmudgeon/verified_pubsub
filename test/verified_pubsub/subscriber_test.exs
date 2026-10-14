@@ -131,7 +131,9 @@ defmodule VerifiedPubSub.SubscriberTest do
     send(pid, :something_unrelated)
 
     # The exit reason is the raw Erlang form, not a %FunctionClauseError{} struct.
-    assert_receive {:DOWN, ^ref, :process, ^pid, {:function_clause, _stacktrace}}
+    # A crashing GenServer logs its crash report before it exits, so :DOWN can take
+    # longer than the default 100ms on a loaded CI runner.
+    assert_receive {:DOWN, ^ref, :process, ^pid, {:function_clause, _stacktrace}}, 1_000
   end
 
   test "a module-defined catch-all handles unrelated messages without shadowing" do

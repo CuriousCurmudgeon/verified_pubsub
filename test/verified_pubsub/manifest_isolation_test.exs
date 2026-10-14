@@ -134,7 +134,11 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
 
       assert :ok = Publisher.announce(id)
 
-      assert_receive {:DOWN, ^ref, :process, ^pid, {%ManifestMismatchError{}, _stacktrace}}
+      # A crashing GenServer logs its crash report before it exits, so :DOWN can take
+      # longer than the default 100ms on a loaded CI runner.
+      assert_receive {:DOWN, ^ref, :process, ^pid, {%ManifestMismatchError{}, _stacktrace}},
+                     1_000
+
       refute_receive {:adopted, _}, 20
     end
   end
