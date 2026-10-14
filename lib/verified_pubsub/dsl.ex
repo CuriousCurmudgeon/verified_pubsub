@@ -66,6 +66,10 @@ defmodule VerifiedPubSub.Dsl do
                  "Wire topic segments, joined with `:`. A string is a literal and an atom is " <>
                    ~S|a parameter, e.g. `["owners", :owner_id, "pets"]`.|
              ],
+             # Every entity takes description as an option, but a topic or message with
+             # a do block gives it inside the block: Spark has no macro for keyword
+             # options alongside a do block, so `topic :x, [...], description: "..." do`
+             # fails to compile. A field has no block, so it uses the keyword.
              description: [
                type: :string,
                doc: "What the topic carries. Shown in the manifest's generated docs."
