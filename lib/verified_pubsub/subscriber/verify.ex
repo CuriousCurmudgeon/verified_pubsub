@@ -19,7 +19,6 @@ defmodule VerifiedPubSub.Subscriber.Verify do
   @doc false
   def run!(env, clauses, ignored) do
     manifest = Module.get_attribute(env.module, :verified_pubsub_manifest)
-    on_missing = Module.get_attribute(env.module, :verified_pubsub_on_missing)
 
     handled = MapSet.new(Enum.map(clauses, &{&1.topic, &1.event}))
     dismissed = MapSet.new(ignored)
@@ -59,13 +58,11 @@ defmodule VerifiedPubSub.Subscriber.Verify do
         description: undeclared_message(env, manifest, undeclared)
     end
 
-    if not Enum.empty?(missing) and on_missing != :ignore do
-      description = missing_message(env, manifest, missing)
-
-      case on_missing do
-        :error -> raise CompileError, file: env.file, line: env.line, description: description
-        :warn -> IO.warn(description, env)
-      end
+    unless Enum.empty?(missing) do
+      raise CompileError,
+        file: env.file,
+        line: env.line,
+        description: missing_message(env, manifest, missing)
     end
 
     :ok

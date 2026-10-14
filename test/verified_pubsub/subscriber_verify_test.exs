@@ -3,11 +3,10 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
 
   import VerifiedPubSub.CompileHelper
 
-  defp subscriber_source(body, opts \\ "") do
+  defp subscriber_source(body) do
     """
     defmodule #{unique_module("VPTest.Sub")} do
-      use VerifiedPubSub.Subscriber,
-        manifest: VerifiedPubSub.TestManifests.Basic#{opts}
+      use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
       #{body}
     end
@@ -236,42 +235,6 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
                """)
              )
            )
-  end
-
-  test "on_missing: :ignore skips the check" do
-    assert is_atom(
-             compile!(
-               subscriber_source(
-                 """
-                 handle_message :pets, :adopted, p, s do
-                   {:noreply, {p, s}}
-                 end
-                 """,
-                 ",\n    on_missing: :ignore"
-               )
-             )
-           )
-  end
-
-  test "on_missing: :warn warns instead of raising" do
-    {result, diagnostics} =
-      Code.with_diagnostics(fn ->
-        compile_error(
-          subscriber_source(
-            """
-            handle_message :pets, :adopted, p, s do
-              {:noreply, {p, s}}
-            end
-            """,
-            ",\n    on_missing: :warn"
-          )
-        )
-      end)
-
-    refute result, "expected on_missing: :warn not to raise"
-
-    assert Enum.any?(diagnostics, &(&1.severity == :warning and &1.message =~ ":renamed")),
-           "expected a warning naming the missing event, got: #{inspect(diagnostics)}"
   end
 
   test "a non-literal topic is rejected" do

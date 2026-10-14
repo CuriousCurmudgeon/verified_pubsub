@@ -250,13 +250,13 @@ defmodule VerifiedPubSub.ApiTest do
                defmodule #{unique_module("VPTest.SameManifest")} do
                  use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
-                 use VerifiedPubSub.Subscriber,
-                   manifest: VerifiedPubSub.TestManifests.Basic,
-                   on_missing: :ignore
+                 use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
                  handle_message :pets, :adopted, p, s do
                    {:noreply, {p, s}}
                  end
+
+                 ignore_message :pets, [:renamed, :rehomed]
                end
                """)
              )
@@ -268,9 +268,7 @@ defmodule VerifiedPubSub.ApiTest do
         defmodule #{unique_module("VPTest.RebindSubscriber")} do
           use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
-          use VerifiedPubSub.Subscriber,
-            manifest: VerifiedPubSub.TestManifests.CollideA,
-            on_missing: :ignore
+          use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.CollideA
         end
         """)
 
@@ -287,13 +285,8 @@ defmodule VerifiedPubSub.ApiTest do
         error =
           compile_error("""
           defmodule #{unique_module("VPTest.TwoSubscribers")} do
-            use VerifiedPubSub.Subscriber,
-              manifest: VerifiedPubSub.TestManifests.Basic,
-              on_missing: :ignore
-
-            use VerifiedPubSub.Subscriber,
-              manifest: #{inspect(second)},
-              on_missing: :ignore
+            use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
+            use VerifiedPubSub.Subscriber, manifest: #{inspect(second)}
           end
           """)
 

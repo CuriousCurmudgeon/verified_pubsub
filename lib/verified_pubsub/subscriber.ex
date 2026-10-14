@@ -94,11 +94,10 @@ defmodule VerifiedPubSub.Subscriber do
       def handle_info(_other, state), do: {:noreply, state}
   """
 
-  @options [:manifest, :on_missing]
+  @options [:manifest]
 
   defmacro __using__(opts) do
     manifest = opts |> Keyword.fetch!(:manifest) |> Macro.expand(__CALLER__)
-    on_missing = Keyword.get(opts, :on_missing, :error)
 
     if Keyword.has_key?(opts, :topics) do
       raise ArgumentError,
@@ -116,16 +115,11 @@ defmodule VerifiedPubSub.Subscriber do
                 "Expected only #{inspect(@options)}."
     end
 
-    unless on_missing in [:error, :warn, :ignore] do
-      raise ArgumentError,
-            "invalid :on_missing #{inspect(on_missing)}. Expected :error, :warn, or :ignore."
-    end
-
     module = __CALLER__.module
 
     # A second `use` would generate the handle_info/2 clauses and the @before_compile
     # dispatch twice, the first copy shadowing the second.
-    if Module.has_attribute?(module, :verified_pubsub_on_missing) do
+    if Module.has_attribute?(module, :verified_pubsub_clauses) do
       raise ArgumentError,
             "#{inspect(module)} already uses VerifiedPubSub.Subscriber. A module " <>
               "subscribes through exactly one manifest, so use it once."
@@ -141,7 +135,6 @@ defmodule VerifiedPubSub.Subscriber do
     # accumulation is live before any `handle_message` in the body is expanded.
     Module.register_attribute(module, :verified_pubsub_clauses, accumulate: true)
     Module.register_attribute(module, :verified_pubsub_ignored, accumulate: true)
-    Module.put_attribute(module, :verified_pubsub_on_missing, on_missing)
 
     quote do
       import VerifiedPubSub.Api
@@ -415,8 +408,8 @@ defmodule VerifiedPubSub.Subscriber do
   end
 
   # The generated handle_info/2 calls __verified_pubsub_dispatch__/4 unconditionally, so
-  # the function must exist even when every event was dismissed with `on_missing:
-  # :ignore` and no clause was written. Raising is right here: a verified message
+  # the function must exist even when the module wrote no handle_message or
+  # ignore_message at all. Raising is right here: a verified message
   # arrived that this module claimed no interest in.
   defp no_handlers_fallback([]) do
     [

@@ -154,8 +154,6 @@ end
   after the handlers.
 - If you match on literal param values, end with a clause that matches any value. Otherwise
   a message with a different value raises `FunctionClauseError`.
-- Keep the default `on_missing: :error`. Do not set `:warn` or `:ignore` to make an error
-  go away.
 
 ## Changing the manifest
 
