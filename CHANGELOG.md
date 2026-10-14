@@ -15,8 +15,7 @@ The first release.
 - `mix igniter.install verified_pubsub` adds the formatter import, finds or starts a
   `Phoenix.PubSub`, and creates an empty manifest.
 - `usage-rules.md` for coding agents.
-- A `description` option on `topic`, `message` and `field`. The manifest's `@moduledoc`
-  gains a generated `## Topics` section with each topic's wire pattern, events, fields and
-  descriptions.
-- Requires Elixir 1.16 or later, which Spark 2.7.4 needs. That Spark release makes
-  manifests much faster to compile.
+- The manifest documents itself: its `@moduledoc` gains a generated `## Topics` section
+  with each topic's wire pattern, events and fields. `topic`, `message` and `field` take a
+  `description` to say what each one means.
+- Requires Elixir 1.16 or later.
