@@ -30,7 +30,10 @@ defmodule VerifiedPubSub.MixProject do
       files: ~w(lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE usage-rules.md),
       # Hex packages what is on disk, not what git tracks, so keep Vim swap files out.
       exclude_patterns: [~r/\.sw[a-p]$/],
-      links: %{"GitHub" => @source_url}
+      links: %{
+        "GitHub" => @source_url,
+        "Changelog" => "https://hexdocs.pm/verified_pubsub/changelog.html"
+      }
     ]
   end
 
@@ -38,7 +41,7 @@ defmodule VerifiedPubSub.MixProject do
     [
       main: "VerifiedPubSub",
       source_ref: "v#{@version}",
-      extras: ["README.md", "CHANGELOG.md"],
+      extras: ["README.md", "usage-rules.md": [title: "Usage rules for LLMs"], "CHANGELOG.md": []],
       groups_for_modules: [
         "Declaring topics": [
           VerifiedPubSub.Manifest,
