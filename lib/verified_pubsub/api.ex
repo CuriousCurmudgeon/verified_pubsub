@@ -139,12 +139,141 @@ defmodule VerifiedPubSub.Api do
     build(__CALLER__, topic, params, event, payload, from, true)
   end
 
-  # The AST of an empty params map, for the arities with no params argument. A default
-  # argument shows `params \\ %{}` in the middle of the signature in the docs. This
-  # function gives the shorter arity a signature of its own instead.
-  defp no_params, do: {:%{}, [], []}
+  defp resolve!(caller, topic_ast) do
+    manifest = manifest!(caller)
+    topic = literal_atom!(caller, topic_ast, "topic")
 
-  # -- expansion helpers -------------------------------------------------------
+    case Info.topic(manifest, topic) do
+      {:ok, topic_struct} ->
+        {manifest, topic_struct}
+
+      :error ->
+        raise_compile_error(caller, """
+        unknown topic #{inspect(topic)} in #{inspect(manifest)}.
+
+        Declared topics:
+        #{Topic.listing(Info.topics(manifest))}
+        """)
+    end
+  end
+
+  defp manifest!(caller) do
+    case Module.get_attribute(caller.module, :verified_pubsub_manifest) do
+      nil ->
+        raise_compile_error(caller, """
+        no manifest is in scope.
+
+        Add `use VerifiedPubSub, manifest: MyApp.Topics` to #{inspect(caller.module)}.
+        """)
+
+      manifest ->
+        manifest
+    end
+  end
+
+  defp raise_compile_error(caller, description) do
+    raise CompileError, file: caller.file, line: caller.line, description: description
+  end
+
+  defp literal_atom!(caller, ast, role) when is_atom(ast) and not is_nil(ast) do
+    _ = {caller, role}
+    ast
+  end
+
+  defp literal_atom!(caller, ast, role) do
+    raise_compile_error(caller, """
+    expected a literal atom for #{role}, got: #{Macro.to_string(ast)}
+
+    These are macros, so the #{role} must be known at compile time in order to be
+    verified. For a value chosen at runtime, look it up in the manifest yourself with
+    VerifiedPubSub.Info and call Phoenix.PubSub directly.
+    """)
+  end
+
+  # Only a literal map has keys that this function can check at compile time. For any
+  # other expression, such as a variable or a function call, `Map.fetch!/2` checks at
+  # runtime. It raises KeyError and names the missing key.
+  defp validate_params!(caller, topic_struct, {:%{}, _, pairs}) when is_list(pairs) do
+    if literal_keys(pairs) do
+      keys = literal_keys(pairs)
+      expected = topic_struct.params
+      missing = expected -- keys
+      unexpected = keys -- expected
+
+      if missing == [] and unexpected == [] do
+        :ok
+      else
+        raise_compile_error(caller, params_message(topic_struct, missing, unexpected))
+      end
+    else
+      :ok
+    end
+  end
+
+  defp validate_params!(_caller, _topic_struct, _params), do: :ok
+
+  # Returns the keys of a literal map, or nil when the AST is not a map that this function
+  # can read at compile time. `%{base | k: v}` arrives as one three-element tuple,
+  # `{:|, meta, [_, _]}`, not as key/value pairs. Without this check, it reads as a map
+  # with the key `:|`.
+  defp literal_keys(pairs) do
+    if Enum.all?(pairs, &match?({key, _value} when is_atom(key), &1)) do
+      Enum.map(pairs, &elem(&1, 0))
+    end
+  end
+
+  defp params_message(topic_struct, missing, unexpected) do
+    detail =
+      [
+        if(missing != [], do: "  missing: #{inspect(missing)}"),
+        if(unexpected != [], do: "  unexpected: #{inspect(unexpected)}")
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n")
+
+    declared_at = Topic.declared_at(inspect(topic_struct.name), topic_struct)
+
+    """
+    wrong params for topic #{inspect(topic_struct.name)}.
+
+    #{detail}
+
+    #{inspect(topic_struct.name)} is #{Topic.pattern(topic_struct.segments)}, so it takes exactly #{inspect(topic_struct.params)}.#{declared_at}
+    """
+  end
+
+  # Binds `vp_params` and `vp_topic`. `Macro.var/2` gives the vars the context of this
+  # module. The `quote` blocks above write `vp_params` and `vp_topic` literally, and
+  # hygiene gives them the same context, so the names match.
+  defp bind_topic(manifest, topic_struct, params) do
+    pvar = Macro.var(:vp_params, __MODULE__)
+    tvar = Macro.var(:vp_topic, __MODULE__)
+
+    interpolation =
+      topic_struct.segments
+      |> Enum.map(fn
+        literal when is_binary(literal) ->
+          literal
+
+        param ->
+          quote do
+            VerifiedPubSub.Topic.segment!(
+              unquote(manifest),
+              unquote(topic_struct.name),
+              unquote(param),
+              Map.fetch!(unquote(pvar), unquote(param))
+            )
+          end
+      end)
+      |> Enum.intersperse(VerifiedPubSub.Topic.separator())
+      |> Enum.reduce(&quote(do: unquote(&2) <> unquote(&1)))
+
+    quote do
+      unquote(pvar) = unquote(params)
+      unquote(tvar) = unquote(interpolation)
+      _ = unquote(tvar)
+    end
+  end
 
   defp build(caller, topic, params, event, payload, from, bang?) do
     {manifest, topic_struct} = resolve!(caller, topic)
@@ -211,59 +340,6 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
-  # Binds `vp_params` and `vp_topic`. `Macro.var/2` gives the vars the context of this
-  # module. The `quote` blocks above write `vp_params` and `vp_topic` literally, and
-  # hygiene gives them the same context, so the names match.
-  defp bind_topic(manifest, topic_struct, params) do
-    pvar = Macro.var(:vp_params, __MODULE__)
-    tvar = Macro.var(:vp_topic, __MODULE__)
-
-    interpolation =
-      topic_struct.segments
-      |> Enum.map(fn
-        literal when is_binary(literal) ->
-          literal
-
-        param ->
-          quote do
-            VerifiedPubSub.Topic.segment!(
-              unquote(manifest),
-              unquote(topic_struct.name),
-              unquote(param),
-              Map.fetch!(unquote(pvar), unquote(param))
-            )
-          end
-      end)
-      |> Enum.intersperse(VerifiedPubSub.Topic.separator())
-      |> Enum.reduce(&quote(do: unquote(&2) <> unquote(&1)))
-
-    quote do
-      unquote(pvar) = unquote(params)
-      unquote(tvar) = unquote(interpolation)
-      _ = unquote(tvar)
-    end
-  end
-
-  # -- compile-time validation -------------------------------------------------
-
-  defp resolve!(caller, topic_ast) do
-    manifest = manifest!(caller)
-    topic = literal_atom!(caller, topic_ast, "topic")
-
-    case Info.topic(manifest, topic) do
-      {:ok, topic_struct} ->
-        {manifest, topic_struct}
-
-      :error ->
-        raise_compile_error(caller, """
-        unknown topic #{inspect(topic)} in #{inspect(manifest)}.
-
-        Declared topics:
-        #{Topic.listing(Info.topics(manifest))}
-        """)
-    end
-  end
-
   defp validate_event!(caller, manifest, topic_struct, event_ast) do
     event = literal_atom!(caller, event_ast, "event")
     declared = Enum.map(topic_struct.messages, & &1.name)
@@ -293,28 +369,6 @@ defmodule VerifiedPubSub.Api do
       """)
     end
   end
-
-  # Only a literal map has keys that this function can check at compile time. For any
-  # other expression, such as a variable or a function call, `Map.fetch!/2` checks at
-  # runtime. It raises KeyError and names the missing key.
-  defp validate_params!(caller, topic_struct, {:%{}, _, pairs}) when is_list(pairs) do
-    if literal_keys(pairs) do
-      keys = literal_keys(pairs)
-      expected = topic_struct.params
-      missing = expected -- keys
-      unexpected = keys -- expected
-
-      if missing == [] and unexpected == [] do
-        :ok
-      else
-        raise_compile_error(caller, params_message(topic_struct, missing, unexpected))
-      end
-    else
-      :ok
-    end
-  end
-
-  defp validate_params!(_caller, _topic_struct, _params), do: :ok
 
   # VerifiedPubSub.Payload checks a payload built at runtime when the broadcast runs. A
   # literal map is fully known at compile time, so this function runs the same checks
@@ -404,66 +458,8 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
-  # Returns the keys of a literal map, or nil when the AST is not a map that this function
-  # can read at compile time. `%{base | k: v}` arrives as one three-element tuple,
-  # `{:|, meta, [_, _]}`, not as key/value pairs. Without this check, it reads as a map
-  # with the key `:|`.
-  defp literal_keys(pairs) do
-    if Enum.all?(pairs, &match?({key, _value} when is_atom(key), &1)) do
-      Enum.map(pairs, &elem(&1, 0))
-    end
-  end
-
-  defp params_message(topic_struct, missing, unexpected) do
-    detail =
-      [
-        if(missing != [], do: "  missing: #{inspect(missing)}"),
-        if(unexpected != [], do: "  unexpected: #{inspect(unexpected)}")
-      ]
-      |> Enum.reject(&is_nil/1)
-      |> Enum.join("\n")
-
-    declared_at = Topic.declared_at(inspect(topic_struct.name), topic_struct)
-
-    """
-    wrong params for topic #{inspect(topic_struct.name)}.
-
-    #{detail}
-
-    #{inspect(topic_struct.name)} is #{Topic.pattern(topic_struct.segments)}, so it takes exactly #{inspect(topic_struct.params)}.#{declared_at}
-    """
-  end
-
-  defp literal_atom!(caller, ast, role) when is_atom(ast) and not is_nil(ast) do
-    _ = {caller, role}
-    ast
-  end
-
-  defp literal_atom!(caller, ast, role) do
-    raise_compile_error(caller, """
-    expected a literal atom for #{role}, got: #{Macro.to_string(ast)}
-
-    These are macros, so the #{role} must be known at compile time in order to be
-    verified. For a value chosen at runtime, look it up in the manifest yourself with
-    VerifiedPubSub.Info and call Phoenix.PubSub directly.
-    """)
-  end
-
-  defp manifest!(caller) do
-    case Module.get_attribute(caller.module, :verified_pubsub_manifest) do
-      nil ->
-        raise_compile_error(caller, """
-        no manifest is in scope.
-
-        Add `use VerifiedPubSub, manifest: MyApp.Topics` to #{inspect(caller.module)}.
-        """)
-
-      manifest ->
-        manifest
-    end
-  end
-
-  defp raise_compile_error(caller, description) do
-    raise CompileError, file: caller.file, line: caller.line, description: description
-  end
+  # The AST of an empty params map, for the arities with no params argument. A default
+  # argument shows `params \\ %{}` in the middle of the signature in the docs. This
+  # function gives the shorter arity a signature of its own instead.
+  defp no_params, do: {:%{}, [], []}
 end
