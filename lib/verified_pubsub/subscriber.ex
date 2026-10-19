@@ -213,6 +213,125 @@ defmodule VerifiedPubSub.Subscriber do
     put_clause!(__CALLER__, topic, params, event, pattern, state, body)
   end
 
+  @doc """
+  Declares that this module does nothing with an event, or with a list of events.
+
+      ignore_message :pets, :rehomed
+      ignore_message :pets, [:renamed, :rehomed]
+
+  The call satisfies the coverage check without a handler. The generated clause returns
+  `{:noreply, state}`, which is correct for both a GenServer and a LiveView.
+  """
+  defmacro ignore_message(topic, event_or_events) do
+    topic = literal_atom!(topic, :topic)
+
+    events =
+      case event_or_events do
+        list when is_list(list) ->
+          if list == [] do
+            raise ArgumentError,
+                  "ignore_message #{inspect(topic)}, [] ignores nothing. " <>
+                    "Pass at least one event, or remove the call."
+          end
+
+          Enum.map(list, &literal_atom!(&1, :event))
+
+        event ->
+          [literal_atom!(event, :event)]
+      end
+
+    Enum.each(events, fn event ->
+      Module.put_attribute(__CALLER__.module, :verified_pubsub_ignored, {topic, event})
+    end)
+
+    nil
+  end
+
+  defmacro __before_compile__(env) do
+    clauses =
+      env.module
+      |> Module.get_attribute(:verified_pubsub_clauses)
+      |> Enum.reverse()
+
+    ignored =
+      env.module
+      |> Module.get_attribute(:verified_pubsub_ignored)
+      |> Enum.reverse()
+
+    VerifiedPubSub.Subscriber.Verify.run!(env, clauses, ignored)
+
+    dispatch = Enum.map(clauses, &dispatch_clause/1) ++ Enum.map(ignored, &ignored_clause/1)
+
+    quote do
+      (unquote_splicing(no_handlers_fallback(dispatch) ++ dispatch))
+    end
+  end
+
+  defp dispatch_clause(%{whole_message?: true} = clause) do
+    quote line: clause.line do
+      defp __verified_pubsub_dispatch__(
+             unquote(clause.topic),
+             unquote(clause.event),
+             unquote(clause.pattern),
+             unquote(clause.state)
+           ) do
+        unquote(clause.body)
+      end
+    end
+  end
+
+  defp dispatch_clause(clause) do
+    message_pattern =
+      case clause.params_pattern do
+        nil ->
+          quote do: %VerifiedPubSub.Message{payload: unquote(clause.pattern)}
+
+        params ->
+          quote do: %VerifiedPubSub.Message{
+                  payload: unquote(clause.pattern),
+                  params: unquote(params)
+                }
+      end
+
+    quote line: clause.line do
+      defp __verified_pubsub_dispatch__(
+             unquote(clause.topic),
+             unquote(clause.event),
+             unquote(message_pattern),
+             unquote(clause.state)
+           ) do
+        unquote(clause.body)
+      end
+    end
+  end
+
+  defp ignored_clause({topic, event}) do
+    quote do
+      defp __verified_pubsub_dispatch__(unquote(topic), unquote(event), _message, state) do
+        {:noreply, state}
+      end
+    end
+  end
+
+  # The generated handle_info/2 always calls __verified_pubsub_dispatch__/4, so the
+  # function must exist even when the module has no handle_message or ignore_message
+  # call. A raise is correct here: a verified message arrived, but this module declared
+  # no interest in it.
+  defp no_handlers_fallback([]) do
+    [
+      quote do
+        defp __verified_pubsub_dispatch__(topic, event, _message, _state) do
+          raise """
+          \#{inspect(__MODULE__)} received \#{inspect(event)} on \#{inspect(topic)} but \
+          defines no handle_message or ignore_message clauses.
+          """
+        end
+      end
+    ]
+  end
+
+  defp no_handlers_fallback(_dispatch), do: []
+
   defp put_clause!(caller, topic, params, event, pattern, state, body) do
     topic = literal_atom!(topic, :topic)
     whole_message? = message_pattern?(pattern, caller)
@@ -248,6 +367,26 @@ defmodule VerifiedPubSub.Subscriber do
     nil
   end
 
+  defp literal_atom!(ast, _role) when is_atom(ast), do: ast
+
+  defp literal_atom!(ast, role) do
+    raise ArgumentError,
+          "expected a literal atom for #{role}, got: #{Macro.to_string(ast)}. " <>
+            "Topic and event must be literals so coverage can be checked at compile time."
+  end
+
+  # A struct pattern is clear in the AST. The check also accepts `%Message{...} = var`,
+  # because it looks at both sides of a top-level match.
+  defp message_pattern?({:=, _, [left, right]}, env) do
+    message_pattern?(left, env) or message_pattern?(right, env)
+  end
+
+  defp message_pattern?({:%, _, [alias_ast, {:%{}, _, _}]}, env) do
+    Macro.expand(alias_ast, env) == VerifiedPubSub.Message
+  end
+
+  defp message_pattern?(_, _), do: false
+
   # Only an unexpected key is an error. A match on a subset of the params is the normal
   # case, so a missing key is not a problem here, unlike in `broadcast!/4`.
   defp validate_params_pattern!(caller, topic, {:%{}, _, pairs}) when is_list(pairs) do
@@ -279,6 +418,15 @@ defmodule VerifiedPubSub.Subscriber do
   end
 
   defp validate_params_pattern!(_caller, _topic, _params), do: :ok
+
+  # Returns the keys of a literal map, or nil when the AST is not a map that we can read
+  # at compile time. `%{base | k: v}` arrives as one {:|, meta, [_, _]} tuple, not as
+  # pairs.
+  defp literal_keys(pairs) do
+    if Enum.all?(pairs, &match?({key, _value} when is_atom(key), &1)) do
+      Enum.map(pairs, &elem(&1, 0))
+    end
+  end
 
   # A broadcast checks that a payload holds only declared fields. A literal pattern that
   # names any other key thus can never match. An error is better than a clause that
@@ -340,153 +488,5 @@ defmodule VerifiedPubSub.Subscriber do
     could never match.#{declared_at}
     #{hint}\
     """
-  end
-
-  # Returns the keys of a literal map, or nil when the AST is not a map that we can read
-  # at compile time. `%{base | k: v}` arrives as one {:|, meta, [_, _]} tuple, not as
-  # pairs.
-  defp literal_keys(pairs) do
-    if Enum.all?(pairs, &match?({key, _value} when is_atom(key), &1)) do
-      Enum.map(pairs, &elem(&1, 0))
-    end
-  end
-
-  @doc """
-  Declares that this module does nothing with an event, or with a list of events.
-
-      ignore_message :pets, :rehomed
-      ignore_message :pets, [:renamed, :rehomed]
-
-  The call satisfies the coverage check without a handler. The generated clause returns
-  `{:noreply, state}`, which is correct for both a GenServer and a LiveView.
-  """
-  defmacro ignore_message(topic, event_or_events) do
-    topic = literal_atom!(topic, :topic)
-
-    events =
-      case event_or_events do
-        list when is_list(list) ->
-          if list == [] do
-            raise ArgumentError,
-                  "ignore_message #{inspect(topic)}, [] ignores nothing. " <>
-                    "Pass at least one event, or remove the call."
-          end
-
-          Enum.map(list, &literal_atom!(&1, :event))
-
-        event ->
-          [literal_atom!(event, :event)]
-      end
-
-    Enum.each(events, fn event ->
-      Module.put_attribute(__CALLER__.module, :verified_pubsub_ignored, {topic, event})
-    end)
-
-    nil
-  end
-
-  defp literal_atom!(ast, _role) when is_atom(ast), do: ast
-
-  defp literal_atom!(ast, role) do
-    raise ArgumentError,
-          "expected a literal atom for #{role}, got: #{Macro.to_string(ast)}. " <>
-            "Topic and event must be literals so coverage can be checked at compile time."
-  end
-
-  # A struct pattern is clear in the AST. The check also accepts `%Message{...} = var`,
-  # because it looks at both sides of a top-level match.
-  defp message_pattern?({:=, _, [left, right]}, env) do
-    message_pattern?(left, env) or message_pattern?(right, env)
-  end
-
-  defp message_pattern?({:%, _, [alias_ast, {:%{}, _, _}]}, env) do
-    Macro.expand(alias_ast, env) == VerifiedPubSub.Message
-  end
-
-  defp message_pattern?(_, _), do: false
-
-  defmacro __before_compile__(env) do
-    clauses =
-      env.module
-      |> Module.get_attribute(:verified_pubsub_clauses)
-      |> Enum.reverse()
-
-    ignored =
-      env.module
-      |> Module.get_attribute(:verified_pubsub_ignored)
-      |> Enum.reverse()
-
-    VerifiedPubSub.Subscriber.Verify.run!(env, clauses, ignored)
-
-    dispatch = Enum.map(clauses, &dispatch_clause/1) ++ Enum.map(ignored, &ignored_clause/1)
-
-    quote do
-      (unquote_splicing(no_handlers_fallback(dispatch) ++ dispatch))
-    end
-  end
-
-  # The generated handle_info/2 always calls __verified_pubsub_dispatch__/4, so the
-  # function must exist even when the module has no handle_message or ignore_message
-  # call. A raise is correct here: a verified message arrived, but this module declared
-  # no interest in it.
-  defp no_handlers_fallback([]) do
-    [
-      quote do
-        defp __verified_pubsub_dispatch__(topic, event, _message, _state) do
-          raise """
-          \#{inspect(__MODULE__)} received \#{inspect(event)} on \#{inspect(topic)} but \
-          defines no handle_message or ignore_message clauses.
-          """
-        end
-      end
-    ]
-  end
-
-  defp no_handlers_fallback(_dispatch), do: []
-
-  defp dispatch_clause(%{whole_message?: true} = clause) do
-    quote line: clause.line do
-      defp __verified_pubsub_dispatch__(
-             unquote(clause.topic),
-             unquote(clause.event),
-             unquote(clause.pattern),
-             unquote(clause.state)
-           ) do
-        unquote(clause.body)
-      end
-    end
-  end
-
-  defp dispatch_clause(clause) do
-    message_pattern =
-      case clause.params_pattern do
-        nil ->
-          quote do: %VerifiedPubSub.Message{payload: unquote(clause.pattern)}
-
-        params ->
-          quote do: %VerifiedPubSub.Message{
-                  payload: unquote(clause.pattern),
-                  params: unquote(params)
-                }
-      end
-
-    quote line: clause.line do
-      defp __verified_pubsub_dispatch__(
-             unquote(clause.topic),
-             unquote(clause.event),
-             unquote(message_pattern),
-             unquote(clause.state)
-           ) do
-        unquote(clause.body)
-      end
-    end
-  end
-
-  defp ignored_clause({topic, event}) do
-    quote do
-      defp __verified_pubsub_dispatch__(unquote(topic), unquote(event), _message, state) do
-        {:noreply, state}
-      end
-    end
   end
 end
