@@ -1,19 +1,20 @@
 defmodule VerifiedPubSub.Payload do
   @moduledoc """
-  Runtime validation of broadcast payloads against the manifest.
+  Validates the payload of each broadcast against the manifest at runtime.
 
-  Runs on every broadcast, in every environment. The cost is one pass over the declared
-  fields plus a key-set comparison, which is negligible beside the PubSub send it guards.
+  The check runs on each broadcast, in each environment. It costs one pass over the
+  declared fields and one comparison of key sets. That cost is small next to the send to
+  `Phoenix.PubSub` that it guards.
   """
 
   alias VerifiedPubSub.Dsl.Field
   alias VerifiedPubSub.PayloadError
 
   @doc """
-  Checks `payload` against the fields the manifest declares for `{topic, event}`,
-  raising `VerifiedPubSub.PayloadError` on any mismatch.
+  Checks `payload` against the fields that the manifest declares for `{topic, event}`.
 
-  Returns the payload unchanged so it can be used inline.
+  Raises `VerifiedPubSub.PayloadError` on any mismatch. Returns the payload unchanged, so
+  a caller can use the call inline.
   """
   @spec validate!(module(), atom(), atom(), term()) :: term()
   def validate!(manifest, topic, event, payload) do
@@ -54,9 +55,9 @@ defmodule VerifiedPubSub.Payload do
       |> MapSet.difference(declared)
       |> Enum.sort()
 
-    # Note the shape here: `value = Map.fetch!(...)` as a `for` qualifier would be
-    # evaluated for truthiness and act as a filter, so every nil or false value would
-    # skip its type check -- including on required fields.
+    # Do not use a `for` here. In a `for`, a qualifier like `value = Map.fetch!(...)` is a
+    # filter on truth. Each nil or false value would then skip its type check, also on a
+    # required field.
     type_problems =
       fields
       |> Enum.filter(&Map.has_key?(payload, &1.name))
@@ -75,9 +76,9 @@ defmodule VerifiedPubSub.Payload do
   @doc """
   Whether `value` satisfies `field`.
 
-  `nil` is accepted for an optional field: it is how Elixir and Ecto spell absence, and
-  requiring the key to be omitted instead would be awkward when a payload is built from
-  a struct. A required field rejects `nil`.
+  An optional field accepts `nil`, because Elixir and Ecto use `nil` for an absent value. A
+  payload that comes from a struct holds every key, so a rule to leave out the key would be
+  hard to meet. A required field rejects `nil`.
   """
   @spec valid_field?(Field.t(), term()) :: boolean()
   def valid_field?(%{required: false}, nil), do: true
