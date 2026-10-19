@@ -27,7 +27,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
              )
     end
 
-    test "duplicate topic names are a compile error" do
+    test "a duplicate topic name is a compile error" do
       error =
         dsl_error(
           manifest_source("""
@@ -92,7 +92,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert Exception.message(error) =~ "declares no events"
     end
 
-    test "a param filling the entire topic is fine" do
+    test "a param that fills the whole topic is fine" do
       assert is_atom(
                compile!(
                  manifest_source("""
@@ -108,7 +108,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   end
 
   describe "message" do
-    test "duplicate event names within a topic are a compile error" do
+    test "a duplicate event name within a topic is a compile error" do
       error =
         dsl_error(
           manifest_source("""
@@ -127,7 +127,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert Exception.message(error) =~ "adopted"
     end
 
-    test "the same event name on two different topics is allowed" do
+    test "the same event name on two different topics compiles" do
       assert is_atom(
                compile!(
                  manifest_source("""
@@ -147,7 +147,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   end
 
   describe "use VerifiedPubSub.Manifest with topics of a similar shape" do
-    test "two topics that can match the same topic string are a compile error" do
+    test "two topics that can match the same wire topic are a compile error" do
       error =
         dsl_error(
           manifest_source("""
@@ -173,7 +173,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert :erl_anno.line(error.location) == 3
     end
 
-    test "the error is also a diagnostic placed at the first topic" do
+    test "the error is also a diagnostic at the first topic" do
       {_error, diagnostics} =
         Code.with_diagnostics(fn ->
           compile_error(
@@ -195,7 +195,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert message =~ "can match the same topic"
     end
 
-    test "topics distinguished by a literal segment are fine" do
+    test "topics that differ by a literal segment are fine" do
       assert is_atom(
                compile!(
                  manifest_source("""
