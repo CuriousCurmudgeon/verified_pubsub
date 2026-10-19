@@ -4,16 +4,16 @@
 [![Hex.pm](https://img.shields.io/hexpm/v/verified_pubsub.svg)](https://hex.pm/packages/verified_pubsub)
 [![Docs](https://img.shields.io/badge/hex-docs-purple.svg)](https://hexdocs.pm/verified_pubsub)
 
-Compile-time verified PubSub for Elixir — the idea behind verified routes, applied to
-topics and events. Declare your topics and events once, and a typo becomes a compile
-error instead of a message nobody receives.
+Compile-time verified PubSub for Elixir. It applies the idea of verified routes to topics
+and events. Declare your topics and events once. Then a typo is a compile error, not a
+message that no process receives.
 
-VerifiedPubSub is pre-1.0, so its API may still change between minor versions. The
-[changelog](CHANGELOG.md) lists every change.
+VerifiedPubSub is before version 1.0, so its API can change between minor versions. The
+[changelog](CHANGELOG.md) lists each change.
 
 ## Installation
 
-VerifiedPubSub requires Elixir 1.16 or later, and it broadcasts through a
+VerifiedPubSub needs Elixir 1.16 or later. It broadcasts through a
 [`Phoenix.PubSub`](https://hexdocs.pm/phoenix_pubsub) that your application starts.
 
 With [Igniter](https://hexdocs.pm/igniter):
@@ -22,8 +22,11 @@ With [Igniter](https://hexdocs.pm/igniter):
 mix igniter.install verified_pubsub
 ```
 
-This adds the formatter import, finds the `Phoenix.PubSub` your application starts (or
-adds one), and creates an empty `MyApp.Topics` manifest that uses it.
+The installer does these steps:
+
+- It adds the formatter import.
+- It finds the `Phoenix.PubSub` that your application starts, or adds one.
+- It creates an empty `MyApp.Topics` manifest that uses that `Phoenix.PubSub`.
 
 To install by hand, add the dependency:
 
@@ -41,7 +44,7 @@ Start a `Phoenix.PubSub` in your supervision tree:
 children = [{Phoenix.PubSub, name: MyApp.PubSub}]
 ```
 
-And add the formatter import, so the DSL reads without parentheses:
+Then add the formatter import, so that the DSL has no parentheses:
 
 ```elixir
 # .formatter.exs
@@ -75,20 +78,21 @@ defmodule MyApp.Topics do
 end
 ```
 
-`:pets` is the name call sites use, and the list is the wire topic: its segments are
-joined with `:`, so this one is `"owners:<owner_id>:pets"`. A string is a literal
-segment and an atom is a parameter.
+`:pets` is the name that call sites use. The list is the wire topic. A `:` joins its
+segments, so this wire topic is `"owners:<owner_id>:pets"`. A string is a literal segment,
+and an atom is a param.
 
-Each `message` declares one event on that topic, and its `field`s declare the keys that
-event's payload must carry. A payload is a map of exactly those fields — add
-`required: false` to a field to make it optional.
+Each `message` declares one event on its topic. Its `field`s declare the keys that the
+payload of that event must have. A payload is a map of exactly those fields. To make a
+field optional, add `required: false` to it.
 
 ## Document your topics
 
-The manifest documents itself. Its `@moduledoc` gains a `## Topics` section listing each
-topic's wire pattern, its events, and each event's fields and types, so the docs cannot
-drift from what the manifest enforces. Add a `description` to say what a topic, event or
-field means — inside the block, or as a keyword when there is no block:
+The manifest writes its own docs. Its `@moduledoc` gets a `## Topics` section. The section
+lists the wire pattern of each topic, its events, and the fields and types of each event.
+So the docs always agree with the checks of the manifest. To say what a topic, an event,
+or a field means, add a `description`. Put it inside the block, or use a keyword when
+there is no block:
 
 ```elixir
 topic :pets, ["owners", :owner_id, "pets"] do
@@ -103,8 +107,8 @@ topic :pets, ["owners", :owner_id, "pets"] do
 end
 ```
 
-A hand-written `@moduledoc` stays first, and `@moduledoc false` keeps the manifest out of
-the docs.
+A `@moduledoc` that you write stays first. `@moduledoc false` keeps the manifest out of the
+docs.
 
 ## Broadcast
 
@@ -125,7 +129,8 @@ defmodule MyApp.Pets do
 end
 ```
 
-Anyone can give a treat to anyone's pet. The broadcast goes to the pet's owner:
+Any owner can give a treat to the pet of any owner. The broadcast goes to the owner of the
+pet:
 
 ```elixir
 broadcast!(:treats, %{owner_id: pet.owner_id}, :given, %{
@@ -135,7 +140,8 @@ broadcast!(:treats, %{owner_id: pet.owner_id}, :given, %{
 })
 ```
 
-To skip the sender, which a LiveView that both writes and subscribes usually wants:
+A LiveView that writes to a topic and also subscribes to it usually wants to skip the
+sender:
 
 ```elixir
 broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, payload)
@@ -164,8 +170,8 @@ defmodule MyAppWeb.PetsLive do
 end
 ```
 
-Every event on a subscribed topic must be handled or explicitly ignored. To match on the
-topic params, put them where a broadcast takes them:
+The module must handle or ignore each event on a subscribed topic. To match on the params
+of the topic, put them where a broadcast puts them:
 
 ```elixir
 handle_message :pets, %{owner_id: owner}, :adopted, payload, socket do
@@ -175,7 +181,7 @@ end
 
 ## Compile-time errors
 
-A typo'd event:
+An event with a typo:
 
 ```elixir
 broadcast!(:pets, %{owner_id: id}, :adoptd, %{id: "p1", name: "Biscuit"})
@@ -188,10 +194,10 @@ Declared events: [:adopted, :rehomed]
 :pets is declared at lib/my_app/topics.ex:7.
 ```
 
-Errors that a manifest change could fix point at the declaration. A manifest error is
-also reported as a diagnostic on the offending line, so an editor can mark it.
+When a change to the manifest can fix an error, the error points at the declaration. A
+manifest error is also a diagnostic on the line that causes it, so an editor can mark it.
 
-A subscriber that does not account for every event:
+A subscriber that does not handle or ignore each event:
 
 ```elixir
 handle_message :pets, :adopted, payload, socket do
@@ -212,12 +218,15 @@ Add a `handle_message` clause for each, or dismiss it explicitly:
 Manifest: MyApp.Topics
 ```
 
-Unknown topics, mistyped params, and literal payloads that don't match the declared
-fields all fail the same way.
+These errors also stop the compile:
+
+- an unknown topic
+- params with a wrong key
+- a literal payload that does not match the declared fields
 
 ## Runtime errors
 
-A payload built at runtime is checked on every broadcast, in every environment:
+Each broadcast checks a payload built at runtime, in each environment:
 
 ```elixir
 broadcast!(:pets, %{owner_id: id}, :adopted, %{id: 42, extra: true})
@@ -231,10 +240,10 @@ broadcast!(:pets, %{owner_id: id}, :adopted, %{id: 42, extra: true})
   * :id is declared as :string, got: 42
 ```
 
-## Using with LLMs
+## Use with LLMs
 
-VerifiedPubSub ships a `usage-rules.md` for coding agents. With
-[usage_rules](https://hex.pm/packages/usage_rules) installed, add it to `project/0` in your
+VerifiedPubSub includes a `usage-rules.md` for coding agents. When you have
+[usage_rules](https://hex.pm/packages/usage_rules), add it to `project/0` in your
 `mix.exs`:
 
 ```elixir
@@ -252,7 +261,7 @@ The full documentation is on [HexDocs](https://hexdocs.pm/verified_pubsub).
 
 ## Contributing
 
-Please open an issue before sending a pull request. See
+Please open an issue before you send a pull request. See
 [CONTRIBUTING.md](https://github.com/CuriousCurmudgeon/verified_pubsub/blob/main/CONTRIBUTING.md).
 
 ## License
