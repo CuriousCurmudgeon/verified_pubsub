@@ -1,5 +1,5 @@
 defmodule VerifiedPubSub.DocsTest do
-  # Not async: the `:docs` compiler option is global, and the test env turns it off.
+  # Not async, because the `:docs` compiler option is global and the test env turns it off.
   use ExUnit.Case, async: false
 
   import VerifiedPubSub.CompileHelper
@@ -59,7 +59,7 @@ defmodule VerifiedPubSub.DocsTest do
            """
   end
 
-  test "sees a moduledoc written below the use", %{tmp_dir: tmp_dir} do
+  test "finds a moduledoc below the use", %{tmp_dir: tmp_dir} do
     doc =
       moduledoc!(tmp_dir, """
       use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
@@ -151,15 +151,16 @@ defmodule VerifiedPubSub.DocsTest do
            """
   end
 
-  # Spark ends the moduledoc with a different number of newlines depending on whether the
-  # manifest has a hand-written one, so the comparison ignores trailing newlines.
+  # Spark ends the moduledoc with a different number of newlines when the manifest has a
+  # hand-written moduledoc, so the comparison ignores trailing newlines.
   defp moduledoc!(tmp_dir, body) do
     %{"en" => doc} = docs!(tmp_dir, body)
     String.trim_trailing(doc) <> "\n"
   end
 
-  # Compiles a manifest with docs on and returns its moduledoc entry. Docs are read from
-  # the .beam, because Code.fetch_docs/1 cannot read a module compiled only in memory.
+  # Compiles a manifest with docs on, and returns its moduledoc entry. This function reads
+  # the docs from the .beam, because Code.fetch_docs/1 cannot read a module that exists
+  # only in memory.
   defp docs!(tmp_dir, body) do
     name = unique_module("VerifiedPubSub.DocsTest.Manifest")
     previous = Code.get_compiler_option(:docs)
