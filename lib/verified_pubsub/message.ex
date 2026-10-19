@@ -1,9 +1,9 @@
 defmodule VerifiedPubSub.Message do
   @moduledoc """
-  The struct delivered to subscribers for every verified broadcast.
+  The struct that a subscriber receives for each verified broadcast.
 
-  `params` carries the values interpolated into a parameterized topic, so a
-  process subscribed to several instances of a topic can tell them apart.
+  `params` holds the param values that built the wire topic. A process can subscribe to
+  one topic with many sets of params, and `params` tells the messages apart.
   """
 
   @type t :: %__MODULE__{
