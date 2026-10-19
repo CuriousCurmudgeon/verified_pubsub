@@ -7,15 +7,16 @@ if Code.ensure_loaded?(Igniter) do
 
         mix igniter.install verified_pubsub
 
-    Adds `:verified_pubsub` to the formatter's `import_deps`, and creates an empty manifest
-    whose `:pubsub` is the `Phoenix.PubSub` your application already starts. If it starts
-    none, one is added to its supervision tree.
+    Adds `:verified_pubsub` to `import_deps` in the formatter config. Creates an empty
+    manifest whose `:pubsub` is the `Phoenix.PubSub` that your application already starts.
+    When the application starts no `Phoenix.PubSub`, the task adds one to its supervision
+    tree.
 
     ## Options
 
-      * `--manifest` - the manifest module to create. Defaults to `MyApp.Topics`.
-      * `--pubsub` - the `Phoenix.PubSub` name the manifest uses. Defaults to the one the
-        application starts, or `MyApp.PubSub`.
+      * `--manifest` - the module of the manifest to create. Defaults to `MyApp.Topics`.
+      * `--pubsub` - the name of the `Phoenix.PubSub` that the manifest uses. Defaults to
+        the one that the application starts, or else `MyApp.PubSub`.
     """
 
     use Igniter.Mix.Task
@@ -61,8 +62,8 @@ if Code.ensure_loaded?(Igniter) do
           {name, :none} ->
             {Igniter.Project.Application.add_new_child(igniter, pubsub_child(name)), name}
 
-          # The application starts a different PubSub. A second one cannot simply be added:
-          # every `Phoenix.PubSub` child has the same default id, so it would fail to start.
+          # The application starts a different PubSub. Every `Phoenix.PubSub` child has the
+          # same default id, so a second child fails to start. The task does not add one.
           {name, _} ->
             {Igniter.add_warning(igniter, not_started_warning(name)), name}
         end
@@ -78,8 +79,9 @@ if Code.ensure_loaded?(Igniter) do
 
     defp pubsub_child(name), do: {Phoenix.PubSub, name: name}
 
-    # Looks for a `{Phoenix.PubSub, name: ...}` child in the application module. Returns
-    # `:unreadable` when one is started but its name is not a literal module or atom.
+    # Finds a `{Phoenix.PubSub, name: ...}` child in the application module. Returns
+    # `:unreadable` when the application starts one, but its name is not a literal module
+    # or atom.
     defp started_pubsub(igniter) do
       with app when not is_nil(app) <- app_module(igniter),
            {:ok, {igniter, _source, zipper}} <- Igniter.Project.Module.find_module(igniter, app) do
