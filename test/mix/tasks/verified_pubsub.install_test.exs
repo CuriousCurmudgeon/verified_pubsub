@@ -50,7 +50,7 @@ defmodule Mix.Tasks.VerifiedPubsub.InstallTest do
       """)
     end
 
-    test "uses the PubSub the application already starts" do
+    test "uses the PubSub that the application already starts" do
       project_with_children("[{Phoenix.PubSub, name: Test.Events}]")
       |> install()
       |> assert_unchanged("lib/test/application.ex")
@@ -99,7 +99,7 @@ defmodule Mix.Tasks.VerifiedPubsub.InstallTest do
       """)
     end
 
-    test "leaves an existing manifest alone" do
+    test "does not change an existing manifest" do
       igniter =
         project_with_children("[{Phoenix.PubSub, name: Test.PubSub}]")
         |> Igniter.create_new_file("lib/test/topics.ex", """
@@ -118,7 +118,7 @@ defmodule Mix.Tasks.VerifiedPubsub.InstallTest do
       |> assert_unchanged("lib/test/topics.ex")
     end
 
-    test "warns when the existing PubSub name cannot be read" do
+    test "warns when it cannot read the name of the existing PubSub" do
       project_with_children("[{Phoenix.PubSub, name: pubsub_name()}]")
       |> install()
       |> assert_has_warning(&(&1 =~ "could not\nread the name"))
