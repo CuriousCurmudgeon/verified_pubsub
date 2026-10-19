@@ -70,7 +70,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
                Narrowed.handle_info(message(:adopted, "8", %{id: "c1"}), [])
     end
 
-    test "a param the topic does not declare is a compile error" do
+    test "a param the topic does not declare is a compile error that names the param and says the pattern can never match" do
       error =
         compile_error(
           source("""
@@ -144,7 +144,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
                Listener.handle_info(message(:renamed, "1", %{id: "c2"}), [])
     end
 
-    test "an undeclared payload key is a compile error" do
+    test "an undeclared payload key is a compile error that names the key and says the pattern can never match" do
       error =
         compile_error(
           source("""

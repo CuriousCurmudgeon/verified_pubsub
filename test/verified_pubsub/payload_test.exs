@@ -229,21 +229,21 @@ defmodule VerifiedPubSub.PayloadTest do
       assert message =~ ~r{Declared at test/support/manifests\.ex:\d+:}
     end
 
-    test "an unexpected key is a compile error" do
+    test "an unexpected key is a compile error that names the key" do
       error = compile_error(source(~s|%{id: "x", nope: 1}|))
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ "unexpected: [:nope]"
     end
 
-    test "a literal value of the wrong type is a compile error" do
+    test "a literal value of the wrong type is a compile error that names the field, the declared type, and the value" do
       error = compile_error(source("%{id: 42}"))
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ ":id is declared as :string, got: 42"
     end
 
-    test "a literal nil for a required field is a compile error" do
+    test "a literal nil for a required field is a compile error that names the field and its declared type" do
       error = compile_error(source("%{id: nil}"))
 
       assert %CompileError{} = error

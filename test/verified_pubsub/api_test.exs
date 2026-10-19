@@ -128,7 +128,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert_receive %Message{params: %{owner_id: ^id}}
     end
 
-    test "params and an event in the wrong order are a compile error, not a runtime error" do
+    test "params and an event in the wrong order are a compile error that asks for a literal atom as the event" do
       # Before 0.1, the order was (topic, event, params, payload). In that order, the
       # params map goes in the event slot, where the macro cannot verify a value that is
       # not an atom. So the old order stops the build. It never reaches Map.fetch!/2 on
@@ -174,7 +174,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert message =~ "declared on [:system]"
     end
 
-    test "a literal params map without a required key is a compile error" do
+    test "a literal params map without a required key is a compile error that names the key and the params that the topic takes" do
       error = compile_error(source(~s|broadcast!(:pets, %{}, :adopted, %{})|))
 
       assert %CompileError{} = error
@@ -184,7 +184,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert message =~ ~r{:pets is declared at test/support/manifests\.ex:\d+\.}
     end
 
-    test "a literal params map with an unexpected key is a compile error" do
+    test "a literal params map with an unexpected key is a compile error that names the key" do
       error =
         compile_error(source(~s|broadcast!(:pets, %{owner_id: "1", extra: 2}, :adopted, %{})|))
 
@@ -214,7 +214,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert is_atom(compile!(source(~s|broadcast!(:system, %{}, :alert, %{text: "x"})|)))
     end
 
-    test "a topic that is not a literal is a compile error" do
+    test "a topic that is not a literal is a compile error that asks for a literal atom" do
       error = compile_error(source(~s|broadcast!(var!(t), %{owner_id: "1"}, :adopted, %{})|))
 
       assert %CompileError{} = error

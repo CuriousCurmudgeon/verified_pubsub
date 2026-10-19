@@ -27,7 +27,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
              )
     end
 
-    test "a duplicate topic name is a compile error" do
+    test "a duplicate topic name is a compile error that names the topic and the first declaration" do
       error =
         dsl_error(
           manifest_source("""
@@ -50,7 +50,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
       assert :erl_anno.line(error.location) == 8
     end
 
-    test "malformed segments are a compile error" do
+    test "malformed segments are a compile error that says to give each part its own list element" do
       error =
         dsl_error(
           manifest_source("""
@@ -108,7 +108,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   end
 
   describe "message" do
-    test "a duplicate event name within a topic is a compile error" do
+    test "a duplicate event name within a topic is a compile error that names the event" do
       error =
         dsl_error(
           manifest_source("""
@@ -147,7 +147,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
   end
 
   describe "use VerifiedPubSub.Manifest with topics of a similar shape" do
-    test "two topics that can match the same wire topic are a compile error" do
+    test "two topics that can match the same wire topic are a compile error that names both topics and their declarations" do
       error =
         dsl_error(
           manifest_source("""

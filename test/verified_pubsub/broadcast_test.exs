@@ -85,7 +85,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       assert_receive %Message{topic: :system, event: :alert, payload: %{text: ^token}}
     end
 
-    test "a call without params on a topic that takes params is a compile error" do
+    test "a call without params on a topic that takes params is a compile error that names the missing params" do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.NoParams")} do
@@ -100,7 +100,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       assert message =~ "takes exactly [:owner_id]"
     end
 
-    test "a call without a payload is a compile error, because the event is not an atom" do
+    test "a call without a payload is a compile error that asks for a literal atom as the event" do
       # broadcast!(:pets, %{...}, :adopted) also has arity 3, so the params map goes in
       # the event slot. The macro rejects it, and does not accept it without notice.
       error =

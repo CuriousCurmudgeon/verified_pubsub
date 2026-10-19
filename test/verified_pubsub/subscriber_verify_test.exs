@@ -66,7 +66,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
              )
     end
 
-    test "a handler for an event that the topic does not declare is a compile error" do
+    test "a handler for an event that the topic does not declare is a compile error that names the event" do
       error =
         compile_error(
           subscriber_source("""
@@ -97,7 +97,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
              )
     end
 
-    test "an inferred second topic with an uncovered event is a compile error" do
+    test "an inferred second topic with an uncovered event is a compile error that names the uncovered events" do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.TwoTopics")} do
@@ -135,7 +135,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert message =~ "inferred"
     end
 
-    test "a handler and an ignore_message/2 for the same event are a compile error" do
+    test "a handler and an ignore_message/2 for the same event are a compile error that names the event" do
       error =
         compile_error(
           subscriber_source("""
@@ -190,7 +190,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
              )
     end
 
-    test "an unknown option is rejected" do
+    test "an unknown option is a compile error that names the option" do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.BadOpts")} do
@@ -257,7 +257,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
              )
     end
 
-    test "an empty list is rejected" do
+    test "an empty list is a compile error" do
       error =
         compile_error(
           subscriber_source("""
