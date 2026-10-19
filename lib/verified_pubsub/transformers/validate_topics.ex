@@ -10,6 +10,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
   use Spark.Dsl.Transformer
 
   alias Spark.Dsl.Transformer
+
   alias VerifiedPubSub.Topic
 
   @impl true
@@ -45,6 +46,18 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
           second
         )
     end
+  end
+
+  # With the location of the entity, Spark points the error at that declaration. Spark
+  # also reports the error as a diagnostic that an editor can show at the declaration.
+  defp error(module, path, message, entity) do
+    {:error,
+     Spark.Error.DslError.exception(
+       message: message,
+       path: path,
+       module: module,
+       location: Topic.anno(entity)
+     )}
   end
 
   defp validate_topics(topics, module) do
@@ -121,12 +134,6 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
     end
   end
 
-  # This function replaces each param with :param, which matches any one segment. A
-  # literal stays the same.
-  defp segment_shape(segments) do
-    Enum.map(segments, &if(is_atom(&1), do: :param, else: &1))
-  end
-
   defp overlap?(a, b) when length(a) == length(b) do
     Enum.zip(a, b)
     |> Enum.all?(fn
@@ -138,22 +145,16 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
 
   defp overlap?(_a, _b), do: false
 
+  # This function replaces each param with :param, which matches any one segment. A
+  # literal stays the same.
+  defp segment_shape(segments) do
+    Enum.map(segments, &if(is_atom(&1), do: :param, else: &1))
+  end
+
   defp at(topic) do
     case Topic.location(topic) do
       nil -> ""
       location -> ", at #{location}"
     end
-  end
-
-  # With the location of the entity, Spark points the error at that declaration. Spark
-  # also reports the error as a diagnostic that an editor can show at the declaration.
-  defp error(module, path, message, entity) do
-    {:error,
-     Spark.Error.DslError.exception(
-       message: message,
-       path: path,
-       module: module,
-       location: Topic.anno(entity)
-     )}
   end
 end
