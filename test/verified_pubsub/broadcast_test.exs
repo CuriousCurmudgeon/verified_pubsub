@@ -12,14 +12,14 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   describe "Info.match/2" do
-    test "recovers the name and params from what topic/2 builds" do
+    test "returns the name and the params of a wire topic that topic/2 builds" do
       wire = topic(:pets, %{owner_id: 42})
       assert {:ok, :pets, %{owner_id: "42"}} = VerifiedPubSub.Info.match(Basic, wire)
     end
   end
 
   describe "Broadcast.bang!/4" do
-    test "a failed broadcast names the wire topic it was sent on" do
+    test "the error of a failed broadcast names its wire topic" do
       error =
         assert_raise RuntimeError, fn ->
           VerifiedPubSub.Broadcast.bang!(
@@ -45,23 +45,23 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   describe "topic/1" do
-    test "a param-free topic takes no params argument" do
+    test "a topic that takes no params needs no params argument" do
       assert topic(:system) == "system"
     end
   end
 
   describe "topic/2" do
-    test "interpolates params into the wire pattern" do
+    test "puts the params into the wire topic" do
       assert topic(:pets, %{owner_id: "7"}) == "owners:7:pets"
     end
 
-    test "stringifies non-binary params" do
+    test "converts params that are not binaries to strings" do
       assert topic(:pets, %{owner_id: 7}) == "owners:7:pets"
     end
   end
 
   describe "broadcast/3" do
-    test "works too" do
+    test "delivers on a topic that takes no params" do
       token = unique_owner_id()
       assert :ok = subscribe(:system, %{})
       assert :ok = broadcast(:system, :alert, %{text: token})
@@ -77,7 +77,7 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   describe "broadcast!/3" do
-    test "reaches subscribers of a param-free topic" do
+    test "reaches the subscribers of a topic that takes no params" do
       token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast!(:system, :alert, %{text: token})
@@ -85,7 +85,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       assert_receive %Message{topic: :system, event: :alert, payload: %{text: ^token}}
     end
 
-    test "omitting params on a topic that takes them is a compile error" do
+    test "a call without params on a topic that takes params is a compile error" do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.NoParams")} do
@@ -100,9 +100,9 @@ defmodule VerifiedPubSub.BroadcastTest do
       assert message =~ "takes exactly [:owner_id]"
     end
 
-    test "a forgotten payload is still caught as a non-atom event" do
-      # broadcast!(:pets, %{...}, :adopted) is also arity 3, so the params map lands
-      # in the event slot rather than being silently accepted.
+    test "a call without a payload is a compile error, because the event is not an atom" do
+      # broadcast!(:pets, %{...}, :adopted) also has arity 3, so the params map goes in
+      # the event slot. The macro rejects it, and does not accept it without notice.
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.NoPayload")} do
@@ -117,7 +117,7 @@ defmodule VerifiedPubSub.BroadcastTest do
   end
 
   describe "broadcast!/4" do
-    test "delivers a Message to subscribers of that topic", %{owner_id: id} do
+    test "delivers a Message to the subscribers of that topic", %{owner_id: id} do
       assert :ok = subscribe(:pets, %{owner_id: id})
       assert :ok = broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
@@ -130,17 +130,17 @@ defmodule VerifiedPubSub.BroadcastTest do
       }
     end
 
-    test "broadcasts are scoped by param value", %{owner_id: id} do
+    test "reaches only the subscribers of the same param value", %{owner_id: id} do
       assert :ok = subscribe(:pets, %{owner_id: id})
       assert :ok = broadcast!(:pets, %{owner_id: id <> "other"}, :adopted, %{id: "c1"})
 
       refute_receive %Message{}, 50
     end
 
-    test "a param-free topic broadcasts with only a payload" do
+    test "a topic that takes no params broadcasts with only a payload" do
       # The :system topic has no params to make unique, and the suite shares one
-      # Phoenix.PubSub, so the payload carries a token to keep concurrent tests on this
-      # topic from matching each other's messages.
+      # Phoenix.PubSub. So the payload carries a token, and concurrent tests on this topic
+      # do not match the messages of other tests.
       token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
@@ -153,7 +153,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       }
     end
 
-    test "the four-argument form still takes an explicit empty map" do
+    test "accepts an explicit empty map" do
       token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
@@ -162,8 +162,9 @@ defmodule VerifiedPubSub.BroadcastTest do
     end
 
     test "a params map built at runtime with a missing key raises KeyError" do
-      # A literal map is caught at compile time (see VerifiedPubSub.ApiTest). This is the
-      # dynamic case, which only Map.fetch!/2 can catch, at runtime.
+      # The compile check finds a missing key in a literal map (see
+      # VerifiedPubSub.ApiTest). This test covers a map built at runtime, which only
+      # Map.fetch!/2 can check, at runtime.
       params = Map.new([{String.to_atom("wrong"), "7"}])
 
       assert_raise KeyError, fn ->
@@ -208,7 +209,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       refute_receive %Message{}, 50
     end
 
-    test "still delivers to other subscribers", %{owner_id: id} do
+    test "delivers to the other subscribers", %{owner_id: id} do
       test_pid = self()
 
       other =
@@ -227,7 +228,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       Process.exit(other, :kill)
     end
 
-    test "a param-free topic's from variant takes only from and payload" do
+    test "a topic that takes no params needs only from and the payload" do
       token = unique_owner_id()
       assert :ok = subscribe(:system)
       assert :ok = broadcast_from!(self(), :system, %{}, :alert, %{text: token})
@@ -235,7 +236,7 @@ defmodule VerifiedPubSub.BroadcastTest do
       refute_receive %Message{topic: :system, payload: %{text: ^token}}, 50
     end
 
-    test "carries the same message shape as the base variant", %{
+    test "gives a message of the same shape as broadcast!/4", %{
       owner_id: id
     } do
       test_pid = self()
