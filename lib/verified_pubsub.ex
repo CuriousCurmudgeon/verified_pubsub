@@ -2,10 +2,11 @@ defmodule VerifiedPubSub do
   @moduledoc """
   Compile-time verified PubSub.
 
-  A broadcast and its handler are normally two string literals in two files with
-  nothing tying them together, so renaming or deleting an event leaves dead handlers
-  and unhandled messages behind, silently. `VerifiedPubSub` makes a manifest the single
-  source of truth and turns that drift into compile-time failures.
+  Usually, a broadcast and its handler are two string literals in two files, and nothing
+  connects them. When you rename or delete an event, dead handlers and unhandled messages
+  stay behind, and nothing reports them. `VerifiedPubSub` makes a manifest the one place
+  that declares each topic and event. A change that breaks a call site is then a compile
+  error.
 
   ## The manifest
 
@@ -24,10 +25,10 @@ defmodule VerifiedPubSub do
         end
       end
 
-  `:pets` is the name call sites use; the list is the wire topic, so changing its
-  segments never touches a call site. Segments are joined with `:`. A string is a literal
-  and an atom is a parameter, and the parameter list is derived from the segments rather
-  than declared twice.
+  `:pets` is the name that call sites use. The list is the wire topic, so a change to its
+  segments does not change a call site. The segments are joined with `:`. A string is a
+  literal and an atom is a param. The params come from the segments, so you do not declare
+  them a second time.
 
   ## Broadcasting
 
@@ -40,20 +41,21 @@ defmodule VerifiedPubSub do
         end
       end
 
-  `use VerifiedPubSub, manifest: ...` imports `VerifiedPubSub.Api`. Topic and event are
-  ordinary arguments, but because these are macros they must be **literal atoms** — that
-  is what makes a typo a compile error. Params may be built at runtime.
+  `use VerifiedPubSub, manifest: ...` imports `VerifiedPubSub.Api`. The topic and the
+  event are normal arguments, but these are macros, so they must be **literal atoms**.
+  Because of this, a typo is a compile error. Params can be built at runtime.
 
-  A topic with no params takes no params argument — `broadcast!(:system, :alert, payload)`
-  and `subscribe(:system)`. Passing `%{}` explicitly works too, and omitting params on a
-  topic that does take them is a compile error naming them.
+  A topic with no params takes no params argument, as in
+  `broadcast!(:system, :alert, payload)` and `subscribe(:system)`. An explicit `%{}` also
+  works. When a topic takes params and the call site omits them, the compile error names
+  them.
 
-  A topic is always followed immediately by its params. Params exist only to fill in the
-  topic segments, so `{topic, params}` is the address and `{event, payload}` is the
-  message — the same address-then-message shape as `Phoenix.PubSub.broadcast/3`.
+  A topic is always followed immediately by its params. The params only fill in the topic
+  segments, so `{topic, params}` is the address and `{event, payload}` is the message.
+  `Phoenix.PubSub.broadcast/3` uses the same order: first the address, then the message.
 
-  To skip the sender, use `broadcast_from!/5`, which mirrors
-  `Phoenix.PubSub.broadcast_from/4` (`from` leads, as it does there):
+  To skip the sender, use `broadcast_from!/5`. It works like
+  `Phoenix.PubSub.broadcast_from/4`, and `from` comes first, as it does there:
 
       broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, payload)
 
@@ -75,54 +77,55 @@ defmodule VerifiedPubSub do
         ignore_message :pets, :rehomed
       end
 
-  Every event declared on a subscribed topic must be handled or explicitly dismissed.
-  `ignore_message/2` exists because subscribers routinely care about a subset of a
-  topic's events; without it, exhaustiveness would be unusable rather than merely
-  strict.
+  A subscriber must handle or explicitly ignore each event that a subscribed topic
+  declares. Subscribers often need only some of the events of a topic, so
+  `ignore_message/2` exists. Without it, the coverage check would be too strict to use.
 
-  To match on topic params, put them where `broadcast!/4` takes them — right after the
-  topic. The leading arguments are the same in both; a broadcast builds them, a handler
-  matches them:
+  To match on topic params, put them where `broadcast!/4` takes them: right after the
+  topic. The leading arguments are the same in both. A broadcast builds them, and a
+  handler matches them:
 
       broadcast!     :pets, %{owner_id: id},    :adopted, payload
       handle_message :pets, %{owner_id: owner}, :adopted, payload, state
 
-  The params argument is optional, and a pattern may name a subset of the params. Matching
-  the whole `%VerifiedPubSub.Message{}` in the payload position still works for anything
-  else it carries.
+  The params argument is optional, and a pattern can name a subset of the params. A
+  pattern can also match the whole `%VerifiedPubSub.Message{}` in the payload position, to
+  get the other data that the message carries.
 
   ## What is and is not checked
 
-  Enforced as a hard compile error:
+  Each of these is a compile error:
 
-    * a subscriber that does not account for every event on a topic it subscribes to
-    * a subscriber that handles an event the manifest does not declare, or names a
-      topic the manifest does not declare
-    * duplicate topics, duplicate events on one topic, and malformed topic segments
+    * a subscriber that does not handle or ignore each event of a topic that it
+      subscribes to
+    * a subscriber that handles an event that the manifest does not declare, or names a
+      topic that the manifest does not declare
+    * duplicate topics, duplicate events on one topic, and topic segments that are not
+      valid
     * two topics whose segments can match the same wire topic
 
-    * broadcasting an unknown topic, an unknown event, or an event that belongs to a
+    * a broadcast to an unknown topic, with an unknown event, or with an event of a
       different topic
     * a literal params map with missing or unexpected keys
 
-  A params map built at runtime cannot be checked at compile time; `Map.fetch!/2` raises
-  `KeyError` for a missing key instead.
+  The compiler cannot check a params map built at runtime. Instead, `Map.fetch!/2` raises
+  `KeyError` for a missing key.
 
-  Payload shapes are checked too: a **literal** payload map at compile time, and anything
-  built at runtime on every broadcast in every environment, raising
-  `VerifiedPubSub.PayloadError` from both `broadcast/4` and `broadcast!/4`. See "Payload
+  The library also checks payload shapes. It checks a **literal** payload map at compile
+  time. It checks a payload built at runtime on every broadcast, in every environment.
+  Both `broadcast/4` and `broadcast!/4` raise `VerifiedPubSub.PayloadError`. See "Payload
   shapes" below.
 
   Not checked:
 
-    * **Topic param values.** Coverage is tracked per `{topic, event}` pair, so if
-      every clause for an event matches a narrow param value, the event still counts as
-      covered and a message with a different value raises `FunctionClauseError`. End
-      with a param-agnostic clause when matching on param values.
+    * **Topic param values.** The coverage check counts each `{topic, event}` pair. If
+      every clause for an event matches only some param values, the event still counts
+      as covered. A message with a different value then raises `FunctionClauseError`.
+      When clauses match on param values, end with a clause that matches any value.
 
   ## Payload shapes
 
-  Each `field` declares a key the payload must carry:
+  Each `field` declares a key that the payload must carry:
 
       message :adopted do
         field :id, :string
@@ -134,34 +137,35 @@ defmodule VerifiedPubSub do
   A type is one of `:string`, `:integer`, `:float`, `:boolean`, `:atom`, `:map`, `:list`,
   `:any`, a `{:list, type}` tuple, or a struct module. An unknown type is a compile error.
 
-  **The payload is a map of exactly the declared fields.** Undeclared keys are rejected,
-  which keeps the manifest an accurate description of what is on the wire. It also means a
-  struct cannot be the payload itself — it carries `__struct__` and every one of its own
-  keys — so put it in a field:
+  **The payload is a map of exactly the declared fields.** The library rejects undeclared
+  keys, so the manifest stays an accurate description of the data on the wire. For the
+  same reason, a struct cannot be the payload: it carries `__struct__` and all of its own
+  keys. Put the struct in a field instead:
 
       broadcast!(:pets, %{owner_id: id}, :adopted, %{pet: pet})
 
-  `required: false` allows the key to be absent, or present as `nil`.
+  `required: false` lets the key be absent, or present as `nil`.
 
   ## Topic segments
 
-  A topic is a list of segments joined with `:`, so each param fills a whole segment by
-  construction. A literal segment may not be empty or contain `:`. Param values are
-  checked on every call: a value must be non-empty and contain no `:`, or
-  `VerifiedPubSub.TopicError` is raised. Together with topic disjointness this guarantees an interpolated topic can
-  only be the topic its call site names — see `VerifiedPubSub.Topic`.
+  A topic is a list of segments joined with `:`, so each param always fills a whole
+  segment. A literal segment cannot be empty or contain `:`. Each call checks the param
+  values. A value must not be empty and must not contain `:`, or the call raises
+  `VerifiedPubSub.TopicError`. The manifest also makes sure that no two topics match the
+  same wire topic. Together, these checks make sure that a wire topic built from params is
+  always the topic that its call site names. See `VerifiedPubSub.Topic`.
 
   ## Transport
 
   Broadcasts and subscriptions go through `Phoenix.PubSub`, so `:pubsub` names a
-  `Phoenix.PubSub` started in your supervision tree:
+  `Phoenix.PubSub` that your supervision tree starts:
 
       children = [{Phoenix.PubSub, name: MyApp.PubSub}]
 
-  There is deliberately no adapter layer here. `Phoenix.PubSub` already has its own
-  adapter behaviour — that is where PG2, Redis, and anything else are configured — so
-  wrapping it would duplicate an extension point one layer down, and leave you
-  configuring transport in two places.
+  This library has no adapter layer, on purpose. `Phoenix.PubSub` already has an adapter
+  behaviour, and you configure PG2, Redis, and other transports there. A wrapper here
+  would repeat an extension point that the layer below already has. You would then
+  configure the transport in two places.
   """
 
   @doc """
@@ -181,14 +185,14 @@ defmodule VerifiedPubSub do
   end
 
   @doc false
-  # Binds `module` to `manifest`, which the macros read to resolve topics and events. A
-  # module binds exactly one manifest: binding the same one again is a no-op, and binding
-  # another raises. Shared with `use VerifiedPubSub.Subscriber`, so neither `use` can
-  # silently rebind what the other bound.
+  # Binds `module` to `manifest`. The macros read this binding to find topics and events.
+  # A module binds exactly one manifest. A second bind to the same manifest does nothing,
+  # and a bind to another manifest raises. Each `use` that binds a manifest calls this
+  # function, so one `use` cannot silently replace the manifest that another `use` bound.
   #
-  # Called during expansion, not from inside a quote: Elixir expands the macros in a
-  # module body before the body's runtime calls execute, so an assignment in the quote
-  # would not be visible to a `broadcast!` further down the same module.
+  # This runs at macro expansion, not inside a quote. Elixir expands the macros in a module
+  # body before the runtime calls of that body run. A `broadcast!` lower in the same module
+  # would not see an assignment in the quote.
   @spec bind_manifest!(module(), module()) :: :ok
   def bind_manifest!(module, manifest) do
     case Module.get_attribute(module, :verified_pubsub_manifest) do
