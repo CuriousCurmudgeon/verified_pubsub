@@ -1,6 +1,6 @@
 defmodule VerifiedPubSub.Manifest do
   @moduledoc """
-  Declares the topics and events for an application.
+  Declares the topics and events of an application.
 
       defmodule MyApp.Topics do
         use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub
@@ -12,20 +12,20 @@ defmodule VerifiedPubSub.Manifest do
         end
       end
 
-  Broadcasts and subscriptions go through `Phoenix.PubSub`, so `:pubsub` is the name of
-  a `Phoenix.PubSub` started in your supervision tree. Transport choice (PG2, Redis, …)
-  is configured there, on `Phoenix.PubSub` itself, rather than here.
+  Broadcasts and subscriptions go through `Phoenix.PubSub`, so `:pubsub` names a
+  `Phoenix.PubSub` that your supervision tree starts. Configure the transport, such as
+  PG2 or Redis, on `Phoenix.PubSub` itself, not here.
 
   ## Topics
 
-  `:pets` is the name call sites use; the list is the wire topic, so changing its
-  segments never touches a call site. Segments are joined with `:`. A string is a literal
-  and an atom is a parameter, and the parameter list is derived from the segments rather
-  than declared twice — see `VerifiedPubSub.Topic` for the rules segments must satisfy.
+  `:pets` is the name that call sites use. The list is the wire topic, so a change to its
+  segments does not change a call site. A `:` joins the segments. A string is a literal,
+  and an atom is a param. The params come from the segments, so you do not declare them
+  twice. `VerifiedPubSub.Topic` gives the rules for segments.
 
   ## Fields
 
-  Each `field` declares a key the payload must carry:
+  Each `field` declares a key that the payload must carry:
 
       message :adopted do
         field :id, :string
@@ -34,25 +34,30 @@ defmodule VerifiedPubSub.Manifest do
         field :note, :string, required: false
       end
 
-  A type is one of `:string`, `:integer`, `:float`, `:boolean`, `:atom`, `:map`, `:list`,
-  `:any`, a `{:list, type}` tuple, or a struct module. An unknown type is a compile error.
-  `required: false` allows the key to be absent, or present as `nil`.
+  A type is one of these:
 
-  **The payload is a map of exactly the declared fields.** Undeclared keys are rejected,
-  which keeps the manifest an accurate description of what is on the wire. It also means a
-  struct cannot be the payload itself — it carries `__struct__` and every one of its own
-  keys — so put it in a field:
+    * `:string`, `:integer`, `:float`, `:boolean`, `:atom`, `:map`, `:list` or `:any`
+    * a `{:list, type}` tuple
+    * a struct module
+
+  An unknown type is a compile error. With `required: false`, the key can be absent, or
+  present as `nil`.
+
+  **The payload is a map of exactly the declared fields.** A broadcast rejects an
+  undeclared key, so the manifest stays an accurate description of the data on the wire.
+  For the same reason, a struct cannot be the payload itself, because it carries
+  `__struct__` and all of its own keys. Put the struct in a field:
 
       broadcast!(:pets, %{owner_id: id}, :adopted, %{pet: pet})
 
   ## Documentation
 
-  The manifest's `@moduledoc` gains a `## Topics` section, built from the declarations:
-  each topic's wire pattern, its events, and each event's fields and types. A
-  hand-written `@moduledoc` comes first, and `@moduledoc false` keeps the manifest
-  hidden.
+  The manifest adds a `## Topics` section to its `@moduledoc`. The section comes from the
+  declarations: the wire pattern of each topic, its events, and the fields and types of
+  each event. A `@moduledoc` that you write comes first. `@moduledoc false` keeps the
+  manifest hidden.
 
-  A `description` on a topic, an event or a field adds its meaning to that section. Give
+  A `description` on a topic, an event, or a field adds its meaning to that section. Give
   it inside the block, or as a keyword when there is no block:
 
       topic :pets, ["owners", :owner_id, "pets"] do
@@ -73,7 +78,7 @@ defmodule VerifiedPubSub.Manifest do
       pubsub: [
         type: :atom,
         required: true,
-        doc: "The `Phoenix.PubSub` process name that broadcasts and subscriptions go through."
+        doc: "The name of the `Phoenix.PubSub` process that broadcasts and subscriptions use."
       ]
     ]
 
