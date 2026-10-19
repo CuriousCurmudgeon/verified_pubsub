@@ -2,9 +2,9 @@
 #
 #     mix run bench/runtime.exs
 #
-# Each scenario does the same work both ways: the plain side builds the topic string by
-# hand and sends a `{event, payload}` tuple, the verified side goes through the macros, so
-# it also validates the params and payload and wraps them in a VerifiedPubSub.Message.
+# Each scenario does the same work in two ways. The plain side builds the wire topic by
+# hand and sends a `{event, payload}` tuple. The verified side uses the macros, so it also
+# validates the params and the payload, and puts them in a VerifiedPubSub.Message.
 
 {:ok, _} = Phoenix.PubSub.Supervisor.start_link(name: Bench.PubSub)
 
@@ -122,8 +122,8 @@ section = fn title ->
 end
 
 # -- 1. Broadcast with no subscribers --------------------------------------------------
-# The worst case for relative overhead: the PubSub work is just a registry lookup, so the
-# validation is a large share of the total.
+# This is the worst case for relative overhead. The PubSub work is only a registry
+# lookup, so the validation is a large part of the total.
 
 section.("1. broadcast, no subscribers")
 
@@ -138,8 +138,8 @@ Benchee.run(
 )
 
 # -- 2. {:list, type} fields -------------------------------------------------------------
-# A {:list, inner} field checks every element, so this is the one validation that grows
-# with the payload rather than with the declaration.
+# A {:list, inner} field checks every element. So this validation is the only one that
+# grows with the payload, not with the declaration.
 
 section.("2. broadcast, no subscribers, {:list, :string} field of N elements")
 
@@ -156,9 +156,9 @@ Benchee.run(
 )
 
 # -- 3. Round trip through one subscriber ----------------------------------------------
-# Broadcast to the benchmarking process itself, receive the message and run it through
-# handle_info/2 -- everything a LiveView or GenServer pays per message, minus the
-# scheduler hop.
+# Broadcast to the benchmark process, receive the message, and run it through
+# handle_info/2. This is the full cost of each message for a LiveView or a GenServer,
+# minus the scheduler hop.
 
 section.("3. round trip: broadcast -> receive -> handle_info/2, one subscriber")
 
@@ -192,8 +192,8 @@ Benchee.run(
 )
 
 # -- 4. Fan-out ---------------------------------------------------------------------------
-# Validation runs once per broadcast, but the larger Message struct is copied into every
-# subscriber's mailbox.
+# Validation runs once for each broadcast. But the BEAM copies the larger Message struct
+# into the mailbox of each subscribed process.
 
 section.("4. broadcast to N subscribers (broadcaster's cost)")
 
@@ -230,7 +230,8 @@ Benchee.run(
 )
 
 # -- 5. Message size ----------------------------------------------------------------------
-# What each subscriber's mailbox receives, and what crosses the wire to another node.
+# What the mailbox of each subscribed process receives, and what goes over the wire to
+# another node.
 
 section.("5. message size")
 
