@@ -20,7 +20,8 @@ defmodule VerifiedPubSub.MixProject do
       source_url: @source_url,
       homepage_url: @source_url,
       package: package(),
-      docs: docs()
+      docs: docs(),
+      usage_rules: usage_rules()
     ]
   end
 
@@ -73,6 +74,14 @@ defmodule VerifiedPubSub.MixProject do
     ]
   end
 
+  # Run "mix usage_rules.sync" to write the rules of the dependencies into AGENTS.md.
+  defp usage_rules do
+    [
+      file: "AGENTS.md",
+      usage_rules: [{:usage_rules, except: [:otp]}]
+    ]
+  end
+
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
@@ -91,6 +100,7 @@ defmodule VerifiedPubSub.MixProject do
       {:igniter, "~> 0.6", optional: true},
       {:phoenix_live_view, "~> 1.0", only: :test},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:usage_rules, "~> 1.2", only: :dev, runtime: false},
       {:benchee, "~> 1.3", only: :dev}
     ]
   end
