@@ -1,10 +1,10 @@
 defmodule VerifiedPubSub.Transformers.ValidateTopics do
   @moduledoc """
-  Validates the manifest, raising at compile time.
+  Validates the topics and events of the manifest at compile time.
 
-  This is a Transformer rather than a Verifier deliberately: a Verifier returning
-  `{:error, _}` runs via `@after_verify`, which downgrades the error to a warning and
-  still defines the module. A Transformer returning `{:error, _}` aborts compilation.
+  This module is a Transformer, not a Verifier, on purpose. A Verifier that returns
+  `{:error, _}` runs from `@after_verify`, which changes the error to a warning and still
+  defines the module. A Transformer that returns `{:error, _}` stops the compilation.
   """
 
   use Spark.Dsl.Transformer
@@ -87,10 +87,10 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
     end
   end
 
-  # Two topics that can match the same topic string make delivery ambiguous: a subscriber
-  # of one receives the other's messages. A router tolerates overlapping routes because it
-  # only answers "did something match" and breaks ties by declaration order; a topic has to
-  # resolve to one identity, because that is what the event and payload are checked against.
+  # When two topics can match the same wire topic, a subscriber of one receives the
+  # messages of the other. A router allows routes that overlap, because it only checks for
+  # a match and picks the first route that matches. But a wire topic must match exactly one
+  # topic, because the library checks the event and the payload against that topic.
   defp validate_disjoint(topics, module) do
     pairs =
       for a <- topics,
@@ -121,7 +121,8 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
     end
   end
 
-  # Each segment is either a literal or :param, which stands for any single segment.
+  # This function replaces each param with :param, which matches any one segment. A
+  # literal stays the same.
   defp segment_shape(segments) do
     Enum.map(segments, &if(is_atom(&1), do: :param, else: &1))
   end
@@ -144,8 +145,8 @@ defmodule VerifiedPubSub.Transformers.ValidateTopics do
     end
   end
 
-  # Giving Spark the entity's location makes it point the error at that declaration,
-  # and report it as a diagnostic an editor can place.
+  # With the location of the entity, Spark points the error at that declaration. Spark
+  # also reports the error as a diagnostic that an editor can show at the declaration.
   defp error(module, path, message, entity) do
     {:error,
      Spark.Error.DslError.exception(
