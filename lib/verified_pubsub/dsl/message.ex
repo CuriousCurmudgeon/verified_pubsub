@@ -1,5 +1,5 @@
 defmodule VerifiedPubSub.Dsl.Message do
-  @moduledoc "A declared event on a topic."
+  @moduledoc "An event that a manifest declares on a topic."
 
   @type t :: %__MODULE__{
           name: atom(),
