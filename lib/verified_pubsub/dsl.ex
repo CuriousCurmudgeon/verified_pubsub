@@ -1,19 +1,18 @@
 defmodule VerifiedPubSub.Dsl do
-  @moduledoc "The Spark DSL extension backing `VerifiedPubSub.Manifest`."
+  @moduledoc "The Spark DSL extension that `VerifiedPubSub.Manifest` uses."
 
   alias Spark.Builder.{Entity, Section}
 
   @field Entity.new(:field, VerifiedPubSub.Dsl.Field,
-           describe: "A field that must be present in the event's payload.",
+           describe: "A field of the payload that the event carries.",
            args: [:name, :type],
            identifier: :name,
            schema: [
-             name: [type: :atom, required: true, doc: "The field name."],
+             name: [type: :atom, required: true, doc: "The name of the field."],
              type: [
-               # Deliberately :any. The permitted types include `{:list, type}` tuples
-               # and struct modules, which no Spark type captures, so
-               # VerifiedPubSub.Transformers.ValidateFields checks this instead and can
-               # report the valid options.
+               # The type is :any on purpose. No Spark type accepts a `{:list, type}`
+               # tuple or a struct module, so VerifiedPubSub.Transformers.ValidateFields
+               # checks the type. That check can also report the valid types.
                type: :any,
                required: true,
                doc:
@@ -23,33 +22,35 @@ defmodule VerifiedPubSub.Dsl do
              required: [
                type: :boolean,
                default: true,
-               doc: "Whether the key must be present in the payload."
+               doc: "Whether the payload must hold the field."
              ],
              description: [
                type: :string,
-               doc: "What the field holds. Shown in the manifest's generated docs."
+               doc: "What the field holds. The docs that the manifest generates show it."
              ]
            ]
          )
          |> Entity.build!()
 
   @message Entity.new(:message, VerifiedPubSub.Dsl.Message,
-             describe: "An event that can be broadcast on the enclosing topic.",
+             describe: "An event that a call site can broadcast on the enclosing topic.",
              args: [:name],
              identifier: :name,
              entities: [fields: [@field]],
              schema: [
-               name: [type: :atom, required: true, doc: "The event name."],
+               name: [type: :atom, required: true, doc: "The name of the event."],
                description: [
                  type: :string,
-                 doc: "When the event is broadcast. Shown in the manifest's generated docs."
+                 doc:
+                   "When a call site broadcasts the event. " <>
+                     "The docs that the manifest generates show it."
                ]
              ]
            )
            |> Entity.build!()
 
   @topic Entity.new(:topic, VerifiedPubSub.Dsl.Topic,
-           describe: "A topic and the events that may be broadcast on it.",
+           describe: "A topic and the events that a call site can broadcast on it.",
            args: [:name, :segments],
            identifier: :name,
            entities: [messages: [@message]],
@@ -57,26 +58,29 @@ defmodule VerifiedPubSub.Dsl do
              name: [
                type: :atom,
                required: true,
-               doc: "The name call sites use. Independent of the wire segments."
+               doc:
+                 "The name that call sites use. " <>
+                   "It does not depend on the segments of the wire topic."
              ],
-             # A list rather than an "owners:%{owner_id}:pets" string, so a param fills a
-             # whole segment by construction and can never complete a literal into a
-             # different topic. A string would need parsing and a whole-segment check; the
-             # readable wire form it would give is rendered by Topic.pattern/1 instead.
+             # The segments are a list, not a string such as "owners:%{owner_id}:pets". In a
+             # list, each param fills a whole segment, so a param value cannot join a literal
+             # to make a different topic. A string needs a parser and a check for whole
+             # segments. Topic.pattern/1 gives the readable wire form instead.
              segments: [
                type: {:list, {:or, [:string, :atom]}},
                required: true,
                doc:
-                 "Wire topic segments, joined with `:`. A string is a literal and an atom is " <>
-                   ~S|a parameter, e.g. `["owners", :owner_id, "pets"]`.|
+                 "The segments of the wire topic, joined with `:`. A string is a literal, and " <>
+                   ~S|an atom is a param, as in `["owners", :owner_id, "pets"]`.|
              ],
-             # Every entity takes description as an option, but a topic or message with
-             # a do block gives it inside the block: Spark has no macro for keyword
-             # options alongside a do block, so `topic :x, [...], description: "..." do`
-             # fails to compile. A field has no block, so it uses the keyword.
+             # Every entity takes description as an option. Spark has no macro that takes
+             # keyword options together with a do block, so
+             # `topic :x, [...], description: "..." do` does not compile. A topic or a message
+             # with a do block sets description inside the block. A field has no block, so it
+             # uses the keyword option.
              description: [
                type: :string,
-               doc: "What the topic carries. Shown in the manifest's generated docs."
+               doc: "What the topic carries. The docs that the manifest generates show it."
              ]
            ]
          )
@@ -98,8 +102,8 @@ defmodule VerifiedPubSub.Dsl do
       VerifiedPubSub.Transformers.DefinePayloadSchemas
     ]
 
-  # Spark appends what this returns to the manifest's @moduledoc, after any hand-written
-  # moduledoc, and skips a manifest with `@moduledoc false`.
+  # Spark adds the return value to the end of the @moduledoc of the manifest, after any
+  # moduledoc that a person wrote. Spark skips a manifest with `@moduledoc false`.
   @impl Spark.Dsl.Extension
   def explain(dsl_state) do
     case Spark.Dsl.Transformer.get_entities(dsl_state, [:topics]) do
