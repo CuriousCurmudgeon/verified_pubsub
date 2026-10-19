@@ -30,11 +30,11 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
   end
 
   describe "use VerifiedPubSub.Subscriber" do
-    test "a fully-covered subscriber compiles" do
+    test "a subscriber that covers every event compiles" do
       assert is_atom(compile!(subscriber_source(all_handled())))
     end
 
-    test "a missing event is a compile error naming the event and the escape hatch" do
+    test "a missing event is a compile error that names the event and ignore_message/2" do
       error =
         compile_error(
           subscriber_source("""
@@ -51,7 +51,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert message =~ "ignore_message"
     end
 
-    test "ignore_message satisfies coverage" do
+    test "ignore_message/2 covers an event" do
       assert is_atom(
                compile!(
                  subscriber_source("""
@@ -66,7 +66,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
              )
     end
 
-    test "handling an event not declared on the topic is a compile error" do
+    test "a handler for an event that the topic does not declare is a compile error" do
       error =
         compile_error(
           subscriber_source("""
@@ -82,8 +82,8 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert Exception.message(error) =~ ":exploded"
     end
 
-    test "handling a second topic subscribes to it, and it must also be covered" do
-      # :system declares exactly one event, so handling it is full coverage.
+    test "a handler for a second topic subscribes to it, and the module must cover it too" do
+      # :system declares exactly one event, so a handler for it gives full coverage.
       assert is_atom(
                compile!(
                  subscriber_source("""
@@ -135,7 +135,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert message =~ "inferred"
     end
 
-    test "handling and ignoring the same event is a compile error" do
+    test "a handler and an ignore_message/2 for the same event are a compile error" do
       error =
         compile_error(
           subscriber_source("""
@@ -153,7 +153,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert message =~ ":adopted"
     end
 
-    test "ignore_message with a list still reports what the list misses" do
+    test "ignore_message/2 with a list reports the events that the list leaves out" do
       error =
         compile_error(
           subscriber_source("""
@@ -169,9 +169,9 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert Exception.message(error) =~ ":rehomed"
     end
 
-    test "several clauses for one event are allowed" do
-      # Regression guard for set semantics: with list subtraction the duplicate
-      # {:pets, :adopted} would leave a residue and be misreported as undeclared.
+    test "a module can have several clauses for one event" do
+      # This test keeps a past bug from coming back. With list subtraction, the duplicate
+      # {:pets, :adopted} leaves a residue, and the check reports it as undeclared.
       assert is_atom(
                compile!(
                  subscriber_source("""
@@ -206,7 +206,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
   end
 
   describe "handle_message/5" do
-    test "a typo'd topic is a compile error naming the declared topics" do
+    test "a misspelled topic is a compile error that names the declared topics" do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.TypoTopic")} do
@@ -226,7 +226,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
                ~r{:pets\s+owners:<owner_id>:pets\s+test/support/manifests\.ex:\d+}
     end
 
-    test "a non-literal topic is rejected" do
+    test "a topic that is not a literal is a compile error" do
       error =
         compile_error(
           subscriber_source("""
