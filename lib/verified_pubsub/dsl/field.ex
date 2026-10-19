@@ -1,6 +1,6 @@
 defmodule VerifiedPubSub.Dsl.Field do
   @moduledoc """
-  A declared payload field.
+  A payload field that a manifest declares.
 
   The `type` is one of the primitives (`:string`, `:integer`, `:float`, `:boolean`,
   `:atom`, `:map`, `:list`, `:any`), a `{:list, type}` tuple, or a struct module.
