@@ -8,12 +8,12 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
   defmodule Listener do
     use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
-    # Binds from the topic params, no %Message{} destructuring.
+    # Binds a value from the topic params, and does not destructure %Message{}.
     handle_message :pets, %{owner_id: owner}, :adopted, payload, state do
       {:noreply, [{:adopted, owner, payload.id} | state]}
     end
 
-    # The params-free form still works, in the same module.
+    # The form without params works in the same module.
     handle_message :pets, :renamed, payload, state do
       {:noreply, [{:renamed, payload.id} | state]}
     end
@@ -24,7 +24,8 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
   defmodule Narrowed do
     use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
-    # A literal narrows to one param value. Order is load-bearing, as with any clauses.
+    # A literal narrows the clause to one param value. As with any clauses, the order
+    # matters.
     handle_message :pets, %{owner_id: "7"}, :adopted, payload, state do
       {:noreply, [{:seven, payload.id} | state]}
     end
@@ -88,9 +89,9 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert message =~ ~r{:pets is declared at test/support/manifests\.ex:\d+\.}
     end
 
-    test "matching a subset of the params is allowed" do
-      # A partial match is legal where a partial broadcast would not be. :pets takes only
-      # :owner_id, so the partial match here is matching nothing.
+    test "a pattern can match a subset of the params" do
+      # A partial match is valid, but a partial broadcast is not. :pets takes only
+      # :owner_id, so the partial match here names no params.
       assert is_atom(
                compile!(
                  source("""
@@ -104,7 +105,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
              )
     end
 
-    test "a params pattern plus a whole-message pattern is a compile error" do
+    test "a params pattern together with a pattern for the whole message is a compile error" do
       error =
         compile_error(
           source("""
@@ -121,8 +122,8 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert Exception.message(error) =~ "cannot also be a whole"
     end
 
-    test "a runtime-built params pattern is left alone" do
-      # Not a literal map, so there are no keys to check. It must still compile.
+    test "a params pattern built at runtime gets no check" do
+      # It is not a literal map, so it has no keys to check. It must compile.
       assert is_atom(
                compile!(
                  source("""
@@ -162,9 +163,10 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert message =~ ~r{:adopted on :pets is declared at test/support/manifests\.ex:\d+\.}
     end
 
-    test "params in the payload slot are named as such, with the right order shown" do
-      # The likely mistake once handle_message/6 exists: writing broadcast!'s argument
-      # order but omitting the params slot, so the params land in the payload slot.
+    test "the error for params in the payload slot names them and shows the correct order" do
+      # This mistake is likely once handle_message/6 exists: a call site writes the
+      # argument order of broadcast! but leaves out the params slot, so the params go in
+      # the payload slot.
       error =
         compile_error(
           source("""
@@ -182,7 +184,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert message =~ "handle_message :pets, %{owner_id: ...}, :adopted"
     end
 
-    test "a subset of the declared fields is fine" do
+    test "a pattern can match a subset of the declared fields" do
       assert is_atom(
                compile!(
                  source("""
@@ -218,7 +220,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
   end
 
   describe "use VerifiedPubSub.Subscriber" do
-    test "coverage checking is unaffected by handle_message/6" do
+    test "handle_message/6 does not change the coverage check" do
       error =
         compile_error(
           source("""
