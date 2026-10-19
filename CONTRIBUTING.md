@@ -16,6 +16,10 @@ A bug report is most useful when it gives these items:
 - your Elixir version
 - your OTP version
 
+## AI
+
+You can use AI for a contribution. Read [AI_POLICY.md](AI_POLICY.md) first.
+
 ## Setup
 
 `.tool-versions` holds the Elixir and Erlang versions of the project. With
