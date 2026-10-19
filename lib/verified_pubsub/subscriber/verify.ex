@@ -1,17 +1,19 @@
 defmodule VerifiedPubSub.Subscriber.Verify do
   @moduledoc """
-  Compile-time coverage check for `VerifiedPubSub.Subscriber`.
+  Checks at compile time that a `VerifiedPubSub.Subscriber` covers each event.
 
-  The subscribed topics are inferred from the module's `handle_message/5` and
-  `ignore_message/2` calls. Coverage is then tracked per `{topic, event}` pair using
-  **set** semantics, because several `handle_message` clauses for one event are legal and
-  expected when matching on param values.
+  The `handle_message/5` and `ignore_message/2` calls of the module set the topics that
+  it subscribes to. The check then tracks coverage for each `{topic, event}` pair as a
+  **set**. An event can legally have many `handle_message` clauses, when they match
+  different param values.
 
-  Coverage is therefore name-based, not value-based: if every clause for an event
-  matches a narrow param value, the event still counts as covered, and a message with
-  any other value raises `FunctionClauseError` at runtime. No static check closes that
-  gap — it is value coverage, not name coverage. End with a param-agnostic clause when
-  matching on param values.
+  ## Coverage of param values
+
+  Coverage thus depends on event names, not on param values. When each clause for an
+  event matches only some param values, the event still counts as covered. A message
+  with any other value then raises `FunctionClauseError` at runtime. No static check can
+  close that gap, because it is a gap in value coverage, not in name coverage. When the
+  clauses of an event match on param values, end with a clause that matches any value.
   """
 
   alias VerifiedPubSub.Info
@@ -33,9 +35,9 @@ defmodule VerifiedPubSub.Subscriber.Verify do
         description: contradictory_message(env, contradictory)
     end
 
-    # The subscribed topics are whatever the module actually mentions. Reading the
-    # manifest here is also what creates the compile-time dependency on it, so editing
-    # the manifest recompiles every subscriber.
+    # The subscribed topics are the topics that the module names. This read of the
+    # manifest also creates the compile-time dependency on it, so a change to the
+    # manifest recompiles every subscriber.
     topics =
       accounted_for
       |> Enum.map(&elem(&1, 0))
