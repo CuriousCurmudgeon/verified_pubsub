@@ -4,35 +4,48 @@ defmodule VerifiedPubSub.DslTest do
   alias VerifiedPubSub.Info
   alias VerifiedPubSub.TestManifests.Basic
 
-  test "topics are parsed at the top level, without a wrapper block" do
-    assert [:pets, :system, :typed_payloads] =
-             Basic
-             |> Info.topics()
-             |> Enum.map(& &1.name)
-             |> Enum.sort()
-  end
-
-  test "topic/2 returns the topic by name" do
-    assert {:ok, topic} = Info.topic(Basic, :pets)
-    assert topic.segments == ["owners", :owner_id, "pets"]
-  end
-
-  test "topic/2 returns :error for an unknown topic" do
-    assert :error = Info.topic(Basic, :nope)
-  end
-
-  test "topic!/2 raises for an unknown topic and names the known ones" do
-    assert_raise ArgumentError, ~r/unknown topic :nope.*:pets/s, fn ->
-      Info.topic!(Basic, :nope)
+  describe "Info.topics/1" do
+    test "topics are parsed at the top level, without a wrapper block" do
+      assert [:pets, :system, :typed_payloads] =
+               Basic
+               |> Info.topics()
+               |> Enum.map(& &1.name)
+               |> Enum.sort()
     end
   end
 
-  test "topic!/2 shows each known topic's wire pattern" do
-    error = assert_raise ArgumentError, fn -> Info.topic!(Basic, :nope) end
-    assert Exception.message(error) =~ ~r/:pets\s+owners:<owner_id>:pets/
+  describe "Info.topic/2" do
+    test "returns the topic by name" do
+      assert {:ok, topic} = Info.topic(Basic, :pets)
+      assert topic.segments == ["owners", :owner_id, "pets"]
+    end
+
+    test "returns :error for an unknown topic" do
+      assert :error = Info.topic(Basic, :nope)
+    end
+
+    test "payload fields are parsed and exposed but not enforced" do
+      {:ok, topic} = Info.topic(Basic, :pets)
+      adopted = Enum.find(topic.messages, &(&1.name == :adopted))
+
+      assert [{:id, :string}, {:name, :string}] = Enum.map(adopted.fields, &{&1.name, &1.type})
+    end
   end
 
-  describe "match/2" do
+  describe "Info.topic!/2" do
+    test "raises for an unknown topic and names the known ones" do
+      assert_raise ArgumentError, ~r/unknown topic :nope.*:pets/s, fn ->
+        Info.topic!(Basic, :nope)
+      end
+    end
+
+    test "shows each known topic's wire pattern" do
+      error = assert_raise ArgumentError, fn -> Info.topic!(Basic, :nope) end
+      assert Exception.message(error) =~ ~r/:pets\s+owners:<owner_id>:pets/
+    end
+  end
+
+  describe "Info.match/2" do
     test "finds the topic a wire string belongs to, with its params" do
       assert {:ok, :pets, %{owner_id: "42"}} = Info.match(Basic, "owners:42:pets")
     end
@@ -58,40 +71,37 @@ defmodule VerifiedPubSub.DslTest do
     end
   end
 
-  test "events/2 returns declared event names in declaration order" do
-    assert [:adopted, :renamed, :rehomed] = Info.events(Basic, :pets)
-    assert [:alert] = Info.events(Basic, :system)
+  describe "Info.events/2" do
+    test "returns declared event names in declaration order" do
+      assert [:adopted, :renamed, :rehomed] = Info.events(Basic, :pets)
+      assert [:alert] = Info.events(Basic, :system)
+    end
   end
 
-  test "payload fields are parsed and exposed but not enforced" do
-    {:ok, topic} = Info.topic(Basic, :pets)
-    adopted = Enum.find(topic.messages, &(&1.name == :adopted))
+  describe "use VerifiedPubSub.Manifest" do
+    test "records its Phoenix.PubSub name" do
+      assert Basic.__verified_pubsub_name__() == VerifiedPubSub.TestPubSub
+    end
 
-    assert [{:id, :string}, {:name, :string}] = Enum.map(adopted.fields, &{&1.name, &1.type})
-  end
+    test "the :pubsub option is required" do
+      error =
+        VerifiedPubSub.CompileHelper.compile_error("""
+        defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.NoPubSub")} do
+          use VerifiedPubSub.Manifest
 
-  test "the manifest records its Phoenix.PubSub name" do
-    assert Basic.__verified_pubsub_name__() == VerifiedPubSub.TestPubSub
-  end
-
-  test "the :pubsub option is required" do
-    error =
-      VerifiedPubSub.CompileHelper.compile_error("""
-      defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.NoPubSub")} do
-        use VerifiedPubSub.Manifest
-
-        topic :pets, ["pets"] do
-          message :adopted do
+          topic :pets, ["pets"] do
+            message :adopted do
+            end
           end
         end
-      end
-      """)
+        """)
 
-    assert error, "expected a missing :pubsub option to fail compilation"
-    assert Exception.message(error) =~ "pubsub"
+      assert error, "expected a missing :pubsub option to fail compilation"
+      assert Exception.message(error) =~ "pubsub"
+    end
   end
 
-  describe "description" do
+  describe "topic, message, field :description" do
     test "is read from a block or a keyword on a topic, an event and a field" do
       manifest =
         VerifiedPubSub.CompileHelper.compile!("""

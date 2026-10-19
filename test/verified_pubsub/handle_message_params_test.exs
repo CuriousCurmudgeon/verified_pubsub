@@ -46,28 +46,6 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     }
   end
 
-  test "a params pattern binds the param" do
-    assert {:noreply, [{:adopted, "42", "c1"}]} =
-             Listener.handle_info(message(:adopted, "42", %{id: "c1"}), [])
-  end
-
-  test "the params-free form still works alongside it" do
-    assert {:noreply, [{:renamed, "c2"}]} =
-             Listener.handle_info(message(:renamed, "1", %{id: "c2"}), [])
-  end
-
-  test "a literal param value narrows the clause" do
-    assert {:noreply, [{:seven, "c1"}]} =
-             Narrowed.handle_info(message(:adopted, "7", %{id: "c1"}), [])
-
-    assert {:noreply, [{:other, "8", "c1"}]} =
-             Narrowed.handle_info(message(:adopted, "8", %{id: "c1"}), [])
-  end
-
-  test "ignore_message is unchanged" do
-    assert {:noreply, []} = Listener.handle_info(message(:rehomed, "1", %{id: "c1"}), [])
-  end
-
   defp source(body) do
     """
     defmodule #{unique_module("VPTest.Params")} do
@@ -77,89 +55,95 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     """
   end
 
-  test "a param the topic does not declare is a compile error" do
-    error =
-      compile_error(
-        source("""
-        handle_message :pets, %{acount_id: a}, :adopted, p, s do
-          {:noreply, [a, p | s]}
-        end
+  describe "handle_message/6" do
+    test "a params pattern binds the param" do
+      assert {:noreply, [{:adopted, "42", "c1"}]} =
+               Listener.handle_info(message(:adopted, "42", %{id: "c1"}), [])
+    end
 
-        ignore_message :pets, [:renamed, :rehomed]
-        """)
-      )
+    test "a literal param value narrows the clause" do
+      assert {:noreply, [{:seven, "c1"}]} =
+               Narrowed.handle_info(message(:adopted, "7", %{id: "c1"}), [])
 
-    assert %CompileError{} = error
-    message = Exception.message(error)
-    assert message =~ ":acount_id"
-    assert message =~ "could never match"
-    assert message =~ ~r{:pets is declared at test/support/manifests\.ex:\d+\.}
-  end
+      assert {:noreply, [{:other, "8", "c1"}]} =
+               Narrowed.handle_info(message(:adopted, "8", %{id: "c1"}), [])
+    end
 
-  test "matching a subset of the params is allowed" do
-    # A partial match is legal where a partial broadcast would not be. :pets takes only
-    # :owner_id, so the partial match here is matching nothing.
-    assert is_atom(
-             compile!(
-               source("""
-               handle_message :pets, %{}, :adopted, p, s do
-                 {:noreply, [p | s]}
-               end
+    test "a param the topic does not declare is a compile error" do
+      error =
+        compile_error(
+          source("""
+          handle_message :pets, %{acount_id: a}, :adopted, p, s do
+            {:noreply, [a, p | s]}
+          end
 
-               ignore_message :pets, [:renamed, :rehomed]
-               """)
+          ignore_message :pets, [:renamed, :rehomed]
+          """)
+        )
+
+      assert %CompileError{} = error
+      message = Exception.message(error)
+      assert message =~ ":acount_id"
+      assert message =~ "could never match"
+      assert message =~ ~r{:pets is declared at test/support/manifests\.ex:\d+\.}
+    end
+
+    test "matching a subset of the params is allowed" do
+      # A partial match is legal where a partial broadcast would not be. :pets takes only
+      # :owner_id, so the partial match here is matching nothing.
+      assert is_atom(
+               compile!(
+                 source("""
+                 handle_message :pets, %{}, :adopted, p, s do
+                   {:noreply, [p | s]}
+                 end
+
+                 ignore_message :pets, [:renamed, :rehomed]
+                 """)
+               )
              )
-           )
-  end
+    end
 
-  test "a params pattern plus a whole-message pattern is a compile error" do
-    error =
-      compile_error(
-        source("""
-        handle_message :pets, %{owner_id: a}, :adopted,
-                       %VerifiedPubSub.Message{payload: p}, s do
-          {:noreply, [a, p | s]}
-        end
+    test "a params pattern plus a whole-message pattern is a compile error" do
+      error =
+        compile_error(
+          source("""
+          handle_message :pets, %{owner_id: a}, :adopted,
+                         %VerifiedPubSub.Message{payload: p}, s do
+            {:noreply, [a, p | s]}
+          end
 
-        ignore_message :pets, [:renamed, :rehomed]
-        """)
-      )
+          ignore_message :pets, [:renamed, :rehomed]
+          """)
+        )
 
-    assert %CompileError{} = error
-    assert Exception.message(error) =~ "cannot also be a whole"
-  end
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ "cannot also be a whole"
+    end
 
-  test "coverage checking is unaffected" do
-    error =
-      compile_error(
-        source("""
-        handle_message :pets, %{owner_id: a}, :adopted, p, s do
-          {:noreply, [a, p | s]}
-        end
-        """)
-      )
+    test "a runtime-built params pattern is left alone" do
+      # Not a literal map, so there are no keys to check. It must still compile.
+      assert is_atom(
+               compile!(
+                 source("""
+                 handle_message :pets, params, :adopted, p, s do
+                   {:noreply, [params, p | s]}
+                 end
 
-    assert %CompileError{} = error
-    assert Exception.message(error) =~ "does not account for"
-  end
-
-  test "a runtime-built params pattern is left alone" do
-    # Not a literal map, so there are no keys to check. It must still compile.
-    assert is_atom(
-             compile!(
-               source("""
-               handle_message :pets, params, :adopted, p, s do
-                 {:noreply, [params, p | s]}
-               end
-
-               ignore_message :pets, [:renamed, :rehomed]
-               """)
+                 ignore_message :pets, [:renamed, :rehomed]
+                 """)
+               )
              )
-           )
+    end
   end
 
-  describe "a payload pattern that can never match" do
-    test "an undeclared key is a compile error" do
+  describe "handle_message/5" do
+    test "works alongside handle_message/6 in one module" do
+      assert {:noreply, [{:renamed, "c2"}]} =
+               Listener.handle_info(message(:renamed, "1", %{id: "c2"}), [])
+    end
+
+    test "an undeclared payload key is a compile error" do
       error =
         compile_error(
           source("""
@@ -224,6 +208,28 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
                  """)
                )
              )
+    end
+  end
+
+  describe "ignore_message/2" do
+    test "works alongside handle_message/6" do
+      assert {:noreply, []} = Listener.handle_info(message(:rehomed, "1", %{id: "c1"}), [])
+    end
+  end
+
+  describe "use VerifiedPubSub.Subscriber" do
+    test "coverage checking is unaffected by handle_message/6" do
+      error =
+        compile_error(
+          source("""
+          handle_message :pets, %{owner_id: a}, :adopted, p, s do
+            {:noreply, [a, p | s]}
+          end
+          """)
+        )
+
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ "does not account for"
     end
   end
 end

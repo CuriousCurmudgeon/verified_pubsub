@@ -38,11 +38,66 @@ defmodule VerifiedPubSub.ApiTest do
     %{owner_id: unique_owner_id()}
   end
 
-  describe "runtime behaviour" do
-    test "topic/2 interpolates params", %{owner_id: id} do
+  defp source(body) do
+    """
+    defmodule #{unique_module("VPTest.Api")} do
+      use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
+      def go, do: #{body}
+    end
+    """
+  end
+
+  test "using the macros without a manifest in scope is a compile error" do
+    error =
+      compile_error("""
+      defmodule #{unique_module("VPTest.NoReg")} do
+        import VerifiedPubSub.Api
+        def go, do: broadcast!(:pets, %{owner_id: "1"}, :adopted, %{})
+      end
+      """)
+
+    assert %CompileError{} = error
+    assert Exception.message(error) =~ "no manifest is in scope"
+  end
+
+  describe "subscribe/1" do
+    test "a param-free topic needs no params argument" do
+      token = unique_owner_id()
+      assert :ok = Broadcaster.sub_system()
+      assert :ok = Broadcaster.alert(%{text: token})
+
+      assert_receive %Message{
+        topic: :system,
+        event: :alert,
+        params: %{},
+        payload: %{text: ^token}
+      }
+    end
+  end
+
+  describe "unsubscribe/2" do
+    test "stops delivery", %{owner_id: id} do
+      assert :ok = Broadcaster.sub(id)
+      assert :ok = Broadcaster.unsub(id)
+      assert :ok = Broadcaster.adopted(id, %{id: "c1"})
+
+      refute_receive %Message{}, 50
+    end
+  end
+
+  describe "topic/2" do
+    test "interpolates params", %{owner_id: id} do
       assert Broadcaster.topic_for(id) == "owners:#{id}:pets"
     end
+  end
 
+  describe "broadcast/4" do
+    test "returns :ok", %{owner_id: id} do
+      assert :ok = Broadcaster.adopted_plain(id, %{id: "c1"})
+    end
+  end
+
+  describe "broadcast!/4" do
     test "subscribe + broadcast delivers", %{owner_id: id} do
       assert :ok = Broadcaster.sub(id)
       assert :ok = Broadcaster.adopted(id, %{id: "c1"})
@@ -63,54 +118,11 @@ defmodule VerifiedPubSub.ApiTest do
       }
     end
 
-    test "non-bang returns :ok", %{owner_id: id} do
-      assert :ok = Broadcaster.adopted_plain(id, %{id: "c1"})
-    end
-
-    test "unsubscribe stops delivery", %{owner_id: id} do
-      assert :ok = Broadcaster.sub(id)
-      assert :ok = Broadcaster.unsub(id)
-      assert :ok = Broadcaster.adopted(id, %{id: "c1"})
-
-      refute_receive %Message{}, 50
-    end
-
-    test "broadcast_from excludes the sender", %{owner_id: id} do
-      assert :ok = Broadcaster.sub(id)
-      assert :ok = Broadcaster.adopted_from(self(), id, %{id: "c1"})
-
-      refute_receive %Message{}, 50
-    end
-
-    test "a param-free topic needs no params argument" do
-      token = unique_owner_id()
-      assert :ok = Broadcaster.sub_system()
-      assert :ok = Broadcaster.alert(%{text: token})
-
-      assert_receive %Message{
-        topic: :system,
-        event: :alert,
-        params: %{},
-        payload: %{text: ^token}
-      }
-    end
-
     test "params built at runtime still work", %{owner_id: id} do
       assert :ok = Broadcaster.sub(id)
       assert :ok = Broadcaster.adopted_dynamic(id, %{id: "c1"})
 
       assert_receive %Message{params: %{owner_id: ^id}}
-    end
-  end
-
-  describe "compile-time verification" do
-    defp source(body) do
-      """
-      defmodule #{unique_module("VPTest.Api")} do
-        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
-        def go, do: #{body}
-      end
-      """
     end
 
     test "params and event in the wrong order is a compile error, not a runtime one" do
@@ -204,20 +216,18 @@ defmodule VerifiedPubSub.ApiTest do
       assert %CompileError{} = error
       assert Exception.message(error) =~ "literal atom"
     end
+  end
 
-    test "using the macros without a manifest in scope is a compile error" do
-      error =
-        compile_error("""
-        defmodule #{unique_module("VPTest.NoReg")} do
-          import VerifiedPubSub.Api
-          def go, do: broadcast!(:pets, %{owner_id: "1"}, :adopted, %{})
-        end
-        """)
+  describe "broadcast_from!/5" do
+    test "excludes the sender", %{owner_id: id} do
+      assert :ok = Broadcaster.sub(id)
+      assert :ok = Broadcaster.adopted_from(self(), id, %{id: "c1"})
 
-      assert %CompileError{} = error
-      assert Exception.message(error) =~ "no manifest is in scope"
+      refute_receive %Message{}, 50
     end
+  end
 
+  describe "use VerifiedPubSub.Subscriber" do
     test "a subscriber's manifest is reused without a second use" do
       # `use VerifiedPubSub.Subscriber` already sets the manifest attribute, so a
       # LiveView that subscribes can broadcast by importing the macros alone.

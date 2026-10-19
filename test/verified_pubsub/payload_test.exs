@@ -32,21 +32,7 @@ defmodule VerifiedPubSub.PayloadTest do
     }
   end
 
-  describe "a valid payload" do
-    # One test through the macro, covering the whole path: validation accepts the
-    # payload, `Payload.validate!/4` returns it, and the macro puts that return value on
-    # the message. The acceptance cases below go straight at the validator instead --
-    # delivery is irrelevant to what they claim, and asserting it there only obscures it.
-    test "is delivered unchanged", %{x: id} do
-      assert :ok = subscribe(:typed_payloads, %{x: id})
-      payload = valid_typed()
-      assert :ok = broadcast!(:typed_payloads, %{x: id}, :typed, payload)
-
-      assert_receive %Message{event: :typed, payload: ^payload}
-    end
-  end
-
-  describe "accepted shapes" do
+  describe "Payload.validate!/4" do
     # `validate!/4` returns the payload it was given, so asserting on the return value
     # states both halves of the claim: accepted, and unaltered.
     defp accept!(event, payload) do
@@ -75,7 +61,19 @@ defmodule VerifiedPubSub.PayloadTest do
     end
   end
 
-  describe "shape violations" do
+  describe "broadcast!/4 with a payload built at runtime" do
+    # One test through the macro, covering the whole path: validation accepts the
+    # payload, `Payload.validate!/4` returns it, and the macro puts that return value on
+    # the message. The acceptance cases above go straight at the validator instead --
+    # delivery is irrelevant to what they claim, and asserting it there only obscures it.
+    test "a valid payload is delivered unchanged", %{x: id} do
+      assert :ok = subscribe(:typed_payloads, %{x: id})
+      payload = valid_typed()
+      assert :ok = broadcast!(:typed_payloads, %{x: id}, :typed, payload)
+
+      assert_receive %Message{event: :typed, payload: ^payload}
+    end
+
     test "a missing required key raises and names it", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
@@ -180,27 +178,29 @@ defmodule VerifiedPubSub.PayloadTest do
 
       refute_receive %Message{topic: :typed_payloads}, 50
     end
+  end
 
-    test "the non-bang broadcast raises too", %{x: id} do
+  describe "broadcast/4" do
+    test "raises on a bad payload, as broadcast!/4 does", %{x: id} do
       # A shape violation is a bug, not a transport failure, so it is not reported
       # through the {:error, _} channel that a caller might shrug off.
       assert_raise PayloadError, fn ->
         broadcast(:typed_payloads, %{x: id}, :bare, at_runtime(%{}))
       end
     end
+  end
 
-    test "the from variants validate as well", %{x: id} do
-      assert_raise PayloadError, fn ->
-        broadcast_from!(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
-      end
+  test "the from variants validate as well", %{x: id} do
+    assert_raise PayloadError, fn ->
+      broadcast_from!(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
+    end
 
-      assert_raise PayloadError, fn ->
-        broadcast_from(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
-      end
+    assert_raise PayloadError, fn ->
+      broadcast_from(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
     end
   end
 
-  describe "compile-time checks on a literal payload" do
+  describe "broadcast!/4 with a literal payload" do
     defp source(payload) do
       """
       defmodule #{unique_module("VPTest.Payload")} do
@@ -280,7 +280,7 @@ defmodule VerifiedPubSub.PayloadTest do
     end
   end
 
-  describe "field type declarations" do
+  describe "field :type" do
     test "an unknown type is a compile error listing the valid ones" do
       error =
         dsl_error("""
@@ -336,20 +336,20 @@ defmodule VerifiedPubSub.PayloadTest do
     end
   end
 
-  describe "introspection" do
-    test "Info.fields/3 exposes the declared fields" do
+  describe "Info.fields/3" do
+    test "exposes the declared fields" do
       assert [%{name: :id, type: :string, required: true}] =
                VerifiedPubSub.Info.fields(Basic, :typed_payloads, :bare)
     end
 
-    test "Info.fields/3 reports required: false" do
+    test "reports required: false" do
       note =
         Enum.find(VerifiedPubSub.Info.fields(Basic, :typed_payloads, :typed), &(&1.name == :note))
 
       assert note.required == false
     end
 
-    test "Info.fields/3 raises for an unknown event" do
+    test "raises for an unknown event" do
       assert_raise ArgumentError, ~r/unknown event :nope/, fn ->
         VerifiedPubSub.Info.fields(Basic, :typed_payloads, :nope)
       end

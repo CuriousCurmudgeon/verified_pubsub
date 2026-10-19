@@ -11,14 +11,6 @@ defmodule VerifiedPubSub.BroadcastTest do
     %{owner_id: unique_owner_id()}
   end
 
-  test "topic/2 interpolates params into the wire pattern" do
-    assert topic(:pets, %{owner_id: "7"}) == "owners:7:pets"
-  end
-
-  test "topic/2 stringifies non-binary params" do
-    assert topic(:pets, %{owner_id: 7}) == "owners:7:pets"
-  end
-
   test "Info.match/2 recovers the name and params from what topic/2 builds" do
     wire = topic(:pets, %{owner_id: 42})
     assert {:ok, :pets, %{owner_id: "42"}} = VerifiedPubSub.Info.match(Basic, wire)
@@ -38,169 +30,55 @@ defmodule VerifiedPubSub.BroadcastTest do
     assert Exception.message(error) =~ ~s|:adopted on :pets ("owners:7:pets"): :boom|
   end
 
-  test "a param-free topic takes no params argument" do
-    assert topic(:system) == "system"
-  end
+  describe "unsubscribe/2" do
+    test "stops delivery", %{owner_id: id} do
+      assert :ok = subscribe(:pets, %{owner_id: id})
+      assert :ok = unsubscribe(:pets, %{owner_id: id})
+      assert :ok = broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
 
-  test "broadcast_*! delivers a Message to subscribers of that topic", %{owner_id: id} do
-    assert :ok = subscribe(:pets, %{owner_id: id})
-    assert :ok = broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
-
-    assert_receive %Message{
-      manifest: Basic,
-      topic: :pets,
-      event: :adopted,
-      params: %{owner_id: ^id},
-      payload: %{id: "c1"}
-    }
-  end
-
-  test "broadcasts are scoped by param value", %{owner_id: id} do
-    assert :ok = subscribe(:pets, %{owner_id: id})
-    assert :ok = broadcast!(:pets, %{owner_id: id <> "other"}, :adopted, %{id: "c1"})
-
-    refute_receive %Message{}, 50
-  end
-
-  test "unsubscribe_* stops delivery", %{owner_id: id} do
-    assert :ok = subscribe(:pets, %{owner_id: id})
-    assert :ok = unsubscribe(:pets, %{owner_id: id})
-    assert :ok = broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
-
-    refute_receive %Message{}, 50
-  end
-
-  test "the non-bang broadcast returns :ok" do
-    assert :ok = broadcast(:pets, %{owner_id: "7"}, :adopted, %{id: "c1"})
-  end
-
-  test "a param-free topic broadcasts with only a payload" do
-    # The :system topic has no params to make unique, and the suite shares one
-    # Phoenix.PubSub, so the payload carries a token to keep concurrent tests on this
-    # topic from matching each other's messages.
-    token = unique_owner_id()
-    assert :ok = subscribe(:system)
-    assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
-
-    assert_receive %Message{topic: :system, event: :alert, params: %{}, payload: %{text: ^token}}
-  end
-
-  test "a params map built at runtime with a missing key raises KeyError" do
-    # A literal map is caught at compile time (see VerifiedPubSub.ApiTest). This is the
-    # dynamic case, which only Map.fetch!/2 can catch, at runtime.
-    params = Map.new([{String.to_atom("wrong"), "7"}])
-
-    assert_raise KeyError, fn ->
-      broadcast!(:pets, params, :adopted, %{id: "c1"})
+      refute_receive %Message{}, 50
     end
   end
 
-  test "broadcast_*_from! excludes the sender", %{owner_id: id} do
-    assert :ok = subscribe(:pets, %{owner_id: id})
-
-    assert :ok =
-             broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
-
-    refute_receive %Message{}, 50
+  describe "topic/1" do
+    test "a param-free topic takes no params argument" do
+      assert topic(:system) == "system"
+    end
   end
 
-  test "broadcast_*_from! still delivers to other subscribers", %{owner_id: id} do
-    test_pid = self()
-
-    other =
-      spawn_link(fn ->
-        subscribe(:pets, %{owner_id: id})
-        send(test_pid, :ready)
-        receive do: (%Message{payload: p} -> send(test_pid, {:other_got, p}))
-      end)
-
-    assert_receive :ready
-    subscribe(:pets, %{owner_id: id})
-    broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
-
-    assert_receive {:other_got, %{id: "c1"}}
-    refute_receive %Message{}, 50
-    Process.exit(other, :kill)
-  end
-
-  test "the non-bang from variant returns :ok", %{owner_id: id} do
-    assert :ok = broadcast_from(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
-  end
-
-  test "a param-free topic's from variant takes only from and payload" do
-    token = unique_owner_id()
-    assert :ok = subscribe(:system)
-    assert :ok = broadcast_from!(self(), :system, %{}, :alert, %{text: token})
-
-    refute_receive %Message{topic: :system, payload: %{text: ^token}}, 50
-  end
-
-  test "the from variant carries the same message shape as the base variant", %{
-    owner_id: id
-  } do
-    test_pid = self()
-
-    other =
-      spawn_link(fn ->
-        subscribe(:pets, %{owner_id: id})
-        send(test_pid, :ready)
-        receive do: (m -> send(test_pid, {:got, m}))
-      end)
-
-    assert_receive :ready
-    broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
-
-    assert_receive {:got,
-                    %Message{
-                      manifest: Basic,
-                      topic: :pets,
-                      event: :adopted,
-                      params: %{owner_id: ^id},
-                      payload: %{id: "c1"}
-                    }}
-
-    Process.exit(other, :kill)
-  end
-
-  describe "the params-free arities" do
-    test "broadcast!/3 reaches subscribers of a param-free topic" do
-      token = unique_owner_id()
-      assert :ok = subscribe(:system)
-      assert :ok = broadcast!(:system, :alert, %{text: token})
-
-      assert_receive %Message{topic: :system, event: :alert, payload: %{text: ^token}}
+  describe "topic/2" do
+    test "interpolates params into the wire pattern" do
+      assert topic(:pets, %{owner_id: "7"}) == "owners:7:pets"
     end
 
-    test "broadcast/3 works too" do
+    test "stringifies non-binary params" do
+      assert topic(:pets, %{owner_id: 7}) == "owners:7:pets"
+    end
+  end
+
+  describe "broadcast/3" do
+    test "works too" do
       token = unique_owner_id()
       assert :ok = subscribe(:system, %{})
       assert :ok = broadcast(:system, :alert, %{text: token})
 
       assert_receive %Message{payload: %{text: ^token}}
     end
+  end
 
-    test "broadcast_from!/4 skips the sender" do
-      token = unique_owner_id()
-      assert :ok = subscribe(:system)
-      assert :ok = broadcast_from!(self(), :system, :alert, %{text: token})
-
-      refute_receive %Message{payload: %{text: ^token}}, 50
+  describe "broadcast/4" do
+    test "returns :ok" do
+      assert :ok = broadcast(:pets, %{owner_id: "7"}, :adopted, %{id: "c1"})
     end
+  end
 
-    test "broadcast_from/4 skips the sender" do
+  describe "broadcast!/3" do
+    test "reaches subscribers of a param-free topic" do
       token = unique_owner_id()
       assert :ok = subscribe(:system)
-      assert :ok = broadcast_from(self(), :system, :alert, %{text: token})
+      assert :ok = broadcast!(:system, :alert, %{text: token})
 
-      refute_receive %Message{payload: %{text: ^token}}, 50
-    end
-
-    test "the four-argument form still takes an explicit empty map" do
-      token = unique_owner_id()
-      assert :ok = subscribe(:system)
-      assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
-
-      assert_receive %Message{payload: %{text: ^token}}
+      assert_receive %Message{topic: :system, event: :alert, payload: %{text: ^token}}
     end
 
     test "omitting params on a topic that takes them is a compile error" do
@@ -231,6 +109,153 @@ defmodule VerifiedPubSub.BroadcastTest do
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ "expected a literal atom for event"
+    end
+  end
+
+  describe "broadcast!/4" do
+    test "delivers a Message to subscribers of that topic", %{owner_id: id} do
+      assert :ok = subscribe(:pets, %{owner_id: id})
+      assert :ok = broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c1"})
+
+      assert_receive %Message{
+        manifest: Basic,
+        topic: :pets,
+        event: :adopted,
+        params: %{owner_id: ^id},
+        payload: %{id: "c1"}
+      }
+    end
+
+    test "broadcasts are scoped by param value", %{owner_id: id} do
+      assert :ok = subscribe(:pets, %{owner_id: id})
+      assert :ok = broadcast!(:pets, %{owner_id: id <> "other"}, :adopted, %{id: "c1"})
+
+      refute_receive %Message{}, 50
+    end
+
+    test "a param-free topic broadcasts with only a payload" do
+      # The :system topic has no params to make unique, and the suite shares one
+      # Phoenix.PubSub, so the payload carries a token to keep concurrent tests on this
+      # topic from matching each other's messages.
+      token = unique_owner_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
+
+      assert_receive %Message{
+        topic: :system,
+        event: :alert,
+        params: %{},
+        payload: %{text: ^token}
+      }
+    end
+
+    test "the four-argument form still takes an explicit empty map" do
+      token = unique_owner_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast!(:system, %{}, :alert, %{text: token})
+
+      assert_receive %Message{payload: %{text: ^token}}
+    end
+
+    test "a params map built at runtime with a missing key raises KeyError" do
+      # A literal map is caught at compile time (see VerifiedPubSub.ApiTest). This is the
+      # dynamic case, which only Map.fetch!/2 can catch, at runtime.
+      params = Map.new([{String.to_atom("wrong"), "7"}])
+
+      assert_raise KeyError, fn ->
+        broadcast!(:pets, params, :adopted, %{id: "c1"})
+      end
+    end
+  end
+
+  describe "broadcast_from/4" do
+    test "skips the sender" do
+      token = unique_owner_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast_from(self(), :system, :alert, %{text: token})
+
+      refute_receive %Message{payload: %{text: ^token}}, 50
+    end
+  end
+
+  describe "broadcast_from/5" do
+    test "returns :ok", %{owner_id: id} do
+      assert :ok = broadcast_from(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
+    end
+  end
+
+  describe "broadcast_from!/4" do
+    test "skips the sender" do
+      token = unique_owner_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast_from!(self(), :system, :alert, %{text: token})
+
+      refute_receive %Message{payload: %{text: ^token}}, 50
+    end
+  end
+
+  describe "broadcast_from!/5" do
+    test "excludes the sender", %{owner_id: id} do
+      assert :ok = subscribe(:pets, %{owner_id: id})
+
+      assert :ok =
+               broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
+
+      refute_receive %Message{}, 50
+    end
+
+    test "still delivers to other subscribers", %{owner_id: id} do
+      test_pid = self()
+
+      other =
+        spawn_link(fn ->
+          subscribe(:pets, %{owner_id: id})
+          send(test_pid, :ready)
+          receive do: (%Message{payload: p} -> send(test_pid, {:other_got, p}))
+        end)
+
+      assert_receive :ready
+      subscribe(:pets, %{owner_id: id})
+      broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
+
+      assert_receive {:other_got, %{id: "c1"}}
+      refute_receive %Message{}, 50
+      Process.exit(other, :kill)
+    end
+
+    test "a param-free topic's from variant takes only from and payload" do
+      token = unique_owner_id()
+      assert :ok = subscribe(:system)
+      assert :ok = broadcast_from!(self(), :system, %{}, :alert, %{text: token})
+
+      refute_receive %Message{topic: :system, payload: %{text: ^token}}, 50
+    end
+
+    test "carries the same message shape as the base variant", %{
+      owner_id: id
+    } do
+      test_pid = self()
+
+      other =
+        spawn_link(fn ->
+          subscribe(:pets, %{owner_id: id})
+          send(test_pid, :ready)
+          receive do: (m -> send(test_pid, {:got, m}))
+        end)
+
+      assert_receive :ready
+      broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, %{id: "c1"})
+
+      assert_receive {:got,
+                      %Message{
+                        manifest: Basic,
+                        topic: :pets,
+                        event: :adopted,
+                        params: %{owner_id: ^id},
+                        payload: %{id: "c1"}
+                      }}
+
+      Process.exit(other, :kill)
     end
   end
 end

@@ -47,7 +47,7 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
     end
   end
 
-  describe "integration with the DSL" do
+  describe "Info.params/2" do
     test "params land on the topic struct" do
       assert [:owner_id] = Info.params(Basic, :pets)
       assert [] = Info.params(Basic, :system)

@@ -12,137 +12,141 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     """
   end
 
-  test "a valid manifest compiles" do
-    assert is_atom(
-             compile!(
-               manifest_source("""
-               topic :pets, ["owners", :owner_id, "pets"] do
-                 message :adopted do
-                   field :id, :string
+  describe "topic" do
+    test "a valid manifest compiles" do
+      assert is_atom(
+               compile!(
+                 manifest_source("""
+                 topic :pets, ["owners", :owner_id, "pets"] do
+                   message :adopted do
+                     field :id, :string
+                   end
                  end
-               end
-               """)
+                 """)
+               )
              )
-           )
-  end
+    end
 
-  test "duplicate topic names are a compile error" do
-    error =
-      dsl_error(
-        manifest_source("""
-        topic :pets, ["a"] do
-          message :adopted do
-          end
-        end
-
-        topic :pets, ["b"] do
-          message :adopted do
-          end
-        end
-        """)
-      )
-
-    assert %Spark.Error.DslError{} = error
-    assert Exception.message(error) =~ "duplicate topic"
-    assert Exception.message(error) =~ "pets"
-    assert Exception.message(error) =~ "The first is declared at nofile:3."
-    assert :erl_anno.line(error.location) == 8
-  end
-
-  test "duplicate event names within a topic are a compile error" do
-    error =
-      dsl_error(
-        manifest_source("""
-        topic :pets, ["a"] do
-          message :adopted do
+    test "duplicate topic names are a compile error" do
+      error =
+        dsl_error(
+          manifest_source("""
+          topic :pets, ["a"] do
+            message :adopted do
+            end
           end
 
-          message :adopted do
+          topic :pets, ["b"] do
+            message :adopted do
+            end
           end
-        end
-        """)
-      )
+          """)
+        )
 
-    assert %Spark.Error.DslError{} = error
-    assert Exception.message(error) =~ "duplicate event"
-    assert Exception.message(error) =~ "adopted"
-  end
+      assert %Spark.Error.DslError{} = error
+      assert Exception.message(error) =~ "duplicate topic"
+      assert Exception.message(error) =~ "pets"
+      assert Exception.message(error) =~ "The first is declared at nofile:3."
+      assert :erl_anno.line(error.location) == 8
+    end
 
-  test "the same event name on two different topics is allowed" do
-    assert is_atom(
-             compile!(
-               manifest_source("""
-               topic :pets, ["a"] do
-                 message :adopted do
+    test "malformed segments are a compile error" do
+      error =
+        dsl_error(
+          manifest_source("""
+          topic :pets, ["owners:pets"] do
+            message :adopted do
+            end
+          end
+          """)
+        )
+
+      assert %Spark.Error.DslError{} = error
+      assert Exception.message(error) =~ "its own list element"
+    end
+
+    test "a segment that is neither a string nor an atom is a compile error" do
+      error =
+        dsl_error(
+          manifest_source("""
+          topic :pets, ["owners", 1] do
+            message :adopted do
+            end
+          end
+          """)
+        )
+
+      assert error, "expected a non-string, non-atom segment to fail compilation"
+    end
+
+    test "a topic with no events is a compile error" do
+      error =
+        dsl_error(
+          manifest_source("""
+          topic :pets, ["a"] do
+          end
+          """)
+        )
+
+      assert %Spark.Error.DslError{} = error
+      assert Exception.message(error) =~ "declares no events"
+    end
+
+    test "a param filling the entire topic is fine" do
+      assert is_atom(
+               compile!(
+                 manifest_source("""
+                 topic :t, [:id] do
+                   message :e do
+                     field :id, :string
+                   end
                  end
-               end
-
-               topic :treats, ["b"] do
-                 message :adopted do
-                 end
-               end
-               """)
+                 """)
+               )
              )
-           )
+    end
   end
 
-  test "malformed segments are a compile error" do
-    error =
-      dsl_error(
-        manifest_source("""
-        topic :pets, ["owners:pets"] do
-          message :adopted do
+  describe "message" do
+    test "duplicate event names within a topic are a compile error" do
+      error =
+        dsl_error(
+          manifest_source("""
+          topic :pets, ["a"] do
+            message :adopted do
+            end
+
+            message :adopted do
+            end
           end
-        end
-        """)
-      )
+          """)
+        )
 
-    assert %Spark.Error.DslError{} = error
-    assert Exception.message(error) =~ "its own list element"
-  end
+      assert %Spark.Error.DslError{} = error
+      assert Exception.message(error) =~ "duplicate event"
+      assert Exception.message(error) =~ "adopted"
+    end
 
-  test "a segment that is neither a string nor an atom is a compile error" do
-    error =
-      dsl_error(
-        manifest_source("""
-        topic :pets, ["owners", 1] do
-          message :adopted do
-          end
-        end
-        """)
-      )
-
-    assert error, "expected a non-string, non-atom segment to fail compilation"
-  end
-
-  test "a topic with no events is a compile error" do
-    error =
-      dsl_error(
-        manifest_source("""
-        topic :pets, ["a"] do
-        end
-        """)
-      )
-
-    assert %Spark.Error.DslError{} = error
-    assert Exception.message(error) =~ "declares no events"
-  end
-
-  test "a param filling the entire topic is fine" do
-    assert is_atom(
-             compile!(
-               manifest_source("""
-               topic :t, [:id] do
-                 message :e do
-                   field :id, :string
+    test "the same event name on two different topics is allowed" do
+      assert is_atom(
+               compile!(
+                 manifest_source("""
+                 topic :pets, ["a"] do
+                   message :adopted do
+                   end
                  end
-               end
-               """)
+
+                 topic :treats, ["b"] do
+                   message :adopted do
+                   end
+                 end
+                 """)
+               )
              )
-           )
+    end
   end
 
-  describe "topic disjointness" do
+  describe "use VerifiedPubSub.Manifest with overlapping topics" do
     test "two topics that can match the same topic string are a compile error" do
       error =
         dsl_error(
