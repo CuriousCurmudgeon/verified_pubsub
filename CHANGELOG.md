@@ -4,18 +4,17 @@
 
 The first release.
 
-- `VerifiedPubSub.Manifest` declares topics, their events, and the fields each event's
-  payload carries.
-- `use VerifiedPubSub` adds `broadcast!`, `broadcast_from!`, `subscribe` and friends,
-  which check topics, params, events and literal payloads at compile time. Payloads
-  built at runtime are checked on every broadcast.
-- `use VerifiedPubSub.Subscriber` adds `handle_message` and `ignore_message`, and fails
-  compilation when a subscriber does not account for every event on the topics it
-  subscribes to.
+- `VerifiedPubSub.Manifest` declares topics, their events, and the fields of the payload
+  of each event.
+- `use VerifiedPubSub` adds `broadcast!`, `broadcast_from!`, `subscribe` and the other
+  macros of the API. They check topics, params, events and literal payloads at compile
+  time. Each broadcast checks a payload that a call site builds at runtime.
+- `use VerifiedPubSub.Subscriber` adds `handle_message` and `ignore_message`. A subscriber
+  that does not handle or ignore every event on its topics is a compile error.
 - `mix igniter.install verified_pubsub` adds the formatter import, finds or starts a
   `Phoenix.PubSub`, and creates an empty manifest.
-- `usage-rules.md` for coding agents.
-- The manifest documents itself: its `@moduledoc` gains a generated `## Topics` section
-  with each topic's wire pattern, events and fields. `topic`, `message` and `field` take a
-  `description` to say what each one means.
-- Requires Elixir 1.16 or later.
+- `usage-rules.md` gives rules for coding agents.
+- The manifest documents itself. Its `@moduledoc` gets a generated `## Topics` section
+  with the wire pattern, the events and the fields of each topic. `topic`, `message` and
+  `field` take a `description` that says what each one means.
+- VerifiedPubSub requires Elixir 1.16 or later.
