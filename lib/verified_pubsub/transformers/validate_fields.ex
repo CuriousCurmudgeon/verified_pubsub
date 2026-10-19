@@ -15,6 +15,7 @@ defmodule VerifiedPubSub.Transformers.ValidateFields do
   @primitives [:string, :integer, :float, :boolean, :atom, :map, :list, :any]
 
   @doc "The primitive types a field may declare."
+  @spec primitives() :: [atom()]
   def primitives, do: @primitives
 
   @doc """
@@ -23,14 +24,18 @@ defmodule VerifiedPubSub.Transformers.ValidateFields do
   A struct module is recognised syntactically, by its `Elixir.` prefix, rather than by
   loading it — the module may not be compiled yet when this runs.
   """
+  @spec valid_type?(term()) :: boolean()
   def valid_type?(type) when type in @primitives, do: true
   def valid_type?({:list, inner}), do: valid_type?(inner)
   def valid_type?(type) when is_atom(type), do: struct_module?(type)
   def valid_type?(_type), do: false
 
   @doc "Whether `atom` names a module rather than a plain atom."
+  @spec struct_module?(atom()) :: boolean()
   def struct_module?(atom) when is_atom(atom) do
-    atom |> Atom.to_string() |> String.starts_with?("Elixir.")
+    atom
+    |> Atom.to_string()
+    |> String.starts_with?("Elixir.")
   end
 
   @impl true

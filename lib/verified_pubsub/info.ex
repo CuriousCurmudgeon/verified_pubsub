@@ -38,7 +38,10 @@ defmodule VerifiedPubSub.Info do
   @doc "Event names declared on a topic, in declaration order."
   @spec events(module(), atom()) :: [atom()]
   def events(manifest, name) do
-    manifest |> topic!(name) |> Map.fetch!(:messages) |> Enum.map(& &1.name)
+    manifest
+    |> topic!(name)
+    |> Map.fetch!(:messages)
+    |> Enum.map(& &1.name)
   end
 
   @doc "Declared payload fields for an event, in declaration order."
@@ -96,6 +99,8 @@ defmodule VerifiedPubSub.Info do
   @doc "Parameter names for a topic, in the order they appear in the segments."
   @spec params(module(), atom()) :: [atom()]
   def params(manifest, name) do
-    manifest |> topic!(name) |> Map.fetch!(:params)
+    manifest
+    |> topic!(name)
+    |> Map.fetch!(:params)
   end
 end

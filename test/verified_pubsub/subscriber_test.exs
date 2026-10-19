@@ -1,11 +1,10 @@
 defmodule VerifiedPubSub.SubscriberTest do
   use ExUnit.Case, async: true
-
   use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
 
-  import VerifiedPubSub.CompileHelper
-
   alias VerifiedPubSub.Message
+
+  import VerifiedPubSub.CompileHelper
 
   defmodule Worker do
     use GenServer

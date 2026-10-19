@@ -179,7 +179,11 @@ defmodule VerifiedPubSub do
   Imports the atom-first macros in `VerifiedPubSub.Api`, bound to `manifest`.
   """
   defmacro __using__(opts) do
-    manifest = opts |> Keyword.fetch!(:manifest) |> Macro.expand(__CALLER__)
+    manifest =
+      opts
+      |> Keyword.fetch!(:manifest)
+      |> Macro.expand(__CALLER__)
+
     bind_manifest!(__CALLER__.module, manifest)
 
     quote do

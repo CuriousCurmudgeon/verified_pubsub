@@ -40,10 +40,19 @@ defmodule VerifiedPubSub.Payload do
     present = MapSet.new(Map.keys(payload))
 
     required =
-      fields |> Enum.filter(& &1.required) |> MapSet.new(& &1.name)
+      fields
+      |> Enum.filter(& &1.required)
+      |> MapSet.new(& &1.name)
 
-    missing = required |> MapSet.difference(present) |> Enum.sort()
-    unexpected = present |> MapSet.difference(declared) |> Enum.sort()
+    missing =
+      required
+      |> MapSet.difference(present)
+      |> Enum.sort()
+
+    unexpected =
+      present
+      |> MapSet.difference(declared)
+      |> Enum.sort()
 
     # Note the shape here: `value = Map.fetch!(...)` as a `for` qualifier would be
     # evaluated for truthiness and act as a filter, so every nil or false value would

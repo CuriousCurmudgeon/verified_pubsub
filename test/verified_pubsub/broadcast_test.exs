@@ -1,12 +1,11 @@
 defmodule VerifiedPubSub.BroadcastTest do
   use ExUnit.Case, async: true
-
   use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
-
-  import VerifiedPubSub.CompileHelper
 
   alias VerifiedPubSub.Message
   alias VerifiedPubSub.TestManifests.Basic
+
+  import VerifiedPubSub.CompileHelper
 
   setup do
     %{owner_id: unique_owner_id()}

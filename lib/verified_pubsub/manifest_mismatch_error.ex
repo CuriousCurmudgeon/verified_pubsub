@@ -37,10 +37,7 @@ defmodule VerifiedPubSub.ManifestMismatchError do
   # from the sender's declaration, so it is best effort: an error message must not raise.
   defp collision(error) do
     with {:ok, sent} <- Info.topic(error.got, error.topic),
-         wire = build(sent.segments, error.params),
-         {:ok, ours, _params} <- Info.match(error.expected, wire) do
-      ours = Info.topic!(error.expected, ours)
-
+         {:ok, ours, wire} <- match_wire(error, sent) do
       """
 
         sent as #{VerifiedPubSub.Topic.describe(sent)} by #{inspect(error.got)}
@@ -54,10 +51,24 @@ defmodule VerifiedPubSub.ManifestMismatchError do
     _ -> ""
   end
 
+  defp match_wire(error, sent) do
+    wire = build(sent.segments, error.params)
+
+    case Info.match(error.expected, wire) do
+      {:ok, ours, _params} -> {:ok, Info.topic!(error.expected, ours), wire}
+      :error -> :error
+    end
+  end
+
   defp build(segments, params) do
     Enum.map_join(segments, VerifiedPubSub.Topic.separator(), fn
-      literal when is_binary(literal) -> literal
-      param -> params |> Map.get(param, "") |> to_string()
+      literal when is_binary(literal) ->
+        literal
+
+      param ->
+        params
+        |> Map.get(param, "")
+        |> to_string()
     end)
   end
 end

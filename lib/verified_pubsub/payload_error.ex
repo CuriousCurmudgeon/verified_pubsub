@@ -40,7 +40,11 @@ defmodule VerifiedPubSub.PayloadError do
   end
 
   defp describe({:struct_payload, module}, error) do
-    field = module |> Module.split() |> List.last() |> Macro.underscore()
+    field =
+      module
+      |> Module.split()
+      |> List.last()
+      |> Macro.underscore()
 
     """
       * the payload is a #{inspect(module)} struct, but a payload must be a map of the

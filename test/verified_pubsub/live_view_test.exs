@@ -1,10 +1,10 @@
 defmodule VerifiedPubSub.LiveViewTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubSub.CompileHelper
-
   alias VerifiedPubSub.Message
   alias VerifiedPubSub.TestManifests.Basic
+
+  import VerifiedPubSub.CompileHelper
 
   defmodule PetsLive do
     use Phoenix.LiveView

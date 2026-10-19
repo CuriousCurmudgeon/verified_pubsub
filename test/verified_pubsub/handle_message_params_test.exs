@@ -1,9 +1,9 @@
 defmodule VerifiedPubSub.HandleMessageParamsTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubSub.CompileHelper
-
   alias VerifiedPubSub.Message
+
+  import VerifiedPubSub.CompileHelper
 
   defmodule Listener do
     use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic

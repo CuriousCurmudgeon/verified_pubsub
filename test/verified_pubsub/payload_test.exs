@@ -1,15 +1,14 @@
 defmodule VerifiedPubSub.PayloadTest do
   use ExUnit.Case, async: true
-
   use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
-
-  import VerifiedPubSub.CompileHelper
 
   alias VerifiedPubSub.Message
   alias VerifiedPubSub.Payload
   alias VerifiedPubSub.PayloadError
   alias VerifiedPubSub.TestManifests.Basic
   alias VerifiedPubSub.TestStructs.Point
+
+  import VerifiedPubSub.CompileHelper
 
   setup do
     %{x: unique_owner_id()}

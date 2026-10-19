@@ -97,7 +97,10 @@ defmodule VerifiedPubSub.Subscriber do
   @options [:manifest]
 
   defmacro __using__(opts) do
-    manifest = opts |> Keyword.fetch!(:manifest) |> Macro.expand(__CALLER__)
+    manifest =
+      opts
+      |> Keyword.fetch!(:manifest)
+      |> Macro.expand(__CALLER__)
 
     if Keyword.has_key?(opts, :topics) do
       raise ArgumentError,
@@ -225,7 +228,7 @@ defmodule VerifiedPubSub.Subscriber do
 
     if params, do: validate_params_pattern!(caller, topic, params)
     event_name = literal_atom!(event, :event)
-    unless whole_message?, do: validate_payload_pattern!(caller, topic, event_name, pattern)
+    if !whole_message?, do: validate_payload_pattern!(caller, topic, event_name, pattern)
 
     Module.put_attribute(caller.module, :verified_pubsub_clauses, %{
       topic: topic,
@@ -281,7 +284,10 @@ defmodule VerifiedPubSub.Subscriber do
     manifest = Module.get_attribute(caller.module, :verified_pubsub_manifest)
 
     with keys when is_list(keys) <- literal_keys(pairs) do
-      declared = manifest |> VerifiedPubSub.Info.fields(topic, event) |> Enum.map(& &1.name)
+      declared =
+        manifest
+        |> VerifiedPubSub.Info.fields(topic, event)
+        |> Enum.map(& &1.name)
 
       case keys -- declared do
         [] ->
@@ -395,8 +401,15 @@ defmodule VerifiedPubSub.Subscriber do
   defp message_pattern?(_, _), do: false
 
   defmacro __before_compile__(env) do
-    clauses = env.module |> Module.get_attribute(:verified_pubsub_clauses) |> Enum.reverse()
-    ignored = env.module |> Module.get_attribute(:verified_pubsub_ignored) |> Enum.reverse()
+    clauses =
+      env.module
+      |> Module.get_attribute(:verified_pubsub_clauses)
+      |> Enum.reverse()
+
+    ignored =
+      env.module
+      |> Module.get_attribute(:verified_pubsub_ignored)
+      |> Enum.reverse()
 
     VerifiedPubSub.Subscriber.Verify.run!(env, clauses, ignored)
 

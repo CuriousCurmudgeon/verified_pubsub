@@ -1,9 +1,9 @@
 defmodule VerifiedPubSub.ApiTest do
   use ExUnit.Case, async: true
 
-  import VerifiedPubSub.CompileHelper
-
   alias VerifiedPubSub.Message
+
+  import VerifiedPubSub.CompileHelper
 
   defmodule Broadcaster do
     use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic

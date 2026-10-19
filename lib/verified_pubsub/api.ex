@@ -317,7 +317,11 @@ defmodule VerifiedPubSub.Api do
       message = Enum.find(topic_struct.messages, &(&1.name == event))
       fields = message.fields
       declared = Enum.map(fields, & &1.name)
-      required = fields |> Enum.filter(& &1.required) |> Enum.map(& &1.name)
+
+      required =
+        fields
+        |> Enum.filter(& &1.required)
+        |> Enum.map(& &1.name)
 
       missing = required -- keys
       unexpected = keys -- declared

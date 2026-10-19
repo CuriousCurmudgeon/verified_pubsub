@@ -26,7 +26,7 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
     contradictory = MapSet.intersection(handled, dismissed)
 
-    unless Enum.empty?(contradictory) do
+    if MapSet.size(contradictory) > 0 do
       raise CompileError,
         file: env.file,
         line: env.line,
@@ -51,14 +51,14 @@ defmodule VerifiedPubSub.Subscriber.Verify do
     undeclared = MapSet.difference(accounted_for, declared)
     missing = MapSet.difference(declared, accounted_for)
 
-    unless Enum.empty?(undeclared) do
+    if MapSet.size(undeclared) > 0 do
       raise CompileError,
         file: env.file,
         line: env.line,
         description: undeclared_message(env, manifest, undeclared)
     end
 
-    unless Enum.empty?(missing) do
+    if MapSet.size(missing) > 0 do
       raise CompileError,
         file: env.file,
         line: env.line,

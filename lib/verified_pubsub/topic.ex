@@ -69,7 +69,9 @@ defmodule VerifiedPubSub.Topic do
   end
 
   defp max_length(items, fun) do
-    items |> Enum.map(&String.length(fun.(&1))) |> Enum.max(fn -> 0 end)
+    items
+    |> Enum.map(&String.length(fun.(&1)))
+    |> Enum.max(fn -> 0 end)
   end
 
   @doc false
