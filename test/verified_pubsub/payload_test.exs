@@ -14,9 +14,9 @@ defmodule VerifiedPubSub.PayloadTest do
     %{x: unique_owner_id()}
   end
 
-  # Passing a payload through a function call hides it from the compile-time literal
-  # check, so the runtime validator is what runs. Literal payloads are covered
-  # separately below. Identity on purpose: the point is only to defeat AST inspection.
+  # A function call hides a payload from the literal check at compile time, so the
+  # runtime check runs. Separate tests below cover literal payloads. This function returns
+  # its argument on purpose: it exists only to hide the payload from AST inspection.
   defp at_runtime(payload), do: payload
 
   defp valid_typed do
@@ -33,8 +33,8 @@ defmodule VerifiedPubSub.PayloadTest do
   end
 
   describe "Payload.validate!/4" do
-    # `validate!/4` returns the payload it was given, so asserting on the return value
-    # states both halves of the claim: accepted, and unaltered.
+    # `validate!/4` returns the payload that it gets. So an assertion on the return value
+    # states both parts of the claim: the payload is accepted, and it does not change.
     defp accept!(event, payload) do
       assert payload == Payload.validate!(Basic, :typed_payloads, event, payload)
     end
@@ -43,11 +43,11 @@ defmodule VerifiedPubSub.PayloadTest do
       accept!(:typed, valid_typed())
     end
 
-    test "an optional field may be supplied" do
+    test "an optional field can be present" do
       accept!(:typed, Map.put(valid_typed(), :note, "hi"))
     end
 
-    test "an optional field may be nil" do
+    test "an optional field can be nil" do
       accept!(:typed, Map.put(valid_typed(), :note, nil))
     end
 
@@ -55,17 +55,18 @@ defmodule VerifiedPubSub.PayloadTest do
       accept!(:structured, %{point: %Point{x: 1, y: 2}})
     end
 
-    test "an :any field accepts anything" do
+    test "an :any field accepts any value" do
       accept!(:typed, Map.put(valid_typed(), :anything, self()))
       accept!(:typed, Map.put(valid_typed(), :anything, nil))
     end
   end
 
   describe "broadcast!/4 with a payload built at runtime" do
-    # One test through the macro, covering the whole path: validation accepts the
+    # One test goes through the macro, and covers the whole path: the check accepts the
     # payload, `Payload.validate!/4` returns it, and the macro puts that return value on
-    # the message. The acceptance cases above go straight at the validator instead --
-    # delivery is irrelevant to what they claim, and asserting it there only obscures it.
+    # the message. The tests of accepted values above call the validator directly. The
+    # delivery has no part in what they claim, and an assertion on it there hides the
+    # claim.
     test "a valid payload is delivered unchanged", %{x: id} do
       assert :ok = subscribe(:typed_payloads, %{x: id})
       payload = valid_typed()
@@ -95,7 +96,9 @@ defmodule VerifiedPubSub.PayloadTest do
       assert Exception.message(error) =~ "unexpected key: :nope"
     end
 
-    test "a wrong type raises, naming the field, declared type and value", %{x: id} do
+    test "a wrong type raises an error that names the field, the declared type, and the value", %{
+      x: id
+    } do
       error =
         assert_raise PayloadError, fn ->
           broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime(%{id: 42}))
@@ -106,7 +109,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert message =~ "got: 42"
     end
 
-    test "every problem is reported at once, not just the first", %{x: id} do
+    test "the error reports every problem at once, not only the first", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
           broadcast!(
@@ -158,7 +161,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert Exception.message(error) =~ "must be a map of the declared fields"
     end
 
-    test "a struct payload explains how to carry it in a field", %{x: id} do
+    test "the error for a struct payload explains how to carry the struct in a field", %{x: id} do
       error =
         assert_raise PayloadError, fn ->
           broadcast!(:typed_payloads, %{x: id}, :bare, at_runtime(%Point{x: 1, y: 2}))
@@ -169,7 +172,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert message =~ "Declare a field to carry it"
     end
 
-    test "nothing is broadcast when validation fails", %{x: id} do
+    test "broadcasts nothing when the payload is not valid", %{x: id} do
       assert :ok = subscribe(:typed_payloads, %{x: id})
 
       assert_raise PayloadError, fn ->
@@ -182,8 +185,8 @@ defmodule VerifiedPubSub.PayloadTest do
 
   describe "broadcast/4" do
     test "raises on a bad payload, as broadcast!/4 does", %{x: id} do
-      # A shape violation is a bug, not a transport failure, so it is not reported
-      # through the {:error, _} channel that a caller might shrug off.
+      # A wrong shape is a bug, not a transport failure. So the macro does not return it
+      # as an {:error, _} tuple, which a caller can ignore.
       assert_raise PayloadError, fn ->
         broadcast(:typed_payloads, %{x: id}, :bare, at_runtime(%{}))
       end
@@ -216,7 +219,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert is_atom(compile!(source(~s|%{id: "x"}|)))
     end
 
-    test "a missing required key fails the compile, listing the declared fields" do
+    test "a missing required key is a compile error that lists the declared fields" do
       error = compile_error(source("%{}"))
 
       assert %CompileError{} = error
@@ -226,34 +229,34 @@ defmodule VerifiedPubSub.PayloadTest do
       assert message =~ ~r{Declared at test/support/manifests\.ex:\d+:}
     end
 
-    test "an unexpected key fails the compile" do
+    test "an unexpected key is a compile error" do
       error = compile_error(source(~s|%{id: "x", nope: 1}|))
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ "unexpected: [:nope]"
     end
 
-    test "a literal value of the wrong type fails the compile" do
+    test "a literal value of the wrong type is a compile error" do
       error = compile_error(source("%{id: 42}"))
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ ":id is declared as :string, got: 42"
     end
 
-    test "a literal nil for a required field fails the compile" do
+    test "a literal nil for a required field is a compile error" do
       error = compile_error(source("%{id: nil}"))
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ ":id is declared as :string, got: nil"
     end
 
-    test "a non-literal value is left to the runtime check" do
+    test "the runtime check handles a value that is not a literal" do
       assert is_atom(compile!(source("%{id: to_string(id)}")))
     end
 
-    test "a map-update expression is not mistaken for a literal map" do
-      # `%{base | id: "x"}` is a single {:|, _, _} tuple, not key/value pairs. Reading it
-      # as a literal map would report a bogus unexpected key :| on correct code.
+    test "a map update expression does not count as a literal map" do
+      # `%{base | id: "x"}` is one {:|, _, _} tuple, not key/value pairs. A check that
+      # reads it as a literal map reports a false unexpected key :| on correct code.
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.MapUpdate")} do
@@ -267,7 +270,7 @@ defmodule VerifiedPubSub.PayloadTest do
              )
     end
 
-    test "a map-update params expression is not mistaken for a literal map either" do
+    test "a map update expression for the params does not count as a literal map" do
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.MapUpdateParams")} do
@@ -283,7 +286,7 @@ defmodule VerifiedPubSub.PayloadTest do
   end
 
   describe "field :type" do
-    test "an unknown type is a compile error listing the valid ones" do
+    test "an unknown type is a compile error that lists the valid types" do
       error =
         dsl_error("""
         defmodule #{unique_module("VPTest.BadType")} do
@@ -321,7 +324,7 @@ defmodule VerifiedPubSub.PayloadTest do
       assert Exception.message(error) =~ "invalid type"
     end
 
-    test "a struct module is accepted without being loaded" do
+    test "a struct module does not need to be loaded" do
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.StructType")} do
