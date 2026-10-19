@@ -1,13 +1,14 @@
 defmodule VerifiedPubSub.Transformers.ParseParams do
   @moduledoc """
-  Validates each topic's segments and derives its parameter list from them, so params are
-  declared exactly once.
+  Validates the segments of each topic, and finds the params in them.
+
+  So a manifest declares each param only once, in the segments.
   """
 
   use Spark.Dsl.Transformer
 
   @doc """
-  Validates a segment list and extracts its parameter names, in order.
+  Validates a list of segments, and returns the names of its params in order.
 
       iex> VerifiedPubSub.Transformers.ParseParams.parse(["owners", :owner_id, "pets"])
       {:ok, [:owner_id]}
@@ -27,7 +28,8 @@ defmodule VerifiedPubSub.Transformers.ParseParams do
          "literal segment #{inspect(literal)} in #{inspect(segments)} contains " <>
            "#{inspect(separator)}: give each part its own list element"}
 
-      # Enum.find/2 would return nil for a nil segment, so filter instead.
+      # Enum.find/2 returns nil when it finds a nil segment, which looks like no match.
+      # So this clause uses Enum.filter/2.
       (invalid = Enum.filter(segments, &(&1 in [nil, true, false]))) != [] ->
         {:error,
          "#{inspect(hd(invalid))} in #{inspect(segments)} is not a parameter name: " <>
@@ -67,8 +69,9 @@ defmodule VerifiedPubSub.Transformers.ParseParams do
     end)
   end
 
-  # Matched on the whole struct, not the name: a duplicate name is reported by
-  # ValidateTopics, and by then each duplicate must still be its own declaration.
+  # This function matches the whole struct, not the name. ValidateTopics reports a
+  # duplicate name later, and at that point each duplicate must still be a separate
+  # declaration.
   defp replace_topic(dsl, original, topic) do
     Spark.Dsl.Transformer.replace_entity(dsl, [:topics], topic, &(&1 == original))
   end
