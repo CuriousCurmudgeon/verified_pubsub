@@ -15,7 +15,7 @@ Each fact has one home. Link to that home. Do not repeat the fact.
 | What a module does | The `@moduledoc`. See [`DOC-2`](#doc-2). |
 | A tradeoff that serves time or space | `## Tradeoffs` in the `@moduledoc`. See [`DOC-5`](#doc-5). |
 | How a mechanism works | A code comment beside the code. See [`DOC-3`](#doc-3). |
-| The values of a type, the fields of a struct, or the keys of a returned map | The `@typedoc`. See [`DOC-7`](#doc-7). |
+| The values of a type, the fields of a struct, or the keys of a returned map | The `@typedoc`. See [`DOC-6`](#doc-6). |
 | What a function takes, returns, and refuses | The `@doc`. See [`DOC-2`](#doc-2). |
 | The detail of the behavior | The tests. See [`SPEC-1`](#spec-1). |
 
@@ -62,33 +62,16 @@ When a `@doc` needs a section, use one of these second level headers:
 - `## Usage`: how a caller uses the function.
 - `## Examples`: each example call and its result.
 
-A `@moduledoc` can use any second level header. Use these headers for these subjects:
-
-- `## Tradeoffs`: each choice that is not obvious and that serves time or space. Say what the module gives up, then
-  what it gains.
-- `## Message Passing`: the messages that the module sends or receives. See [`DOC-6`](#doc-6).
+A `@moduledoc` can use any second level header. When it lists tradeoffs, use `## Tradeoffs`. Give each choice that
+is not obvious and that serves time or space. Say what the module gives up, then what it gains.
 
 ### DOC-6
-
-When you write a `## Message Passing` list, put the PubSub bullets first and the direct messages next. Give one bullet
-to each topic and to each direct message.
-
-- A PubSub bullet starts with `Publishes to` or `Subscribes to`. It names the topic, then its events, as in
-  `Subscribes to "job:<job_id>" for "start_job" and "finish_job".`
-- A direct bullet starts with `Sends` or `Receives`. It names the message as a term, as in
-  ``Sends `{:refresh_items, items}` to the caller.``
-
-Write a topic and an event as literal strings in quotes, never as the function that builds them. Mark the part of a
-topic that varies, as in `"user:<user_id>"`. A direct message comes from `send/2` or `Process.send_after/3`. Leave out
-a message that the same module sends and receives, as a timer.
-
-### DOC-7
 
 When a type has a fixed set of values, list them in its `@typedoc`. List the fields of a struct in the `@typedoc` of
 `t:t/0`. When a function returns a map, give the map a `@type` and a `@typedoc`, and list its keys in the `@typedoc`.
 When a function returns an enumerated value, give it a `@type` and a `@typedoc`. Give each item one line.
 
-### DOC-8
+### DOC-7
 
 When you format a doc, follow [Writing documentation](https://hexdocs.pm/elixir/writing-documentation.html) of the
 Elixir guides.
