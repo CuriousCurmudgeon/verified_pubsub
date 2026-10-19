@@ -1,15 +1,14 @@
 defmodule VerifiedPubSub.Broadcast do
   @moduledoc false
 
-  # This exists so the generated `broadcast_*!` functions do not contain the
-  # `{:error, reason}` clause themselves. If the broadcast call is ever inferred to
-  # return only `:ok`, that clause becomes dead code and Elixir emits a "clause will
-  # never match" warning inside every consumer's generated manifest. Keeping the case
-  # here, where the argument carries the declared `:ok | {:error, term}` type, means
-  # generated code cannot trip that warning.
+  # This module holds the `{:error, reason}` clause, so the generated `broadcast_*!`
+  # functions do not hold it. When the compiler infers that the broadcast call returns
+  # only `:ok`, that clause is dead code. Elixir then emits a "clause will never match"
+  # warning in the code that each manifest generates. Here, the argument has the declared
+  # `:ok | {:error, term}` type, so generated code cannot cause that warning.
   #
-  # It also gives a better message than Phoenix.PubSub.broadcast!/4 would, by naming
-  # the topic and event rather than just the underlying failure.
+  # The error that it raises also names the topic and the event. The error of
+  # Phoenix.PubSub.broadcast!/4 names only the failure underneath.
 
   @doc false
   @spec bang!(:ok | {:error, term()}, atom(), String.t(), atom()) :: :ok
