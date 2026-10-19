@@ -3,57 +3,62 @@ defmodule VerifiedPubSub.Api do
   The call-site API: `subscribe/2`, `unsubscribe/2`, `topic/2`, `broadcast/4`,
   `broadcast!/4`, `broadcast_from/5` and `broadcast_from!/5`.
 
-  Imported by `use VerifiedPubSub, manifest: MyApp.Topics`, and by
+  `use VerifiedPubSub, manifest: MyApp.Topics` imports these macros, and so does
   `use VerifiedPubSub.Subscriber`:
 
       broadcast!(:pets, %{owner_id: id}, :adopted, payload)
 
   ## Argument order
 
-  A topic is always followed immediately by its params, in every macro here. The params
-  exist only to fill in the topic segments, so `{topic, params}` is the address and
-  `{event, payload}` is the message -- the same address-then-message shape as
-  `Phoenix.PubSub.broadcast/3`. It also means the two atoms are never adjacent, so they
-  cannot be silently transposed.
+  In every macro here, the params come immediately after the topic. The params only fill
+  in the segments of the topic, so `{topic, params}` is the address and `{event, payload}`
+  is the message. `Phoenix.PubSub.broadcast/3` has the same order: the address, then the
+  message. Also, the two atoms are never next to each other, so a call site cannot swap
+  them without notice.
 
   ## Why macros rather than functions
 
-  These are **macros**, so the topic and event must be literal atoms. That is what allows
-  an unknown topic or event to be a `CompileError` naming the valid alternatives. Params
-  may be built at runtime; a literal params map is checked at compile time, and a dynamic
-  one raises `KeyError` from `Map.fetch!/2` when a key is missing.
+  These are **macros**, so the topic and the event must be literal atoms. Because of this,
+  an unknown topic or event is a `CompileError` that names the valid choices. A call site
+  can build the params at runtime. The macro checks a literal params map at compile time.
+  A params map built at runtime raises `KeyError` from `Map.fetch!/2` when a key is
+  missing.
 
-  Plain functions taking atoms cannot be verified at compile time. Elixir's type inference
-  does not narrow across clause heads on a remote call, so a `broadcast/4` defined as
+  A plain function that takes atoms gets no check at compile time. Elixir's type inference
+  does not narrow across clause heads on a remote call. So a `broadcast/4` defined as
 
       def broadcast(:pets, %{owner_id: id}, :adopted, payload), do: ...
 
-  produces **no diagnostic at all** for `broadcast(:pets, params, :adoptd, ...)`
-  — verified empirically on Elixir 1.20.4. It fails at runtime instead. A macro can look
-  the topic and event up in the manifest while your code compiles.
+  gives **no diagnostic at all** for `broadcast(:pets, params, :adoptd, ...)`. We checked
+  this on Elixir 1.20.4. The call fails at runtime instead. A macro can find the topic and
+  the event in the manifest while your code compiles.
 
-  The costs: every calling module needs the import, and macros cannot be piped into,
-  captured with `&`, or called via `apply/3`.
+  The macros have these costs:
 
-  ## Skipping the sender
+    * each module that calls them needs the import
+    * a pipe cannot pass a value into them
+    * `&` cannot capture them
+    * `apply/3` cannot call them
 
-  `broadcast_from/5` and `broadcast_from!/5` mirror `Phoenix.PubSub.broadcast_from/4`,
-  `from` leading for the same reason it does there, and carry the same semantics:
+  ## Broadcasts that skip the sender
+
+  `broadcast_from/5` and `broadcast_from!/5` work like `Phoenix.PubSub.broadcast_from/4`.
+  `from` comes first for the same reason that it does there:
 
       broadcast_from!(self(), :pets, %{owner_id: id}, :adopted, payload)
 
-  The usual reason to want this is a LiveView that both writes to a topic and subscribes
-  to it, which would otherwise apply its own change twice.
+  A common use is a LiveView that writes to a topic and also subscribes to it. Without
+  these macros, the LiveView applies its own change twice.
 
-  `from` is whichever pid you pass, so `self()` is the *calling* process. When the
-  broadcast happens inside a context function, a `Task`, or an Oban job, `self()` is
-  *that* process rather than the one that started the request — pass the originating pid
-  explicitly there.
+  `from` is the pid that you pass, so `self()` is the process that makes the call. When a
+  context function, a `Task`, or an Oban job makes the broadcast, `self()` is *that*
+  process, not the process that started the request. In that case, pass the pid of the
+  process that started the request.
   """
 
   alias VerifiedPubSub.{Info, Topic}
 
-  @doc "Subscribes the calling process to a topic."
+  @doc "Subscribes the current process to a topic."
   defmacro subscribe(topic, params \\ quote(do: %{})) do
     {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
@@ -64,7 +69,7 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
-  @doc "Unsubscribes the calling process from a topic."
+  @doc "Unsubscribes the current process from a topic."
   defmacro unsubscribe(topic, params \\ quote(do: %{})) do
     {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
@@ -75,7 +80,7 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
-  @doc "Returns the wire topic string."
+  @doc "Returns the wire topic."
   defmacro topic(topic, params \\ quote(do: %{})) do
     {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
@@ -89,8 +94,8 @@ defmodule VerifiedPubSub.Api do
   @doc """
   Broadcasts an event on a topic that takes no params.
 
-  Equivalent to `broadcast(topic, %{}, event, payload)`, and a compile error if the topic
-  does take params. `subscribe/1` already worked this way.
+  It is the same as `broadcast(topic, %{}, event, payload)`. When the topic takes params,
+  the call is a compile error. `subscribe/1` works the same way.
   """
   defmacro broadcast(topic, event, payload) do
     build(__CALLER__, topic, no_params(), event, payload, nil, false)
@@ -101,41 +106,42 @@ defmodule VerifiedPubSub.Api do
     build(__CALLER__, topic, params, event, payload, nil, false)
   end
 
-  @doc "Broadcasts an event on a topic that takes no params, raising on failure."
+  @doc "Broadcasts an event on a topic that takes no params, and raises on failure."
   defmacro broadcast!(topic, event, payload) do
     build(__CALLER__, topic, no_params(), event, payload, nil, true)
   end
 
-  @doc "Broadcasts an event on a topic, raising on failure."
+  @doc "Broadcasts an event on a topic, and raises on failure."
   defmacro broadcast!(topic, params, event, payload) do
     build(__CALLER__, topic, params, event, payload, nil, true)
   end
 
-  @doc "Broadcasts on a param-free topic to every subscriber except `from`."
+  @doc "Broadcasts on a topic that takes no params, to every subscribed process except `from`."
   defmacro broadcast_from(from, topic, event, payload) do
     build(__CALLER__, topic, no_params(), event, payload, from, false)
   end
 
-  @doc "Broadcasts to every subscriber except `from`."
+  @doc "Broadcasts to every subscribed process except `from`."
   defmacro broadcast_from(from, topic, params, event, payload) do
     build(__CALLER__, topic, params, event, payload, from, false)
   end
 
   @doc """
-  Broadcasts on a param-free topic to every subscriber except `from`, raising on failure.
+  Broadcasts on a topic that takes no params, to every subscribed process except `from`,
+  and raises on failure.
   """
   defmacro broadcast_from!(from, topic, event, payload) do
     build(__CALLER__, topic, no_params(), event, payload, from, true)
   end
 
-  @doc "Broadcasts to every subscriber except `from`, raising on failure."
+  @doc "Broadcasts to every subscribed process except `from`, and raises on failure."
   defmacro broadcast_from!(from, topic, params, event, payload) do
     build(__CALLER__, topic, params, event, payload, from, true)
   end
 
-  # The AST of an empty params map, for the arities that omit the argument. Written here
-  # rather than as a default argument so the shorter arity shows up in the docs as its own
-  # signature instead of `params \\ %{}` in the middle of the list.
+  # The AST of an empty params map, for the arities with no params argument. A default
+  # argument shows `params \\ %{}` in the middle of the signature in the docs. This
+  # function gives the shorter arity a signature of its own instead.
   defp no_params, do: {:%{}, [], []}
 
   # -- expansion helpers -------------------------------------------------------
@@ -183,8 +189,8 @@ defmodule VerifiedPubSub.Api do
     quote do
       unquote(bind_topic(manifest, topic_struct, params))
 
-      # Bound once, so the payload expression is not evaluated twice, and validated
-      # before anything is sent.
+      # This binds the payload once, so that its expression runs once. It validates the
+      # payload before the broadcast.
       vp_payload =
         VerifiedPubSub.Payload.validate!(
           unquote(manifest),
@@ -205,9 +211,9 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
-  # Binds `vp_params` and `vp_topic`. The vars are created with this module's context so
-  # they match the `vp_params` / `vp_topic` written literally inside the `quote` blocks
-  # above, which hygiene also stamps with this module.
+  # Binds `vp_params` and `vp_topic`. `Macro.var/2` gives the vars the context of this
+  # module. The `quote` blocks above write `vp_params` and `vp_topic` literally, and
+  # hygiene gives them the same context, so the names match.
   defp bind_topic(manifest, topic_struct, params) do
     pvar = Macro.var(:vp_params, __MODULE__)
     tvar = Macro.var(:vp_topic, __MODULE__)
@@ -288,9 +294,9 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
-  # Only a literal map can be checked at compile time. Anything else (a variable, a
-  # function call) is left to `Map.fetch!/2` at runtime, which raises KeyError naming the
-  # missing key.
+  # Only a literal map has keys that this function can check at compile time. For any
+  # other expression, such as a variable or a function call, `Map.fetch!/2` checks at
+  # runtime. It raises KeyError and names the missing key.
   defp validate_params!(caller, topic_struct, {:%{}, _, pairs}) when is_list(pairs) do
     if literal_keys(pairs) do
       keys = literal_keys(pairs)
@@ -310,9 +316,9 @@ defmodule VerifiedPubSub.Api do
 
   defp validate_params!(_caller, _topic_struct, _params), do: :ok
 
-  # A payload built at runtime can only be checked by VerifiedPubSub.Payload when the
-  # broadcast runs. A literal map, though, is fully known here, so the same checks run at
-  # compile time and fail the build instead.
+  # VerifiedPubSub.Payload checks a payload built at runtime when the broadcast runs. A
+  # literal map is fully known at compile time, so this function runs the same checks
+  # here, and a failure stops the build.
   defp validate_literal_payload!(caller, topic_struct, event, {:%{}, _, pairs})
        when is_list(pairs) do
     with keys when is_list(keys) <- literal_keys(pairs) do
@@ -344,8 +350,8 @@ defmodule VerifiedPubSub.Api do
 
   defp validate_literal_payload!(_caller, _topic_struct, _event, _payload), do: :ok
 
-  # Only values that are literals in the AST can be judged. A variable or a call is left
-  # to the runtime check.
+  # This function can check only a value that is a literal in the AST. The runtime check
+  # handles a variable or a call.
   defp literal_type_problems(fields, pairs) do
     for {key, value} <- pairs,
         field = Enum.find(fields, &(&1.name == key)),
@@ -398,9 +404,10 @@ defmodule VerifiedPubSub.Api do
     end
   end
 
-  # The keys of a literal map, or nil when the AST is not one we can read statically.
-  # `%{base | k: v}` arrives as a single three-element `{:|, meta, [_, _]}` tuple rather
-  # than key/value pairs, and would otherwise be misread as a map with the key `:|`.
+  # Returns the keys of a literal map, or nil when the AST is not a map that this function
+  # can read at compile time. `%{base | k: v}` arrives as one three-element tuple,
+  # `{:|, meta, [_, _]}`, not as key/value pairs. Without this check, it reads as a map
+  # with the key `:|`.
   defp literal_keys(pairs) do
     if Enum.all?(pairs, &match?({key, _value} when is_atom(key), &1)) do
       Enum.map(pairs, &elem(&1, 0))
