@@ -65,7 +65,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
   end
 
   describe "a message from another manifest" do
-    test "is not dispatched, and the error names both manifests" do
+    test "goes to no handler, and the error names both manifests" do
       error =
         assert_raise ManifestMismatchError, fn ->
           Listener.handle_info(message(CollideB, %{species: :cat}), %{owner: self()})
@@ -79,7 +79,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       assert text =~ ":adopted"
     end
 
-    test "names the wire topic and the subscriber's topic it collided with" do
+    test "names the wire topic, and the topic of the subscriber that has the same wire topic" do
       error =
         assert_raise ManifestMismatchError, fn ->
           Listener.handle_info(message(CollideB, %{species: :cat}), %{owner: self()})
@@ -90,15 +90,15 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       assert text =~ "matches :pets (collide:<owner_id>:pets) in #{inspect(CollideA)}"
     end
 
-    test "does not reach the module's own handle_info clauses" do
-      # A catch-all is what the docs recommend for other messages. It must not swallow a
-      # cross-manifest message, or the collision goes unnoticed forever.
+    test "does not reach the handle_info clauses of the module" do
+      # The docs recommend a catch-all for other messages. If the catch-all takes a message
+      # from another manifest, nothing ever shows the collision.
       assert_raise ManifestMismatchError, fn ->
         ListenerWithCatchAll.handle_info(message(CollideB, %{species: :dog}), %{owner: self()})
       end
     end
 
-    test "never runs the handler, so a foreign payload cannot reach it" do
+    test "never runs the handler, so a payload from another manifest cannot reach it" do
       assert_raise ManifestMismatchError, fn ->
         Listener.handle_info(message(CollideB, %{species: :cat}), %{owner: self()})
       end
@@ -108,14 +108,14 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
   end
 
   describe "a message that is not from another manifest" do
-    test "a message from the bound manifest dispatches" do
+    test "a message from the bound manifest goes to its handler" do
       assert {:noreply, _} =
                Listener.handle_info(message(CollideA, %{id: "c1"}), %{owner: self()})
 
       assert_receive {:adopted, %{id: "c1"}}
     end
 
-    test "a non-Message message still reaches the module's catch-all" do
+    test "a message that is not a VerifiedPubSub.Message still reaches the catch-all" do
       assert {:noreply, _} = ListenerWithCatchAll.handle_info(:tick, %{owner: self()})
       assert_receive {:catchall, :tick}
     end
@@ -123,19 +123,19 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
 
   describe "a running subscriber" do
     @tag :capture_log
-    test "a colliding broadcast from another manifest crashes the subscriber" do
+    test "a broadcast on the same wire topic from another manifest crashes the subscriber" do
       id = "iso-#{System.unique_integer([:positive])}"
       pid = start_supervised!({Listener, owner: self(), owner_id: id})
       ref = Process.monitor(pid)
 
-      # Identical wire topics, so Phoenix.PubSub really does deliver it.
+      # The wire topics are the same, so Phoenix.PubSub delivers the message.
       assert VerifiedPubSub.Info.topic!(CollideA, :pets).segments ==
                VerifiedPubSub.Info.topic!(CollideB, :pets).segments
 
       assert :ok = Publisher.announce(id)
 
-      # A crashing GenServer logs its crash report before it exits, so :DOWN can take
-      # longer than the default 100ms on a loaded CI runner.
+      # A GenServer that crashes logs its crash report before it exits. So :DOWN can take
+      # longer than the default 100ms on a busy CI runner.
       assert_receive {:DOWN, ^ref, :process, ^pid, {%ManifestMismatchError{}, _stacktrace}},
                      1_000
 
