@@ -1,5 +1,5 @@
 defmodule VerifiedPubSub.Dsl.Topic do
-  @moduledoc "A declared topic, its wire segments, and its events."
+  @moduledoc "A topic that a manifest declares, with its wire segments and its events."
 
   @type segment :: String.t() | atom()
 
