@@ -77,8 +77,6 @@ if Code.ensure_loaded?(Igniter) do
       )
     end
 
-    defp pubsub_child(name), do: {Phoenix.PubSub, name: name}
-
     # Finds a `{Phoenix.PubSub, name: ...}` child in the application module. Returns
     # `:unreadable` when the application starts one, but its name is not a literal module
     # or atom.
@@ -123,19 +121,21 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    defp not_started_warning(name) do
-      """
-      VerifiedPubSub: the application already starts a Phoenix.PubSub, so #{inspect(name)}
-      was not added to its supervision tree. Start #{inspect(name)} yourself, giving it a
-      distinct child id with `Supervisor.child_spec/2`.
-      """
-    end
+    defp pubsub_child(name), do: {Phoenix.PubSub, name: name}
 
     defp unreadable_warning(manifest) do
       """
       VerifiedPubSub: the application starts a Phoenix.PubSub, but the installer could not
       read the name it is started with. Set `pubsub:` in #{inspect(manifest)} to that name,
       or rerun the installer with `--pubsub`.
+      """
+    end
+
+    defp not_started_warning(name) do
+      """
+      VerifiedPubSub: the application already starts a Phoenix.PubSub, so #{inspect(name)}
+      was not added to its supervision tree. Start #{inspect(name)} yourself, giving it a
+      distinct child id with `Supervisor.child_spec/2`.
       """
     end
   end
