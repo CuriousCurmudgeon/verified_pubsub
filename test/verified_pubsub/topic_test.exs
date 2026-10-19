@@ -8,11 +8,11 @@ defmodule VerifiedPubSub.TopicTest do
 
   doctest VerifiedPubSub.Topic
 
-  # Interpolating a param value that contains the segment separator would let a caller
-  # build a topic other than the one the call site names. ["a", :x] and ["a", :x, "b"] are
-  # disjoint as declared, but x = "1:b" makes the first build what the second builds.
-  describe "a param value carrying the separator" do
-    test "raises rather than forging a topic" do
+  # A param value that contains the separator would let a caller build a wire topic other
+  # than the one that the call site names. ["a", :x] and ["a", :x, "b"] are disjoint as
+  # declared. But x = "1:b" makes the first topic build what the second topic builds.
+  describe "a param value that contains the separator" do
+    test "raises, and builds no wire topic for another topic" do
       error =
         assert_raise TopicError, fn ->
           subscribe(:pets, %{owner_id: "1:pets"})
@@ -38,9 +38,9 @@ defmodule VerifiedPubSub.TopicTest do
       assert_raise TopicError, fn -> unsubscribe(:pets, %{owner_id: "a:b"}) end
     end
 
-    test "nothing is subscribed when the value is rejected" do
-      # If the guard ran after Phoenix.PubSub.subscribe, the process would be left
-      # subscribed to the forged topic.
+    test "leaves the process with no subscription when the value fails the check" do
+      # If the guard ran after Phoenix.PubSub.subscribe, the process would stay subscribed
+      # to the false wire topic.
       assert_raise TopicError, fn -> subscribe(:pets, %{owner_id: "9:pets"}) end
       assert :ok = broadcast!(:pets, %{owner_id: "9"}, :adopted, %{id: "leak"})
       refute_receive %Message{payload: %{id: "leak"}}, 50
@@ -48,14 +48,14 @@ defmodule VerifiedPubSub.TopicTest do
   end
 
   describe "an empty param value" do
-    test "raises, since it collapses a segment" do
+    test "raises, because it makes a segment empty" do
       error = assert_raise TopicError, fn -> subscribe(:pets, %{owner_id: ""}) end
       assert Exception.message(error) =~ "empty"
     end
   end
 
   describe "a valid param value" do
-    test "an integer is stringified" do
+    test "an integer becomes a string" do
       assert topic(:pets, %{owner_id: 7}) == "owners:7:pets"
     end
 
@@ -64,7 +64,7 @@ defmodule VerifiedPubSub.TopicTest do
       assert topic(:pets, %{owner_id: uuid}) == "owners:#{uuid}:pets"
     end
 
-    test "a param-free topic is unaffected" do
+    test "a topic that takes no params still builds its wire topic" do
       assert topic(:system, %{}) == "system"
     end
   end
@@ -77,10 +77,11 @@ defmodule VerifiedPubSub.TopicTest do
       def ping_short(x, tag), do: broadcast!(:short, %{x: x}, :ping, %{tag: tag})
     end
 
-    test "a separator in a param cannot reach another topic's subscribers" do
-      # :short is ["adj", :x] and :long is ["adj", :x, "b"] -- disjoint as declared. Before the
-      # guard, x = "1:b" on :short built "adj:1:b", exactly what :long builds from x = "1",
-      # so a :short broadcast was delivered to :long subscribers as an unhandled event.
+    test "a separator in a param value cannot reach the subscribers of the other topic" do
+      # :short is ["adj", :x] and :long is ["adj", :x, "b"], so they are disjoint as declared.
+      # Before the guard, x = "1:b" on :short built "adj:1:b". :long builds the same wire
+      # topic from x = "1", so a :short broadcast reached :long subscribers as an unhandled
+      # event.
       assert :ok = Adjacent.listen_long("1")
 
       assert_raise TopicError, fn -> Adjacent.ping_short("1:b", "forged") end
