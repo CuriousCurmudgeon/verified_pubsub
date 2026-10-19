@@ -71,8 +71,6 @@ defmodule VerifiedPubSub.Info do
   trace or `Phoenix.PubSub` itself. Param values come back as the strings that were on the
   wire. Returns `:error` when no topic matches, including when a param segment is empty,
   which no broadcast can produce.
-
-  At most one topic can match, since a manifest's topics are checked to be disjoint.
   """
   @spec match(module(), String.t()) :: {:ok, atom(), %{atom() => String.t()}} | :error
   def match(manifest, wire) when is_binary(wire) do

@@ -8,18 +8,20 @@ defmodule VerifiedPubSub.Api do
 
       broadcast!(:pets, %{owner_id: id}, :adopted, payload)
 
+  ## Argument order
+
   A topic is always followed immediately by its params, in every macro here. The params
   exist only to fill in the topic segments, so `{topic, params}` is the address and
   `{event, payload}` is the message -- the same address-then-message shape as
   `Phoenix.PubSub.broadcast/3`. It also means the two atoms are never adjacent, so they
   cannot be silently transposed.
 
+  ## Why macros rather than functions
+
   These are **macros**, so the topic and event must be literal atoms. That is what allows
   an unknown topic or event to be a `CompileError` naming the valid alternatives. Params
   may be built at runtime; a literal params map is checked at compile time, and a dynamic
   one raises `KeyError` from `Map.fetch!/2` when a key is missing.
-
-  ## Why macros rather than functions
 
   Plain functions taking atoms cannot be verified at compile time. Elixir's type inference
   does not narrow across clause heads on a remote call, so a `broadcast/4` defined as

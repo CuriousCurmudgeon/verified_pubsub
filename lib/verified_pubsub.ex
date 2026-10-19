@@ -162,17 +162,6 @@ defmodule VerifiedPubSub do
   adapter behaviour — that is where PG2, Redis, and anything else are configured — so
   wrapping it would duplicate an extension point one layer down, and leave you
   configuring transport in two places.
-
-  ## Why macros
-
-  The call-site API is macros rather than functions so that the topic and event can be
-  checked while your code compiles. Plain functions taking atoms cannot be: Elixir's
-  type inference does not narrow across clause heads on a remote call, so
-  `broadcast(:pets, params, :adoptd, ...)` would fail only at runtime.
-
-  The cost is that every calling module needs `use VerifiedPubSub, manifest: ...`, and
-  macros cannot be piped into, captured with `&`, or called via `apply/3`. Modules that
-  `use VerifiedPubSub.Subscriber` already have the import.
   """
 
   @doc """

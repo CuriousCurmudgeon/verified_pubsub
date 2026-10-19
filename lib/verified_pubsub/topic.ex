@@ -3,8 +3,12 @@ defmodule VerifiedPubSub.Topic do
   Builds the segment of a wire topic that a param fills.
 
   A topic is declared as a list of segments joined with `:`, where a string is a literal
-  and an atom is a param. Three properties together guarantee that an interpolated topic
-  can only ever be the topic its call site names:
+  and an atom is a param.
+
+  ## Why each call checks the param value
+
+  Three properties together guarantee that an interpolated topic can only ever be the
+  topic its call site names:
 
     1. every param fills a whole segment — guaranteed by the list shape, since a param is
        its own element and literals may not contain the separator

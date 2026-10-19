@@ -190,20 +190,20 @@ defmodule VerifiedPubSub.Subscriber do
   @doc """
   Handles one event on one topic, matching the topic params.
 
-  The leading arguments are `broadcast!/4`'s, in the same order — the difference is that
-  here they **match** rather than build:
+  The leading arguments are `broadcast!/4`'s, in the same order, but here they **match**
+  rather than build. Unlike a broadcast, the pattern can name a subset of the params. A
+  param that the topic does not declare is a compile error, since that pattern could never
+  match.
+
+  ## Usage
 
       broadcast!     :pets, %{owner_id: id},    :adopted, payload
       handle_message :pets, %{owner_id: owner}, :adopted, payload, socket
 
-  So `owner` is bound from the topic params without destructuring the whole message, and a
+  `owner` is bound from the topic params without destructuring the whole message. A
   literal narrows the clause to that value:
 
       handle_message :pets, %{owner_id: "7"}, :adopted, payload, socket
-
-  Unlike a broadcast, a subset of the params is legitimate — a pattern that mentions one
-  param of three still matches. Naming a param the topic does not declare is a compile
-  error, since that pattern could never match.
   """
   defmacro handle_message(topic, params, event, pattern, state, do: body) do
     put_clause!(__CALLER__, topic, params, event, pattern, state, body)
