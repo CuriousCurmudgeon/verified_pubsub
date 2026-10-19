@@ -1,11 +1,11 @@
 defmodule VerifiedPubSub.TopicError do
   @moduledoc """
-  Raised when a topic param value cannot safely fill its segment of the wire topic.
+  The error for a param value that cannot safely fill its segment of the wire topic.
 
   A param value fills exactly one segment of the topic. A value that is empty, or that
-  contains the segment separator, would build a topic string other than the one the call
-  site names — potentially another declared topic, delivering the message to the wrong
-  subscribers. See `VerifiedPubSub.Topic`.
+  contains the separator, can build a wire topic other than the one that the call site
+  names. That wire topic can belong to another declared topic. The message then goes to
+  the wrong subscribers. See `VerifiedPubSub.Topic`.
   """
 
   defexception [:manifest, :topic, :segments, :param, :value, :reason]
