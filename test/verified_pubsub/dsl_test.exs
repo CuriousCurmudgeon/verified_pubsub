@@ -5,7 +5,7 @@ defmodule VerifiedPubSub.DslTest do
   alias VerifiedPubSub.TestManifests.Basic
 
   describe "Info.topics/1" do
-    test "topics are parsed at the top level, without a wrapper block" do
+    test "finds the topics declared at the top level, with no wrapper block" do
       assert [:pets, :system, :typed_payloads] =
                Basic
                |> Info.topics()
@@ -24,7 +24,7 @@ defmodule VerifiedPubSub.DslTest do
       assert :error = Info.topic(Basic, :nope)
     end
 
-    test "payload fields are parsed and exposed but not enforced" do
+    test "exposes the fields of each event" do
       {:ok, topic} = Info.topic(Basic, :pets)
       adopted = Enum.find(topic.messages, &(&1.name == :adopted))
 
@@ -39,28 +39,28 @@ defmodule VerifiedPubSub.DslTest do
       end
     end
 
-    test "shows each known topic's wire pattern" do
+    test "shows the wire pattern of each known topic" do
       error = assert_raise ArgumentError, fn -> Info.topic!(Basic, :nope) end
       assert Exception.message(error) =~ ~r/:pets\s+owners:<owner_id>:pets/
     end
   end
 
   describe "Info.match/2" do
-    test "finds the topic a wire string belongs to, with its params" do
+    test "finds the topic that a wire topic belongs to, with its params" do
       assert {:ok, :pets, %{owner_id: "42"}} = Info.match(Basic, "owners:42:pets")
     end
 
-    test "matches a param-free topic" do
+    test "matches a topic that takes no params" do
       assert {:ok, :system, %{}} = Info.match(Basic, "system")
     end
 
-    test "is :error for a wrong literal or segment count" do
+    test "returns :error for a wrong literal or a wrong segment count" do
       assert :error = Info.match(Basic, "acounts:42:pets")
       assert :error = Info.match(Basic, "owners:42")
       assert :error = Info.match(Basic, "owners:42:pets:extra")
     end
 
-    test "is :error when a param segment is empty, which no broadcast builds" do
+    test "returns :error when a param segment is empty, which no broadcast builds" do
       assert :error = Info.match(Basic, "owners::pets")
     end
 
@@ -72,18 +72,18 @@ defmodule VerifiedPubSub.DslTest do
   end
 
   describe "Info.events/2" do
-    test "returns declared event names in declaration order" do
+    test "returns the events of a topic in the order of declaration" do
       assert [:adopted, :renamed, :rehomed] = Info.events(Basic, :pets)
       assert [:alert] = Info.events(Basic, :system)
     end
   end
 
   describe "use VerifiedPubSub.Manifest" do
-    test "records its Phoenix.PubSub name" do
+    test "records the name of its Phoenix.PubSub" do
       assert Basic.__verified_pubsub_name__() == VerifiedPubSub.TestPubSub
     end
 
-    test "the :pubsub option is required" do
+    test "requires the :pubsub option" do
       error =
         VerifiedPubSub.CompileHelper.compile_error("""
         defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.NoPubSub")} do
@@ -102,7 +102,7 @@ defmodule VerifiedPubSub.DslTest do
   end
 
   describe "topic, message, field :description" do
-    test "is read from a block or a keyword on a topic, an event and a field" do
+    test "comes from a block or a keyword, on a topic, an event, and a field" do
       manifest =
         VerifiedPubSub.CompileHelper.compile!("""
         defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.Described")} do
