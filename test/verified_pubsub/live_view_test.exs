@@ -20,8 +20,8 @@ defmodule VerifiedPubSub.LiveViewTest do
     @impl true
     def render(assigns), do: ~H"<div>{length(@pets)}</div>"
 
-    # `use VerifiedPubSub.Subscriber` imports VerifiedPubSub.Api, so the macros are
-    # usable here without a second `use`.
+    # `use VerifiedPubSub.Subscriber` imports VerifiedPubSub.Api, so this module can call
+    # the macros without a second `use`.
     def subscribe_to(owner_id), do: subscribe(:pets, %{owner_id: owner_id})
 
     def announce(owner_id, payload) do
@@ -55,14 +55,14 @@ defmodule VerifiedPubSub.LiveViewTest do
     assert updated.assigns.pets == [%{id: "c1"}]
   end
 
-  test "an ignored event leaves the socket untouched" do
+  test "an ignored event does not change the socket" do
     {:ok, socket} = PetsLive.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
 
     assert {:noreply, ^socket} =
              PetsLive.handle_info(message(:rehomed, %{id: "c1"}), socket)
   end
 
-  test "the API macros are imported into the LiveView, and round-trip a message" do
+  test "the LiveView imports the API macros, and sends and handles a message with them" do
     owner_id = unique_owner_id()
 
     assert :ok = PetsLive.subscribe_to(owner_id)
