@@ -1,12 +1,13 @@
 defmodule VerifiedPubSub.PayloadError do
   @moduledoc """
-  Raised when a broadcast payload does not match the shape the manifest declares.
+  The error for a broadcast payload that does not match the shape that the manifest
+  declares.
 
-  Raised by both `broadcast/4` and `broadcast!/4`: a shape violation is a bug in the
-  calling code, not an operational condition, so `{:error, _}` stays reserved for
-  transport failures a caller might reasonably handle.
+  `broadcast/4` and `broadcast!/4` both raise it. A shape violation is a bug in the code of
+  the caller, not a failure that the caller can expect. So `{:error, _}` only reports a
+  transport failure, which a caller can handle.
 
-  Every problem is reported at once rather than the first:
+  The error reports every problem at once, not only the first:
 
       invalid payload for :pets :adopted in MyApp.Topics:
 
