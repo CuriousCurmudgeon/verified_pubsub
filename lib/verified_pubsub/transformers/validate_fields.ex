@@ -1,10 +1,10 @@
 defmodule VerifiedPubSub.Transformers.ValidateFields do
   @moduledoc """
-  Validates every declared field's type, at compile time.
+  Validates the type of each declared field at compile time.
 
-  The Spark schema accepts `:any` for a field's type, because the permitted types include
-  `{:list, type}` tuples and struct modules that no Spark type captures. Without this
-  transformer `field :id, :strng` would be accepted silently and then match nothing at
+  The Spark schema gives the type of a field the Spark type `:any`, because no Spark type
+  accepts a `{:list, type}` tuple or a struct module. Without this check,
+  `field :id, :strng` compiles with no error, and the field then matches no value at
   runtime.
   """
 
@@ -14,15 +14,15 @@ defmodule VerifiedPubSub.Transformers.ValidateFields do
 
   @primitives [:string, :integer, :float, :boolean, :atom, :map, :list, :any]
 
-  @doc "The primitive types a field may declare."
+  @doc "The primitive types that a manifest can give a field."
   @spec primitives() :: [atom()]
   def primitives, do: @primitives
 
   @doc """
   Whether `type` is a valid field type.
 
-  A struct module is recognised syntactically, by its `Elixir.` prefix, rather than by
-  loading it — the module may not be compiled yet when this runs.
+  The compiler may not have compiled a struct module yet when this check runs. So the
+  check finds a struct module by its `Elixir.` prefix, and does not load the module.
   """
   @spec valid_type?(term()) :: boolean()
   def valid_type?(type) when type in @primitives, do: true
