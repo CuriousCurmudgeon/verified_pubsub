@@ -2,16 +2,15 @@ defmodule VerifiedPubSub.Info do
   @moduledoc """
   The only supported way to read a manifest.
 
-  Everything outside this module — including `VerifiedPubSub.Subscriber` — goes
-  through these functions rather than Spark internals, so the DSL front-end stays
-  replaceable.
+  Read a manifest through these functions, not through the Spark internals, so that the
+  DSL stays replaceable.
   """
 
   use Spark.InfoGenerator, extension: VerifiedPubSub.Dsl, sections: [:topics]
 
   alias VerifiedPubSub.Dsl.Topic
 
-  @doc "Fetches a topic by its alias."
+  @doc "Fetches a topic by its name."
   @spec topic(module(), atom()) :: {:ok, Topic.t()} | :error
   def topic(manifest, name) do
     case Enum.find(topics(manifest), &(&1.name == name)) do
@@ -20,7 +19,7 @@ defmodule VerifiedPubSub.Info do
     end
   end
 
-  @doc "Fetches a topic by its alias, raising with the known topics if absent."
+  @doc "Fetches a topic by its name, and raises with the known topics when it is absent."
   @spec topic!(module(), atom()) :: Topic.t()
   def topic!(manifest, name) do
     case topic(manifest, name) do
@@ -35,7 +34,7 @@ defmodule VerifiedPubSub.Info do
     end
   end
 
-  @doc "Event names declared on a topic, in declaration order."
+  @doc "Returns the events that a topic declares, in the order of declaration."
   @spec events(module(), atom()) :: [atom()]
   def events(manifest, name) do
     manifest
@@ -44,7 +43,7 @@ defmodule VerifiedPubSub.Info do
     |> Enum.map(& &1.name)
   end
 
-  @doc "Declared payload fields for an event, in declaration order."
+  @doc "Returns the fields that an event declares, in the order of declaration."
   @spec fields(module(), atom(), atom()) :: [VerifiedPubSub.Dsl.Field.t()]
   def fields(manifest, topic, event) do
     topic_struct = topic!(manifest, topic)
@@ -62,15 +61,15 @@ defmodule VerifiedPubSub.Info do
   end
 
   @doc """
-  Finds the declared topic a wire topic string belongs to, and the params it carries.
+  Finds the declared topic that a wire topic belongs to, and the params that it carries.
 
       iex> VerifiedPubSub.Info.match(MyApp.Topics, "owners:42:pets")
       {:ok, :pets, %{owner_id: "42"}}
 
-  The reverse of building a topic: useful when all you have is the string, from a log, a
-  trace or `Phoenix.PubSub` itself. Param values come back as the strings that were on the
-  wire. Returns `:error` when no topic matches, including when a param segment is empty,
-  which no broadcast can produce.
+  It does the reverse of `VerifiedPubSub.Api.topic/2`, for a string from a log, a trace,
+  or `Phoenix.PubSub`. Param values come back as the strings that were on the wire.
+  Returns `:error` when no topic matches, and when a param segment is empty, which no
+  broadcast can produce.
   """
   @spec match(module(), String.t()) :: {:ok, atom(), %{atom() => String.t()}} | :error
   def match(manifest, wire) when is_binary(wire) do
@@ -94,7 +93,7 @@ defmodule VerifiedPubSub.Info do
 
   defp match_segments(_segments, _parts, _params), do: nil
 
-  @doc "Parameter names for a topic, in the order they appear in the segments."
+  @doc "Returns the params of a topic, in the order of its segments."
   @spec params(module(), atom()) :: [atom()]
   def params(manifest, name) do
     manifest
