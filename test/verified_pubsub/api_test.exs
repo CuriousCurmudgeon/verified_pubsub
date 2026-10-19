@@ -27,7 +27,8 @@ defmodule VerifiedPubSub.ApiTest do
     def alert(payload), do: broadcast!(:system, %{}, :alert, payload)
     def sub_system, do: subscribe(:system)
 
-    # params built at runtime, so the map is not a literal at expansion time
+    # This function builds the params at runtime, so the map is not a literal when the
+    # macro expands.
     def adopted_dynamic(id, payload) do
       params = Map.new([{:owner_id, id}])
       broadcast!(:pets, params, :adopted, payload)
@@ -63,7 +64,7 @@ defmodule VerifiedPubSub.ApiTest do
   end
 
   describe "subscribe/1" do
-    test "a param-free topic needs no params argument" do
+    test "a topic that takes no params needs no params argument" do
       token = unique_owner_id()
       assert :ok = Broadcaster.sub_system()
       assert :ok = Broadcaster.alert(%{text: token})
@@ -88,7 +89,7 @@ defmodule VerifiedPubSub.ApiTest do
   end
 
   describe "topic/2" do
-    test "interpolates params", %{owner_id: id} do
+    test "puts the params into the wire topic", %{owner_id: id} do
       assert Broadcaster.topic_for(id) == "owners:#{id}:pets"
     end
   end
@@ -100,14 +101,14 @@ defmodule VerifiedPubSub.ApiTest do
   end
 
   describe "broadcast!/4" do
-    test "subscribe + broadcast delivers", %{owner_id: id} do
+    test "delivers a message to a subscribed process", %{owner_id: id} do
       assert :ok = Broadcaster.sub(id)
       assert :ok = Broadcaster.adopted(id, %{id: "c1"})
 
       assert_receive %Message{topic: :pets, event: :adopted, payload: %{id: "c1"}}
     end
 
-    test "the message carries the same shape as the generated functions", %{owner_id: id} do
+    test "the message has the same shape that the generated functions use", %{owner_id: id} do
       assert :ok = Broadcaster.sub(id)
       assert :ok = Broadcaster.adopted(id, %{id: "c1"})
 
@@ -120,24 +121,25 @@ defmodule VerifiedPubSub.ApiTest do
       }
     end
 
-    test "params built at runtime still work", %{owner_id: id} do
+    test "accepts params built at runtime", %{owner_id: id} do
       assert :ok = Broadcaster.sub(id)
       assert :ok = Broadcaster.adopted_dynamic(id, %{id: "c1"})
 
       assert_receive %Message{params: %{owner_id: ^id}}
     end
 
-    test "params and event in the wrong order is a compile error, not a runtime one" do
-      # The pre-0.1 order was (topic, event, params, payload). Swapping the two puts the
-      # params map in the event slot, where a non-atom cannot be verified -- so the old
-      # order fails the build rather than reaching Map.fetch!/2 on an atom at runtime.
+    test "params and an event in the wrong order are a compile error, not a runtime error" do
+      # Before 0.1, the order was (topic, event, params, payload). In that order, the
+      # params map goes in the event slot, where the macro cannot verify a value that is
+      # not an atom. So the old order stops the build. It never reaches Map.fetch!/2 on
+      # an atom at runtime.
       error = compile_error(source(~s|broadcast!(:pets, :adopted, %{owner_id: "1"}, %{})|))
 
       assert %CompileError{} = error
       assert Exception.message(error) =~ "expected a literal atom for event"
     end
 
-    test "an unknown topic is a hard compile error listing declared topics" do
+    test "an unknown topic is a compile error that lists the declared topics" do
       error = compile_error(source(~s|broadcast!(:nope, %{}, :adopted, %{})|))
 
       assert %CompileError{} = error
@@ -150,7 +152,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert message =~ ~r{:system\s+system\s+test/support/manifests\.ex:\d+}
     end
 
-    test "a typo'd event is a hard compile error listing declared events" do
+    test "a misspelled event is a compile error that lists the declared events" do
       error =
         compile_error(source(~s|broadcast!(:pets, %{owner_id: "1"}, :adoptd, %{})|))
 
@@ -162,7 +164,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert message =~ ~r{:pets is declared at test/support/manifests\.ex:\d+\.}
     end
 
-    test "an event from another topic is a hard error, and says where it lives" do
+    test "an event of another topic is a compile error that names the topic that declares it" do
       error =
         compile_error(source(~s|broadcast!(:pets, %{owner_id: "1"}, :alert, %{})|))
 
@@ -172,7 +174,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert message =~ "declared on [:system]"
     end
 
-    test "a literal params map missing a required key is a hard compile error" do
+    test "a literal params map without a required key is a compile error" do
       error = compile_error(source(~s|broadcast!(:pets, %{}, :adopted, %{})|))
 
       assert %CompileError{} = error
@@ -182,7 +184,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert message =~ ~r{:pets is declared at test/support/manifests\.ex:\d+\.}
     end
 
-    test "a literal params map with an unexpected key is a hard compile error" do
+    test "a literal params map with an unexpected key is a compile error" do
       error =
         compile_error(source(~s|broadcast!(:pets, %{owner_id: "1", extra: 2}, :adopted, %{})|))
 
@@ -190,7 +192,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert Exception.message(error) =~ "extra"
     end
 
-    test "a literal params map with a misspelled key names both sides" do
+    test "a literal params map with a misspelled key names that key and the declared key" do
       error =
         compile_error(source(~s|broadcast!(:pets, %{acount_id: "1"}, :adopted, %{})|))
 
@@ -200,7 +202,7 @@ defmodule VerifiedPubSub.ApiTest do
       assert message =~ "owner_id"
     end
 
-    test "params built at runtime skip the compile check and are not an error" do
+    test "params built at runtime get no compile check and are not an error" do
       assert is_atom(
                compile!(
                  source(~s|broadcast!(:pets, Map.new([{:owner_id, "1"}]), :adopted, %{id: "x"})|)
@@ -208,11 +210,11 @@ defmodule VerifiedPubSub.ApiTest do
              )
     end
 
-    test "a param-free topic accepts an empty literal map" do
+    test "a topic that takes no params accepts an empty literal map" do
       assert is_atom(compile!(source(~s|broadcast!(:system, %{}, :alert, %{text: "x"})|)))
     end
 
-    test "a non-literal topic is a hard compile error" do
+    test "a topic that is not a literal is a compile error" do
       error = compile_error(source(~s|broadcast!(var!(t), %{owner_id: "1"}, :adopted, %{})|))
 
       assert %CompileError{} = error
@@ -230,9 +232,9 @@ defmodule VerifiedPubSub.ApiTest do
   end
 
   describe "use VerifiedPubSub.Subscriber" do
-    test "a subscriber's manifest is reused without a second use" do
-      # `use VerifiedPubSub.Subscriber` already sets the manifest attribute, so a
-      # LiveView that subscribes can broadcast by importing the macros alone.
+    test "a subscriber can broadcast with its manifest and no second use" do
+      # `use VerifiedPubSub.Subscriber` already sets the manifest attribute. So a
+      # LiveView that subscribes can broadcast when it imports only the macros.
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.SubAndBroadcast")} do
@@ -256,7 +258,7 @@ defmodule VerifiedPubSub.ApiTest do
              )
     end
 
-    test "a subscriber may use the manifest the module is already bound to" do
+    test "a subscriber can use the manifest that the module is already bound to" do
       assert is_atom(
                compile!("""
                defmodule #{unique_module("VPTest.SameManifest")} do
