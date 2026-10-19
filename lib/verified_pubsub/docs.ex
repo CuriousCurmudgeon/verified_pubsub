@@ -1,9 +1,9 @@
 defmodule VerifiedPubSub.Docs do
   @moduledoc false
 
-  # Renders the `## Topics` section that VerifiedPubSub.Dsl.explain/1 hands to Spark for
-  # the manifest's @moduledoc. Everything except the descriptions is derived from the
-  # declarations, so the section cannot drift from what the manifest enforces.
+  # Renders the `## Topics` section of the @moduledoc of a manifest. All of the section
+  # except the descriptions comes from the declarations, so the section always agrees with
+  # what the manifest enforces.
 
   alias VerifiedPubSub.Dsl.{Field, Message, Topic}
 
@@ -13,8 +13,8 @@ defmodule VerifiedPubSub.Docs do
     Enum.join(["## Topics" | Enum.map(topics, &topic/1)], "\n\n")
   end
 
-  # A topic always has at least one event: VerifiedPubSub.Transformers.ValidateTopics
-  # rejects a topic without one.
+  # A topic always has one event or more, because
+  # VerifiedPubSub.Transformers.ValidateTopics rejects a topic with no event.
   defp topic(%Topic{} = topic) do
     [
       "### `#{inspect(topic.name)}`",
@@ -42,8 +42,9 @@ defmodule VerifiedPubSub.Docs do
   defp item(head, nil, _indent), do: head
   defp item(head, description, indent), do: head <> " - " <> indent_lines(description, indent)
 
-  # A description can span lines. Continuation lines are indented to sit inside the list
-  # item, and blank lines stay blank so they carry no trailing whitespace.
+  # A description can have many lines. Each line after the first gets an indent, so that
+  # it stays inside the list item. A blank line stays blank, so that it has no trailing
+  # whitespace.
   defp indent_lines(text, indent) do
     text
     |> String.trim()
