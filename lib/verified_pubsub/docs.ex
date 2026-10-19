@@ -32,13 +32,6 @@ defmodule VerifiedPubSub.Docs do
       Enum.map_join(message.fields, "", &("\n  " <> field(&1)))
   end
 
-  defp field(%Field{} = field) do
-    item("* `#{inspect(field.name)}` (#{type_label(field)})", field.description, "    ")
-  end
-
-  defp type_label(%Field{type: type, required: true}), do: "`#{inspect(type)}`"
-  defp type_label(%Field{type: type, required: false}), do: "`#{inspect(type)}`, optional"
-
   defp item(head, nil, _indent), do: head
   defp item(head, description, indent), do: head <> " - " <> indent_lines(description, indent)
 
@@ -55,4 +48,11 @@ defmodule VerifiedPubSub.Docs do
     end)
     |> String.trim_leading()
   end
+
+  defp field(%Field{} = field) do
+    item("* `#{inspect(field.name)}` (#{type_label(field)})", field.description, "    ")
+  end
+
+  defp type_label(%Field{type: type, required: true}), do: "`#{inspect(type)}`"
+  defp type_label(%Field{type: type, required: false}), do: "`#{inspect(type)}`, optional"
 end
