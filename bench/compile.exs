@@ -2,19 +2,19 @@
 #
 #     elixir bench/compile.exs [out_dir]
 #
-# Generates synthetic Mix projects that do the same thing twice: once through a
-# VerifiedPubSub manifest, broadcast!/4 and handle_message/5, and once with hand-built
-# topic strings, Phoenix.PubSub.broadcast!/3 and handle_info/2. Then it times a clean
-# compile of each, and, for the verified projects, an incremental compile after editing
-# the manifest.
+# This script generates Mix projects that do the same work in two ways. One way uses a
+# VerifiedPubSub manifest, broadcast!/4, and handle_message/5. The other way uses wire
+# topics built by hand, Phoenix.PubSub.broadcast!/3, and handle_info/2. The script times
+# a clean compile of each project. For each verified project, it also times an
+# incremental compile after an edit to the manifest.
 #
-# The projects share this repository's deps directory, lockfile and .tool-versions, so
-# nothing is fetched and the same Elixir is used. Dependencies are compiled once per
-# project, outside the timings.
+# The projects share the deps directory, the lockfile, and the .tool-versions of this
+# repository. So the script fetches nothing, and every project uses the same Elixir. Each
+# project compiles its dependencies once, outside the timed compiles.
 #
-# Spark stores each DSL entity's source file path in the manifest, so the manifest's
-# compile time grows with the length of out_dir. Use a path about as long as a real
-# project's.
+# Spark stores the source file path of each DSL entity in the manifest. So the compile
+# time of the manifest grows with the length of out_dir. Use a path about as long as the
+# path of a real project.
 
 defmodule Bench.Compile do
   @repo Path.expand("..", __DIR__)
@@ -73,8 +73,8 @@ defmodule Bench.Compile do
         {name, plain_ms, verified_ms, manifest_ms, incremental}
       end
 
-    # "everything else" is the verified compile minus the manifest's own: the callers and
-    # subscribers, to set against the plain compile.
+    # "everything else" is the verified compile minus the compile of the manifest. It
+    # covers the callers and the subscribers, for comparison with the plain compile.
     IO.puts("\nscenario   plain      verified   manifest   everything else")
 
     for {name, plain_ms, verified_ms, manifest_ms, _} <- results do
@@ -88,10 +88,10 @@ defmodule Bench.Compile do
     end
   end
 
-  # -- timing -------------------------------------------------------------------------
+  # -- compile time --------------------------------------------------------------------
 
-  # The median of a few forced compiles, in ms, as reported by `--profile time` so Mix's
-  # own startup is left out.
+  # Returns the median of a few forced compiles, in ms. The times come from
+  # `--profile time`, so they leave out the startup of Mix.
   defp clean_compile(dir) do
     1..@runs
     |> Enum.map(fn _ -> compile_ms(dir, ["--force"]) end)
@@ -103,7 +103,7 @@ defmodule Bench.Compile do
     original = File.read!(manifest)
 
     try do
-      # Sources are compared by content digest and mtime; sleep so the edit is seen.
+      # Mix compares sources by content digest and mtime. The sleep lets Mix see the edit.
       Process.sleep(1_100)
       File.write!(manifest, edit.(original))
       {output, ms} = mix_compile(dir, ["--verbose"])
@@ -130,8 +130,12 @@ defmodule Bench.Compile do
 
     if status != 0, do: raise("mix compile failed in #{dir}:\n#{output}")
 
-    # Every phase the profiler reports: the compilation cycle, writing to disk, after
-    # compile callbacks, and the group pass that type-checks the modules.
+    # Add up every phase that the profiler reports:
+    #
+    #   * the compile cycle
+    #   * the write to disk
+    #   * the after-compile callbacks
+    #   * the group pass that type-checks the modules
     ms =
       ~r/\[profile\] Finished .* in (\d+)ms/
       |> Regex.scan(output)
@@ -141,13 +145,13 @@ defmodule Bench.Compile do
     {output, ms}
   end
 
-  # With --verbose, Mix names each file it compiles.
+  # With --verbose, Mix names each file that it compiles.
   defp recompiled(output) do
     ~r/Compiled lib\/\S+\.ex/ |> Regex.scan(output) |> length()
   end
 
-  # A project holding nothing but the manifest, to separate its own compile time from
-  # the cost it adds to every caller.
+  # A project that holds only the manifest. It separates the compile time of the manifest
+  # from the cost that the manifest adds to each caller.
   defp manifest_only(out_dir, name, shape) do
     dir =
       project(out_dir, "#{name}_manifest_only", :verified, %{shape | callers: 0, subscribers: 0})
@@ -201,7 +205,7 @@ defmodule Bench.Compile do
       File.write!(Path.join(dir, "lib/subscribers/sub#{i}.ex"), subscriber(kind, i, shape))
     end
 
-    # Compile deps once, untimed. A forced compile of the app alone follows.
+    # Compile deps once, with no timer. A forced compile of only the app follows.
     {output, status} =
       System.cmd("mix", ["do", "deps.get,", "compile"],
         cd: dir,
@@ -262,7 +266,7 @@ defmodule Bench.Compile do
     """
   end
 
-  # Broadcast j of caller i goes to a topic and event spread over the manifest.
+  # Broadcast j of caller i goes to a topic and an event from across the manifest.
   defp target(i, j, shape) do
     n = (i - 1) * shape.broadcasts + (j - 1)
     {rem(n, shape.topics) + 1, rem(div(n, shape.topics), shape.events) + 1}
