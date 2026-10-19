@@ -1,15 +1,15 @@
 defmodule VerifiedPubSub.ManifestMismatchError do
   @moduledoc """
-  Raised when a subscriber receives a message declared by a different manifest.
+  The error for a message that a subscriber receives from a different manifest.
 
-  Nothing about such a message was verified against the subscriber's own manifest. Its
-  topic and event happen to share names, and its payload follows the *sender's* field
-  declarations, so dispatching it would hand a handler a payload shape the compiler never
-  checked — which is the one thing this library exists to prevent.
+  The compiler did not verify such a message against the manifest of the subscriber. Only
+  the names of its topic and event match, and its payload follows the field declarations
+  of the *sender*. A dispatch would give a handler a payload shape that the compiler did
+  not check: the one thing that this library exists to prevent.
 
   Two manifests can produce the same wire topic when they share a `:pubsub` and declare
-  topics that overlap. Disjointness is checked *within* a manifest, not across manifests,
-  because a manifest cannot see its siblings at compile time.
+  topics that overlap. A manifest checks that its topics are disjoint only *within*
+  itself, because it cannot see the other manifests at compile time.
   """
 
   alias VerifiedPubSub.Info
@@ -33,8 +33,9 @@ defmodule VerifiedPubSub.ManifestMismatchError do
     """
   end
 
-  # Names the wire topic and which of the subscriber's own topics it collided with. Built
-  # from the sender's declaration, so it is best effort: an error message must not raise.
+  # Names the wire topic, and the topic of the subscriber that has the same wire topic.
+  # The details come from the declaration of the sender, so a step can fail. A failed step
+  # gives an empty string, because error text must not raise.
   defp collision(error) do
     with {:ok, sent} <- Info.topic(error.got, error.topic),
          {:ok, ours, wire} <- match_wire(error, sent) do
