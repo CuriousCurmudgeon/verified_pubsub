@@ -25,7 +25,7 @@ defmodule VerifiedPubSub.TestManifests do
       end
     end
 
-    # Exercises every field type and both required settings.
+    # Uses every field type, and both values of `required`.
     topic :typed_payloads, ["payloads", :x] do
       message :typed do
         field :name, :string
@@ -49,8 +49,8 @@ defmodule VerifiedPubSub.TestManifests do
     end
   end
 
-  # Two patterns that are legitimately disjoint -- different segment counts -- but whose
-  # topic strings collide if a param value is allowed to carry the separator.
+  # Two topics with different segment counts, so they are disjoint. But their wire topics
+  # are the same when a param value can contain the separator.
   defmodule Adjacent do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
@@ -67,9 +67,10 @@ defmodule VerifiedPubSub.TestManifests do
     end
   end
 
-  # Two manifests sharing a pubsub and declaring the *same* wire pattern with different
-  # payload contracts. Disjointness is checked within a manifest, not across them, so this
-  # is legal -- and it is how a message can reach a subscriber bound to the other one.
+  # Two manifests that share a pubsub and declare the *same* wire pattern with different
+  # payload fields. A manifest checks that its topics are disjoint only within itself, so
+  # this compiles. This is how a message can reach a subscriber that is bound to the other
+  # manifest.
   defmodule CollideA do
     use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
 
