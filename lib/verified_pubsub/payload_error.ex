@@ -19,6 +19,15 @@ defmodule VerifiedPubSub.PayloadError do
 
   defexception [:manifest, :topic, :event, :problems, :payload]
 
+  @typedoc """
+  A problem with a payload. Each value is one of these:
+
+    * `{:not_a_map, value}`: the payload is not a map.
+    * `{:struct_payload, module}`: the payload is a struct of `module`, not a map.
+    * `{:missing, names}`: the payload has no key for these required fields.
+    * `{:unexpected, names}`: the payload has keys that the event does not declare.
+    * `{:type, name, type, value}`: the value of the field `name` does not match `type`.
+  """
   @type problem ::
           {:not_a_map, term()}
           | {:struct_payload, module()}
