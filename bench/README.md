@@ -1,15 +1,17 @@
 # Benchmarks
 
-Both compare VerifiedPubSub against the same work done with plain `Phoenix.PubSub`.
+Both benchmarks compare VerifiedPubSub with the same work in plain `Phoenix.PubSub`.
 
     mix run bench/runtime.exs
     elixir bench/compile.exs <out_dir>
 
 `runtime.exs` measures broadcasts, a subscriber round trip, fan-out and message size.
-`compile.exs` generates synthetic projects at several manifest sizes, times a clean
-compile of each, and times an incremental compile after editing the manifest. It takes
-10-15 minutes. Spark stores each entity's source path in the manifest, so pick an
-`out_dir` about as long as a real project's path, or the manifest numbers come out high.
+
+`compile.exs` generates synthetic projects at several manifest sizes. It times a clean
+compile of each project, and an incremental compile after an edit to the manifest. It
+takes 10-15 minutes. Spark stores the source path of each entity in the manifest, so the
+length of `out_dir` changes the results. Pick an `out_dir` about as long as the path of a
+real project, or the manifest numbers are too high.
 
 ## Results
 
@@ -17,8 +19,8 @@ Apple M2 Max, Elixir 1.20.4 / OTP 29, 2026-10-11.
 
 ### Runtime
 
-Spark 2.7.2 and 2.7.6 gave the same numbers, within noise: Spark is not on the broadcast
-path. Fan-out varies by about ±10% between runs.
+Spark 2.7.2 and 2.7.6 gave the same numbers, within noise, because Spark is not on the
+broadcast path. Fan-out changes by about ±10% between runs.
 
 | Scenario                                      | Plain   | Verified |
 | --------------------------------------------- | ------- | -------- |
@@ -29,14 +31,14 @@ path. Fan-out varies by about ±10% between runs.
 | `{:list, :string}` field, 1,000 elements      | 0.57 µs | 7.1 µs   |
 | `{:list, :string}` field, 100,000 elements    | 0.54 µs | 614 µs   |
 
-A message is 39 heap words and 182 bytes in external term format, against 17 and 46 for
-a plain `{event, payload}` tuple.
+A message is 39 heap words and 182 bytes in external term format. A plain
+`{event, payload}` tuple is 17 heap words and 46 bytes.
 
 ### Compile
 
-Each topic has 5 events of 5 fields. Callers and subscribers scale with the topic count.
-The `out_dir` path was about 150 characters, which makes the manifest slower than in a
-typical project.
+Each topic has 5 events of 5 fields. The number of callers and subscribers grows with the
+number of topics. The `out_dir` path was about 150 characters, so the manifest compiles
+more slowly than in a typical project.
 
 Spark 2.7.6:
 
@@ -54,12 +56,14 @@ Spark 2.7.2:
 | 100    | 0.32 s | 8.7 s    | 8.9 s          | 7.4 MB         | 301 (8.7 s)                         |
 | 250    | 0.63 s | 28.9 s   | 27.9 s         | 18 MB          | 751 (28.9 s)                        |
 
-Nearly all of the cost is the manifest. Every caller and subscriber depends on it at
-compile time, so any edit to it, even a description, recompiles all of them.
+The manifest causes almost all of the cost. Every caller and subscriber depends on it at
+compile time. So any edit to the manifest, even to a description, compiles all of them
+again.
 
-Spark 2.7.2 compiled the whole DSL as a literal three times, once in `entities/1` and
-twice in `__verify_spark_dsl__/1`. 2.7.4 stopped that, which shrank the manifest .beam
-about sixfold. What remains is the manifest's module body: Elixir compiles it into a
-temporary module before running it, and the Erlang compiler's variable analysis
-(`core_lib:vu_expr`) is quadratic in its size. With 100 topics that compile takes 1.2 s,
-against 70 ms for the manifest module itself; with 200 topics, 4.9 s against 140 ms.
+Spark 2.7.2 compiled the whole DSL as a literal three times: once in `entities/1`, and
+twice in `__verify_spark_dsl__/1`. Spark 2.7.4 removed that, and the manifest .beam became
+about six times smaller. The remaining cost is the module body of the manifest. Elixir
+compiles the body into a temporary module before it runs it. The variable analysis of the
+Erlang compiler (`core_lib:vu_expr`) is quadratic in the size of that module. With 100
+topics, that compile takes 1.2 s, and the manifest module itself takes 70 ms. With 200
+topics, the times are 4.9 s and 140 ms.
