@@ -55,15 +55,18 @@ section that only points to another module.[^stale]
 
 ### DOC-5
 
-When a doc needs a section, use one of these second level headers:
+When a `@doc` needs a section, use one of these second level headers:
 
-- `## Options` in a `@doc`: each option and its default. When options pass to another function, name that function,
-  and list only the options that this one adds.
-- `## Tradeoffs` in a `@moduledoc`: each choice that is not obvious and that serves time or space. Say what the module
-  gives up, then what it gains.
-- `## Message Passing` in the `@moduledoc` of a module that sends or receives a message. See [`DOC-6`](#doc-6).
-- `## Usage` in a doc: how a caller uses the function or the module.
-- `## Examples` in a doc: each example call and its result.
+- `## Options`: each option and its default. When options pass to another function, name that function, and list only
+  the options that this one adds.
+- `## Usage`: how a caller uses the function.
+- `## Examples`: each example call and its result.
+
+A `@moduledoc` can use any second level header. Use these headers for these subjects:
+
+- `## Tradeoffs`: each choice that is not obvious and that serves time or space. Say what the module gives up, then
+  what it gains.
+- `## Message Passing`: the messages that the module sends or receives. See [`DOC-6`](#doc-6).
 
 ### DOC-6
 
