@@ -112,7 +112,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     assert_receive {:renamed, ^id, %{id: "c2"}}
   end
 
-  test "an ignored event is received without crashing", %{owner_id: id, worker: pid} do
+  test "an ignored event does not crash the subscriber", %{owner_id: id, worker: pid} do
     broadcast!(:pets, %{owner_id: id}, :rehomed, %{id: "c3"})
 
     refute_receive {:adopted, _}, 50
@@ -121,21 +121,21 @@ defmodule VerifiedPubSub.SubscriberTest do
   end
 
   @tag :capture_log
-  test "an unrelated message raises unless the module handles it", %{worker: pid} do
-    # Defining any handle_info/2 discards the default that `use GenServer` installs,
-    # and Elixir 1.20 made super/2 for GenServer callbacks a hard error, so that
-    # default cannot be preserved. This matches any GenServer with a custom
-    # handle_info/2. Subscribers receiving other messages add a catch-all.
+  test "an unrelated message raises when the module does not handle it", %{worker: pid} do
+    # A module that defines handle_info/2 loses the default clause that `use GenServer`
+    # installs. Elixir 1.20 made super/2 for GenServer callbacks an error, so the module
+    # cannot keep that default. Any GenServer with its own handle_info/2 does the same. A
+    # subscriber that receives other messages adds a catch-all.
     ref = Process.monitor(pid)
     send(pid, :something_unrelated)
 
     # The exit reason is the raw Erlang form, not a %FunctionClauseError{} struct.
-    # A crashing GenServer logs its crash report before it exits, so :DOWN can take
-    # longer than the default 100ms on a loaded CI runner.
+    # A GenServer that crashes logs its crash report before it exits. So :DOWN can take
+    # longer than the default 100ms on a busy CI runner.
     assert_receive {:DOWN, ^ref, :process, ^pid, {:function_clause, _stacktrace}}, 1_000
   end
 
-  test "a module-defined catch-all handles unrelated messages without shadowing" do
+  test "a catch-all of the module handles unrelated messages, and hides no generated clause" do
     id = unique_owner_id()
     pid = start_supervised!({WorkerWithCatchAll, owner: self(), owner_id: id})
 
@@ -143,13 +143,13 @@ defmodule VerifiedPubSub.SubscriberTest do
     assert_receive {:catchall, :something_unrelated}
     assert Process.alive?(pid)
 
-    # The generated clause is emitted at the `use` site, so it is matched before the
-    # user's catch-all and verified messages still dispatch correctly.
+    # The `use` puts the generated clause before the catch-all of the user. So Elixir tries
+    # the generated clause first, and verified messages still reach their handlers.
     broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c7"})
     assert_receive {:adopted, %{id: "c7"}}
   end
 
-  test "coexists with a user-defined handle_info clause" do
+  test "works next to a handle_info clause that the user defines" do
     id = unique_owner_id()
     pid = start_supervised!({WorkerWithOwnHandleInfo, owner: self(), owner_id: id})
 
