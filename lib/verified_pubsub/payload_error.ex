@@ -35,6 +35,23 @@ defmodule VerifiedPubSub.PayloadError do
           | {:unexpected, [atom()]}
           | {:type, atom(), VerifiedPubSub.Dsl.Field.type(), term()}
 
+  @typedoc """
+  The fields of the error:
+
+    * `manifest`: the manifest that declares the event.
+    * `topic`: the name of the topic.
+    * `event`: the event of the broadcast.
+    * `problems`: every problem with the payload.
+    * `payload`: the payload of the broadcast.
+  """
+  @type t :: %__MODULE__{
+          manifest: module(),
+          topic: atom(),
+          event: atom(),
+          problems: [problem()],
+          payload: term()
+        }
+
   @impl true
   def message(%__MODULE__{} = error) do
     """

@@ -6,6 +6,15 @@ defmodule VerifiedPubSub.Message do
   one topic with many sets of params, and `params` tells the messages apart.
   """
 
+  @typedoc """
+  The fields of the message:
+
+    * `manifest`: the manifest that declares the topic.
+    * `topic`: the name of the topic.
+    * `event`: the event.
+    * `params`: the param values that built the wire topic.
+    * `payload`: the payload.
+  """
   @type t :: %__MODULE__{
           manifest: module(),
           topic: atom(),

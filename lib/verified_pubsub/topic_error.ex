@@ -8,6 +8,33 @@ defmodule VerifiedPubSub.TopicError do
   the wrong subscribers. See `VerifiedPubSub.Topic`.
   """
 
+  @typedoc """
+  The reason that a param value cannot fill its segment:
+
+    * `:empty`: the value is empty.
+    * `:separator`: the value contains the separator.
+  """
+  @type reason :: :empty | :separator
+
+  @typedoc """
+  The fields of the error:
+
+    * `manifest`: the manifest that declares the topic.
+    * `topic`: the name of the topic.
+    * `segments`: the segments of the topic.
+    * `param`: the param that the value fills.
+    * `value`: the value that the call site passes.
+    * `reason`: why the value cannot fill its segment.
+  """
+  @type t :: %__MODULE__{
+          manifest: module(),
+          topic: atom(),
+          segments: [VerifiedPubSub.Dsl.Topic.segment()],
+          param: atom(),
+          value: term(),
+          reason: reason()
+        }
+
   defexception [:manifest, :topic, :segments, :param, :value, :reason]
 
   @impl true

@@ -14,6 +14,25 @@ defmodule VerifiedPubSub.ManifestMismatchError do
 
   alias VerifiedPubSub.Info
 
+  @typedoc """
+  The fields of the error:
+
+    * `subscriber`: the subscriber that receives the message.
+    * `expected`: the manifest that the subscriber is bound to.
+    * `got`: the manifest that declares the message.
+    * `topic`: the name of the topic of the message.
+    * `event`: the event of the message.
+    * `params`: the params of the message.
+  """
+  @type t :: %__MODULE__{
+          subscriber: module(),
+          expected: module(),
+          got: module(),
+          topic: atom(),
+          event: atom(),
+          params: map()
+        }
+
   defexception [:subscriber, :expected, :got, :topic, :event, params: %{}]
 
   @impl true
