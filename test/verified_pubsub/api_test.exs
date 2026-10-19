@@ -47,17 +47,19 @@ defmodule VerifiedPubSub.ApiTest do
     """
   end
 
-  test "using the macros without a manifest in scope is a compile error" do
-    error =
-      compile_error("""
-      defmodule #{unique_module("VPTest.NoReg")} do
-        import VerifiedPubSub.Api
-        def go, do: broadcast!(:pets, %{owner_id: "1"}, :adopted, %{})
-      end
-      """)
+  describe "import VerifiedPubSub.Api" do
+    test "a macro without a manifest in scope is a compile error" do
+      error =
+        compile_error("""
+        defmodule #{unique_module("VPTest.NoReg")} do
+          import VerifiedPubSub.Api
+          def go, do: broadcast!(:pets, %{owner_id: "1"}, :adopted, %{})
+        end
+        """)
 
-    assert %CompileError{} = error
-    assert Exception.message(error) =~ "no manifest is in scope"
+      assert %CompileError{} = error
+      assert Exception.message(error) =~ "no manifest is in scope"
+    end
   end
 
   describe "subscribe/1" do

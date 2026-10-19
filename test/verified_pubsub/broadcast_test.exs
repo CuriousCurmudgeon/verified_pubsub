@@ -11,23 +11,27 @@ defmodule VerifiedPubSub.BroadcastTest do
     %{owner_id: unique_owner_id()}
   end
 
-  test "Info.match/2 recovers the name and params from what topic/2 builds" do
-    wire = topic(:pets, %{owner_id: 42})
-    assert {:ok, :pets, %{owner_id: "42"}} = VerifiedPubSub.Info.match(Basic, wire)
+  describe "Info.match/2" do
+    test "recovers the name and params from what topic/2 builds" do
+      wire = topic(:pets, %{owner_id: 42})
+      assert {:ok, :pets, %{owner_id: "42"}} = VerifiedPubSub.Info.match(Basic, wire)
+    end
   end
 
-  test "a failed broadcast! names the wire topic it was sent on" do
-    error =
-      assert_raise RuntimeError, fn ->
-        VerifiedPubSub.Broadcast.bang!(
-          {:error, :boom},
-          :pets,
-          "owners:7:pets",
-          :adopted
-        )
-      end
+  describe "Broadcast.bang!/4" do
+    test "a failed broadcast names the wire topic it was sent on" do
+      error =
+        assert_raise RuntimeError, fn ->
+          VerifiedPubSub.Broadcast.bang!(
+            {:error, :boom},
+            :pets,
+            "owners:7:pets",
+            :adopted
+          )
+        end
 
-    assert Exception.message(error) =~ ~s|:adopted on :pets ("owners:7:pets"): :boom|
+      assert Exception.message(error) =~ ~s|:adopted on :pets ("owners:7:pets"): :boom|
+    end
   end
 
   describe "unsubscribe/2" do

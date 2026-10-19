@@ -107,7 +107,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
     end
   end
 
-  describe "the bound manifest still works" do
+  describe "a message that is not from another manifest" do
     test "a message from the bound manifest dispatches" do
       assert {:noreply, _} =
                Listener.handle_info(message(CollideA, %{id: "c1"}), %{owner: self()})
@@ -121,7 +121,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
     end
   end
 
-  describe "end to end, over the wire" do
+  describe "a running subscriber" do
     @tag :capture_log
     test "a colliding broadcast from another manifest crashes the subscriber" do
       id = "iso-#{System.unique_integer([:positive])}"

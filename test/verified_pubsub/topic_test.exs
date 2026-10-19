@@ -54,7 +54,7 @@ defmodule VerifiedPubSub.TopicTest do
     end
   end
 
-  describe "values that are fine" do
+  describe "a valid param value" do
     test "an integer is stringified" do
       assert topic(:pets, %{owner_id: 7}) == "owners:7:pets"
     end
@@ -69,7 +69,7 @@ defmodule VerifiedPubSub.TopicTest do
     end
   end
 
-  describe "cross-topic delivery" do
+  describe "two topics where one extends the other" do
     defmodule Adjacent do
       use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Adjacent
 

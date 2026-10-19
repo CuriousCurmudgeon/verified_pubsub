@@ -56,7 +56,7 @@ catch-all clause counts. Do not use `unless`.[^unless]
 
 1. an `if` and an `else`, when the branch tests one value for truth and has one path or two paths
 2. a `case`, when the branch matches a pattern, or when it has three paths or more on one piece of data
-3. a `cond`, only when the branches test different data
+3. a `cond`, when the branches test different data, or test one value with calls that a guard cannot hold
 4. a `with`, when the branch runs steps that can each fail
 
 Give a `with` only clauses that match with `<-`. Compute a value that cannot fail before the `with`, or where the

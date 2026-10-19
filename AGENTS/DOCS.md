@@ -30,6 +30,7 @@ When a module or a function is public, document it:
 
 - A module takes a `@moduledoc`, unless it is a test module.
 - A function takes a `@doc` and a `@spec`, unless it implements a behaviour.
+- A macro takes a `@doc` and no `@spec`.[^macro]
 
 ### DOC-2
 
@@ -91,13 +92,16 @@ Elixir guides.
 
 ## SPEC - Test names
 
-A test name reads as a requirement. It names the contract of a function, a macro, or a construct that the user writes.
+A test name reads as a requirement. It names the contract of a function, a macro, or a construct that the user
+writes, or the outcome of a state.
 
 ### SPEC-1
 
 When a test covers a function or a macro, name the `describe` after it and its arity, as in `topic/2`. When a
 `describe` needs its own setup, add a qualifier after the arity that names its data, as in
-`topic/2 with a param-free topic`. State the contract in the `test` name.
+`topic/2 with a param-free topic`. When the tests cover the same contract on many functions or macros, list them, as
+in `broadcast_from/5, broadcast_from!/5`. Name a mix task after its command, as `mix verified_pubsub.install`. State
+the contract in the `test` name.
 
 ### SPEC-2
 
@@ -107,13 +111,19 @@ When a test checks whether source compiles, name the `describe` after the constr
 - A DSL entity takes its name, as `topic`, `message`, or `field`.
 - An option of a DSL entity takes the entity and the option, as `field :description`. When the tests cover the same
   option on many entities, list the entities, as `topic, message, field :description`.
-- A `use` and its options take the `use`, as `use VerifiedPubSub.Subscriber`.
+- A `use` or an `import` takes that line, as `use VerifiedPubSub.Subscriber`.
 - A check across many entities takes the `use` and a qualifier, as
-  `use VerifiedPubSub.Manifest with overlapping topics`.
+  `use VerifiedPubSub.Manifest with topics of a similar shape`.
 
 Do not name a transformer, a callback, or another function that the test does not call.[^construct] State in the
 `test` name whether the source compiles. When it does not compile, name what the error holds, as in
 `"a duplicate topic name is a compile error that names the first declaration"`.
+
+### SPEC-3
+
+When a test covers behavior that no one function or construct owns, name the `describe` after the state that its
+tests share, as in `a message from another manifest`. State the outcome of that state in the `test` name. Leave out the
+`describe` when the test module holds one state for every test.
 
 ## Footnotes
 
@@ -122,6 +132,9 @@ it misleads a reader.
 
 [^construct]: The user writes the construct, and the error points at it. A transformer or a callback is an internal
 name. It can move to another module while the test still passes, and then the name is wrong.
+
+[^macro]: A spec on a macro describes the quoted form that the macro receives, not the value that the caller writes.
+A reader takes it for the second.
 
 [^spec]: The spec holds the shape of the value, and the compiler checks it. A sentence that repeats that shape can
 become wrong, and no check reports it.

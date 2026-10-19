@@ -190,13 +190,15 @@ defmodule VerifiedPubSub.PayloadTest do
     end
   end
 
-  test "the from variants validate as well", %{x: id} do
-    assert_raise PayloadError, fn ->
-      broadcast_from!(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
-    end
+  describe "broadcast_from/5, broadcast_from!/5" do
+    test "validate the payload", %{x: id} do
+      assert_raise PayloadError, fn ->
+        broadcast_from!(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
+      end
 
-    assert_raise PayloadError, fn ->
-      broadcast_from(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
+      assert_raise PayloadError, fn ->
+        broadcast_from(self(), :typed_payloads, %{x: id}, :bare, at_runtime(%{}))
+      end
     end
   end
 

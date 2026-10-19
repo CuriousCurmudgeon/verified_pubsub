@@ -146,7 +146,7 @@ defmodule VerifiedPubSub.Transformers.ValidateTopicsTest do
     end
   end
 
-  describe "use VerifiedPubSub.Manifest with overlapping topics" do
+  describe "use VerifiedPubSub.Manifest with topics of a similar shape" do
     test "two topics that can match the same topic string are a compile error" do
       error =
         dsl_error(
