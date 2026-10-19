@@ -25,9 +25,9 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
       assert msg =~ "empty"
     end
 
-    # A literal carrying the separator would be several segments pretending to be one,
-    # which hides them from the disjointness check.
-    test "rejects a literal containing the separator" do
+    # A literal that contains the separator holds several segments in one. The
+    # disjointness check would not see those segments.
+    test "rejects a literal that contains the separator" do
       assert {:error, msg} = ParseParams.parse(["owners:pets"])
       assert msg =~ "owners:pets"
       assert msg =~ "its own list element"
@@ -40,7 +40,7 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
       end
     end
 
-    test "rejects a duplicate parameter name" do
+    test "rejects a duplicate param name" do
       assert {:error, msg} = ParseParams.parse(["a", :id, "b", :id])
       assert msg =~ "duplicate"
       assert msg =~ "id"
@@ -48,7 +48,7 @@ defmodule VerifiedPubSub.Transformers.ParseParamsTest do
   end
 
   describe "Info.params/2" do
-    test "params land on the topic struct" do
+    test "returns the params that the topic struct holds" do
       assert [:owner_id] = Info.params(Basic, :pets)
       assert [] = Info.params(Basic, :system)
     end
