@@ -181,18 +181,30 @@ defmodule VerifiedPubSub.Subscriber do
   end
 
   @doc """
-  Handles one event on one topic.
+  Handles one event, or a list of events, on one topic.
 
   `pattern` matches the `payload` of the message. When `pattern` is a
   `%VerifiedPubSub.Message{}` pattern in the source, it matches the whole message
-  instead, so it can match on `params`.
+  instead, so it can match on `params` and `event`. A payload pattern must fit each event
+  in the list.
+
+  ## Usage
+
+      handle_message :pets, :adopted, payload, socket do
+        {:noreply, stream_insert(socket, :pets, payload)}
+      end
+
+      handle_message :pets, [:adopted, :renamed], %{id: id}, socket do
+        {:noreply, assign(socket, :last_changed, id)}
+      end
   """
   defmacro handle_message(topic, event, pattern, state, do: body) do
     put_clause!(__CALLER__, topic, nil, event, pattern, state, body)
   end
 
   @doc """
-  Handles one event on one topic, and matches the params of the topic.
+  Handles one event, or a list of events, on one topic, and matches the params of the
+  topic.
 
   The first arguments are the arguments of `broadcast!/4`, in the same order, but here
   they **match** and do not build. Unlike a broadcast, the pattern can name a subset of
@@ -225,22 +237,7 @@ defmodule VerifiedPubSub.Subscriber do
   defmacro ignore_message(topic, event_or_events) do
     topic = literal_atom!(topic, :topic)
 
-    events =
-      case event_or_events do
-        list when is_list(list) ->
-          if list == [] do
-            raise ArgumentError,
-                  "ignore_message #{inspect(topic)}, [] ignores nothing. " <>
-                    "Pass at least one event, or remove the call."
-          end
-
-          Enum.map(list, &literal_atom!(&1, :event))
-
-        event ->
-          [literal_atom!(event, :event)]
-      end
-
-    Enum.each(events, fn event ->
+    Enum.each(literal_events!(:ignore_message, topic, event_or_events), fn event ->
       Module.put_attribute(__CALLER__.module, :verified_pubsub_ignored, {topic, event})
     end)
 
@@ -271,10 +268,11 @@ defmodule VerifiedPubSub.Subscriber do
     quote line: clause.line do
       defp __verified_pubsub_dispatch__(
              unquote(clause.topic),
-             unquote(clause.event),
+             event,
              unquote(clause.pattern),
              unquote(clause.state)
-           ) do
+           )
+           when event in unquote(clause.events) do
         unquote(clause.body)
       end
     end
@@ -296,10 +294,11 @@ defmodule VerifiedPubSub.Subscriber do
     quote line: clause.line do
       defp __verified_pubsub_dispatch__(
              unquote(clause.topic),
-             unquote(clause.event),
+             event,
              unquote(message_pattern),
              unquote(clause.state)
-           ) do
+           )
+           when event in unquote(clause.events) do
         unquote(clause.body)
       end
     end
@@ -350,12 +349,15 @@ defmodule VerifiedPubSub.Subscriber do
     end
 
     if params, do: validate_params_pattern!(caller, topic, params)
-    event_name = literal_atom!(event, :event)
-    if !whole_message?, do: validate_payload_pattern!(caller, topic, event_name, pattern)
+    events = literal_events!(:handle_message, topic, event)
+
+    if !whole_message? do
+      Enum.each(events, &validate_payload_pattern!(caller, topic, &1, pattern))
+    end
 
     Module.put_attribute(caller.module, :verified_pubsub_clauses, %{
       topic: topic,
-      event: event_name,
+      events: events,
       pattern: pattern,
       params_pattern: params,
       state: state,
@@ -427,6 +429,18 @@ defmodule VerifiedPubSub.Subscriber do
       Enum.map(pairs, &elem(&1, 0))
     end
   end
+
+  defp literal_events!(macro, topic, []) do
+    raise ArgumentError,
+          "#{macro} #{inspect(topic)}, [] names no event. " <>
+            "Pass at least one event, or remove the call."
+  end
+
+  defp literal_events!(_macro, _topic, events) when is_list(events) do
+    Enum.map(events, &literal_atom!(&1, :event))
+  end
+
+  defp literal_events!(_macro, _topic, event), do: [literal_atom!(event, :event)]
 
   # A broadcast checks that a payload holds only declared fields. A literal pattern that
   # names any other key thus can never match. An error is better than a clause that

@@ -242,6 +242,126 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     end
   end
 
+  describe "handle_message/5 with a list of events" do
+    test "a list covers each event in it" do
+      assert is_atom(
+               compile!(
+                 subscriber_source("""
+                 handle_message :pets, [:adopted, :renamed, :rehomed], p, s do
+                   {:noreply, {p, s}}
+                 end
+                 """)
+               )
+             )
+    end
+
+    test "a list reports the events that it leaves out" do
+      error =
+        compile_error(
+          subscriber_source("""
+          handle_message :pets, [:adopted, :renamed], p, s do
+            {:noreply, {p, s}}
+          end
+          """)
+        )
+
+      assert error, "expected the uncovered :rehomed event to fail compilation"
+      assert Exception.message(error) =~ ":rehomed"
+    end
+
+    test "an empty list is a compile error" do
+      error =
+        compile_error(
+          subscriber_source("""
+          #{all_handled()}
+
+          handle_message :pets, [], p, s do
+            {:noreply, {p, s}}
+          end
+          """)
+        )
+
+      assert error, "expected an empty event list to be rejected"
+      assert Exception.message(error) =~ "names no event"
+    end
+
+    test "an event that is not a literal is a compile error" do
+      error =
+        compile_error(
+          subscriber_source("""
+          @e :renamed
+          handle_message :pets, [:adopted, @e, :rehomed], p, s do
+            {:noreply, {p, s}}
+          end
+          """)
+        )
+
+      assert error, "expected a non-literal event to fail compilation"
+      assert Exception.message(error) =~ "literal"
+    end
+
+    test "an event that the topic does not declare is a compile error that names the event" do
+      error =
+        compile_error(
+          subscriber_source("""
+          handle_message :pets, [:adopted, :renamed, :rehomed, :exploded], p, s do
+            {:noreply, {p, s}}
+          end
+          """)
+        )
+
+      assert error, "expected an undeclared event to fail compilation"
+      assert Exception.message(error) =~ ":exploded"
+    end
+
+    test "a payload pattern that one event does not declare is a compile error that names the event" do
+      # Only :adopted declares :name.
+      error =
+        compile_error(
+          subscriber_source("""
+          handle_message :pets, [:adopted, :renamed, :rehomed], %{name: n}, s do
+            {:noreply, {n, s}}
+          end
+          """)
+        )
+
+      assert error, "expected a payload pattern that :renamed lacks to fail compilation"
+      assert Exception.message(error) =~ ":renamed on :pets declares no :name"
+    end
+
+    test "a list and an ignore_message/2 for the same event are a compile error that names the event" do
+      error =
+        compile_error(
+          subscriber_source("""
+          handle_message :pets, [:adopted, :renamed], p, s do
+            {:noreply, {p, s}}
+          end
+
+          ignore_message :pets, [:renamed, :rehomed]
+          """)
+        )
+
+      assert error, "expected a contradictory declaration to fail compilation"
+      message = Exception.message(error)
+      assert message =~ "both handles and ignores"
+      assert message =~ ":renamed"
+    end
+  end
+
+  describe "handle_message/6 with a list of events" do
+    test "a list covers each event in it" do
+      assert is_atom(
+               compile!(
+                 subscriber_source("""
+                 handle_message :pets, %{owner_id: o}, [:adopted, :renamed, :rehomed], p, s do
+                   {:noreply, {o, p, s}}
+                 end
+                 """)
+               )
+             )
+    end
+  end
+
   describe "ignore_message/2" do
     test "accepts a list of events" do
       assert is_atom(
@@ -268,7 +388,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
         )
 
       assert error, "expected an empty ignore list to be rejected"
-      assert Exception.message(error) =~ "ignores nothing"
+      assert Exception.message(error) =~ "names no event"
     end
   end
 end

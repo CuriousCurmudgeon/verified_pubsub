@@ -141,6 +141,10 @@ end
 - `handle_message` is a macro at module level, not a `def`. Use it in GenServers and in
   LiveViews. It takes `topic, event, payload_pattern, state`. With params, it takes
   `topic, params_pattern, event, payload_pattern, state`, the same order as `broadcast!`.
+- When many events have the same handler, give `handle_message` a list of events in the
+  place of the event: `handle_message :pets, [:adopted, :renamed], payload, socket`. Do not
+  write one identical clause for each event. A payload pattern must fit each event in the
+  list. To read the event, match `%VerifiedPubSub.Message{event: event}`.
 - Put the params right after the topic, never in the payload pattern. A params pattern can
   name a subset of the params.
 - **The module must handle or ignore each event on each topic that it handles**, or the

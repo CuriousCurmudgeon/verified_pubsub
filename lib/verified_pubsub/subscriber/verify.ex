@@ -22,7 +22,11 @@ defmodule VerifiedPubSub.Subscriber.Verify do
   def run!(env, clauses, ignored) do
     manifest = Module.get_attribute(env.module, :verified_pubsub_manifest)
 
-    handled = MapSet.new(Enum.map(clauses, &{&1.topic, &1.event}))
+    handled =
+      for clause <- clauses, event <- clause.events, into: MapSet.new() do
+        {clause.topic, event}
+      end
+
     dismissed = MapSet.new(ignored)
     accounted_for = MapSet.union(handled, dismissed)
 

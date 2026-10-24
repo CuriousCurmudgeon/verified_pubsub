@@ -33,7 +33,7 @@ To install by hand, add the dependency:
 ```elixir
 def deps do
   [
-    {:verified_pubsub, "~> 0.1.0"}
+    {:verified_pubsub, "~> 0.2.0"}
   ]
 end
 ```
@@ -176,6 +176,15 @@ of the topic, put them where a broadcast puts them:
 ```elixir
 handle_message :pets, %{owner_id: owner}, :adopted, payload, socket do
   {:noreply, assign(socket, :owner_id, owner)}
+end
+```
+
+When many events have the same handler, give `handle_message` a list of events. A payload
+pattern must fit each event in the list. To read the event, match the whole message:
+
+```elixir
+handle_message :pets, [:adopted, :renamed], %VerifiedPubSub.Message{event: event}, socket do
+  {:noreply, assign(socket, :last_event, event)}
 end
 ```
 

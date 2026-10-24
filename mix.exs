@@ -1,7 +1,7 @@
 defmodule VerifiedPubSub.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.2.0"
   @source_url "https://github.com/CuriousCurmudgeon/verified_pubsub"
 
   def project do

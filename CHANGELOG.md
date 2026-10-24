@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.0 (unreleased)
+
+- `handle_message` takes a list of events in the place of one event, as `ignore_message`
+  does. One clause then handles each event in the list. A payload pattern must fit each
+  event in the list.
+- An empty event list in `ignore_message` gives the error `names no event`. The error
+  said `ignores nothing` before.
+
 ## v0.1.0 (2026-10-19)
 
 The first release.

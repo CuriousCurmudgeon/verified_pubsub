@@ -94,6 +94,31 @@ defmodule VerifiedPubSub.SubscriberTest do
     end
   end
 
+  defmodule WorkerWithEventList do
+    use GenServer
+
+    use VerifiedPubSub.Subscriber,
+      manifest: VerifiedPubSub.TestManifests.Basic
+
+    def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
+
+    @impl true
+    def init(opts) do
+      :ok = subscribe(:pets, %{owner_id: opts[:owner_id]})
+      {:ok, %{owner: opts[:owner]}}
+    end
+
+    handle_message :pets, [:adopted, :renamed], %Message{event: event, payload: payload}, state do
+      send(state.owner, {event, payload})
+      {:noreply, state}
+    end
+
+    handle_message :pets, %{owner_id: owner_id}, [:rehomed], %{id: id}, state do
+      send(state.owner, {:rehomed, owner_id, id})
+      {:noreply, state}
+    end
+  end
+
   setup do
     id = unique_owner_id()
     pid = start_supervised!({Worker, owner: self(), owner_id: id})
@@ -160,5 +185,27 @@ defmodule VerifiedPubSub.SubscriberTest do
     assert_receive {:adopted, %{id: "c9"}}
 
     assert Process.alive?(pid)
+  end
+
+  describe "handle_message/5, handle_message/6 with a list of events" do
+    setup do
+      id = unique_owner_id()
+      start_supervised!({WorkerWithEventList, owner: self(), owner_id: id})
+      %{owner_id: id}
+    end
+
+    test "one clause receives each event in the list", %{owner_id: id} do
+      broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "c10"})
+      broadcast!(:pets, %{owner_id: id}, :renamed, %{id: "c11"})
+
+      assert_receive {:adopted, %{id: "c10"}}
+      assert_receive {:renamed, %{id: "c11"}}
+    end
+
+    test "a clause with params receives each event in the list", %{owner_id: id} do
+      broadcast!(:pets, %{owner_id: id}, :rehomed, %{id: "c12"})
+
+      assert_receive {:rehomed, ^id, "c12"}
+    end
   end
 end
