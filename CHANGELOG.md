@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.0 (unreleased)
+## v0.2.0 (2026-10-24)
 
 - `handle_message` takes a list of events in the place of one event, as `ignore_message`
   does. One clause then handles each event in the list. A payload pattern must fit each
