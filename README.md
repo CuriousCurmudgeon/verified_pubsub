@@ -124,17 +124,22 @@ The `MyApp.Pets` and `MyAppWeb.PetsLive` modules below then get these sections:
 ```markdown
 ## PubSub
 
-  * Publishes to `"owners:<owner_id>:pets"` for `:adopted`.
+| Topic | Publishes | Subscribes |
+| --- | --- | --- |
+| `:pets` (`"owners:<owner_id>:pets"`) | `:adopted` | |
 ```
 
 ```markdown
 ## PubSub
 
-  * Subscribes to `"owners:<owner_id>:pets"` for `:adopted`.
+| Topic | Publishes | Subscribes |
+| --- | --- | --- |
+| `:pets` (`"owners:<owner_id>:pets"`) | | `:adopted` |
 ```
 
-The macro calls of the module give the section, so it always agrees with the code. An
-event of `ignore_message` does not appear. The section shows only the calls in the module
+The macro calls of the module give the section, so it always agrees with the code. The
+rows and the events follow the order of the manifest. An event of `ignore_message` does
+not appear, and a `subscribe` call without `VerifiedPubSub.Subscriber` adds no row. The section shows only the calls in the module
 itself, not the calls of other modules that it calls. To turn the section on or off for
 one module, add `docs: true` or `docs: false` to its `use` line.
 

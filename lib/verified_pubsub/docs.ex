@@ -100,70 +100,65 @@ defmodule VerifiedPubSub.Docs do
     end
   end
 
+  # One row for each topic that the module publishes to or handles. The rows and the events
+  # in each cell follow the order of the manifest, so a reader finds them where the manifest
+  # puts them.
   defp pubsub_section(module) do
     manifest = Module.get_attribute(module, :verified_pubsub_manifest)
 
     published =
       module
       |> Module.get_attribute(:verified_pubsub_broadcasts)
-      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+      |> MapSet.new()
 
-    bullets =
-      bullets(manifest, "Publishes to", published) ++
-        bullets(manifest, "Subscribes to", subscribed_topic_events(module))
+    handled = MapSet.new(handled_topic_events(module))
 
-    case bullets do
-      [] -> nil
-      bullets -> "## PubSub\n\n" <> Enum.join(bullets, "\n")
-    end
-  end
-
-  defp bullets(manifest, verb, topic_events) do
-    topic_events
-    |> Enum.map(fn {topic, events} -> {wire_pattern(manifest, topic), events} end)
-    |> Enum.sort()
-    |> Enum.map(fn {pattern, events} -> bullet(verb, pattern, events) end)
-  end
-
-  defp wire_pattern(manifest, topic) do
-    topic_struct = VerifiedPubSub.Info.topic!(manifest, topic)
-    inspect(VerifiedPubSub.Topic.pattern(topic_struct.segments))
-  end
-
-  defp bullet(verb, pattern, []), do: "  * #{verb} `#{pattern}`."
-  defp bullet(verb, pattern, events), do: "  * #{verb} `#{pattern}` for #{event_list(events)}."
-
-  defp event_list(events) do
-    events
-    |> Enum.uniq()
-    |> Enum.sort()
-    |> Enum.map(&"`#{inspect(&1)}`")
+    manifest
+    |> VerifiedPubSub.Info.topics()
+    |> Enum.map(&row(&1, published, handled))
+    |> Enum.reject(&is_nil/1)
     |> case do
-      [event] ->
-        event
+      [] ->
+        nil
 
-      [first, second] ->
-        "#{first} and #{second}"
-
-      events ->
-        {init, [last]} = Enum.split(events, -1)
-        Enum.join(init, ", ") <> ", and " <> last
+      rows ->
+        table = ["| Topic | Publishes | Subscribes |", "| --- | --- | --- |" | rows]
+        "## PubSub\n\n" <> Enum.join(table, "\n")
     end
   end
 
-  # In a subscriber, the handlers say which events the module receives, so the handlers
-  # give the topics, and an ignored event never appears. A module without the Subscriber
-  # has its own handle_info/2, so only its subscribe calls show its topics, with no events.
-  defp subscribed_topic_events(module) do
+  # A subscriber's handlers say which events it receives, so an ignored event never
+  # appears. A module without the Subscriber has its own handle_info/2, and the library
+  # does not know which of its messages it handles, so it lists none.
+  defp handled_topic_events(module) do
     if Module.has_attribute?(module, :verified_pubsub_clauses) do
       module
       |> Module.get_attribute(:verified_pubsub_clauses)
       |> Enum.flat_map(fn clause -> Enum.map(clause.events, &{clause.topic, &1}) end)
-      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
     else
-      module
-      |> Module.get_attribute(:verified_pubsub_subscriptions)
-      |> Map.new(&{&1, []})
+      []
     end
   end
+
+  defp row(%Topic{} = topic, published, handled) do
+    case {cell(topic, published), cell(topic, handled)} do
+      {"", ""} ->
+        nil
+
+      {publishes, subscribes} ->
+        name =
+          "`#{inspect(topic.name)}` (`#{inspect(VerifiedPubSub.Topic.pattern(topic.segments))}`)"
+
+        "|" <> Enum.map_join([name, publishes, subscribes], "|", &pad/1) <> "|"
+    end
+  end
+
+  defp cell(topic, topic_events) do
+    topic.messages
+    |> Enum.filter(&MapSet.member?(topic_events, {topic.name, &1.name}))
+    |> Enum.map_join(", ", &"`#{inspect(&1.name)}`")
+  end
+
+  defp pad(""), do: " "
+  defp pad(text), do: " " <> text <> " "
 end

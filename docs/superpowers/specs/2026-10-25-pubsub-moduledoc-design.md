@@ -48,7 +48,7 @@ teams write now:
 
 ## Anti-goals
 
-- A section that disagrees with the code. Each bullet must come from a macro call that the module compiles.
+- A section that disagrees with the code. Each row must come from a macro call that the module compiles.
 - A change to the docs of an existing user who does not turn the section on.
 
 ## The section
@@ -56,31 +56,31 @@ teams write now:
 The header is `## PubSub`. The team chose this name over its own `## Message Passing`, because the library names its
 own concept.
 
+The section is a table. The user chose a table over a list of sentences, because a topic has two directions, and a
+table shows a topic once when the module both publishes to it and handles it.
+
 ```markdown
 ## PubSub
 
-  * Publishes to `"groups:<group_id>"` for `:deleted`.
-  * Publishes to `"owners:<owner_id>:pets"` for `:adopted` and `:rehomed`.
-  * Subscribes to `"compliance:tcr_use_case:<account_id>"` for `:submitted`,
-    `:exported`, and `:deactivated`.
-  * Subscribes to `"system"`.
+| Topic | Publishes | Subscribes |
+| --- | --- | --- |
+| `:pets` (`"owners:<owner_id>:pets"`) | `:adopted`, `:rehomed` | `:renamed` |
+| `:system` (`"system"`) | `:alert` | |
 ```
 
 Rules:
 
-- A bullet names the wire pattern of the topic, as `VerifiedPubSub.Topic.pattern/1` renders it. A param shows as
-  `<param>`.
-- A topic gets one `Publishes to` bullet. The bullet lists each event that the module publishes on that topic, once.
-  Many call sites of one event give one entry.
-- A topic gets one `Subscribes to` bullet. The bullet lists each event that a `handle_message` of the module handles.
+- The Topic cell gives the name of the topic and its wire pattern, as `VerifiedPubSub.Topic.pattern/1` renders it. A
+  param shows as `<param>`. Code uses the name, and a person who debugs uses the wire pattern.
+- The Publishes cell lists each event that the module publishes on that topic, once. Many call sites of one event give
+  one entry.
+- The Subscribes cell lists each event that a `handle_message` of the module handles.
 - An event that `ignore_message` names does not appear. The user decided this.
-- A topic where the module ignores each event gets no `Subscribes to` bullet. (My call. The module does nothing with
-  the messages of that topic.)
-- The `Publishes to` bullets come first, then the `Subscribes to` bullets. (My call.)
-- Within each group, the bullets sort by wire pattern, and the events of a bullet sort by name. (My call. A sort keeps
-  the text stable when call sites move.)
-- An event list reads as English: `:a`, `:a` and `:b`, or `:a`, `:b`, and `:c`. (My call, from the example of the team.)
-- A module with no bullet gets no section.
+- A topic with no event in either cell gets no row.
+- The rows follow the order of the topics in the manifest. The events in a cell follow their order in the topic. The
+  user decided this, so that a reader finds them where the manifest puts them.
+- Events in a cell are joined with `, `. An empty cell holds nothing.
+- A module with no row gets no section.
 
 ## Where the data comes from
 
@@ -100,17 +100,14 @@ the timing rule in the next section.
 
 ### Subscribes
 
-- In a module that uses `VerifiedPubSub.Subscriber`, the data comes from the `handle_message` clauses. The Subscriber
-  already collects them in `@verified_pubsub_clauses` for its coverage check. A clause with a list of events adds each
-  event.
-- In a module that does not use `VerifiedPubSub.Subscriber`, `subscribe/1` and `subscribe/2` record the topic. The
-  module has its own `handle_info/2`, so the library does not know which events it handles. The bullet has no `for`
-  list. (My call.)
-- In a module that uses `VerifiedPubSub.Subscriber`, a `subscribe` call does not add a bullet. The handlers are the
-  source of truth there. (My call. Without this rule, a topic where the module ignores each event gets a bullet from
-  its `subscribe` call.)
+The data comes from the `handle_message` clauses of a module that uses `VerifiedPubSub.Subscriber`. The Subscriber
+already collects them in `@verified_pubsub_clauses` for its coverage check. A clause with a list of events adds each
+event.
 
-`unsubscribe` and `topic` record nothing.
+A `subscribe` call adds no row. A module without the Subscriber has its own `handle_info/2`, so the library does not
+know which events it handles. The user decided that the section tracks only the events that the library handles.
+
+`subscribe`, `unsubscribe`, and `topic` record nothing.
 
 ## How the section gets into the moduledoc
 
@@ -177,10 +174,10 @@ Cover at least:
 - a broadcast of each arity group, and from a private function
 - a broadcast inside a `handle_message` body
 - many call sites of one event, which give one entry
-- events of one topic in one bullet, sorted
+- events of one topic in one cell, in the order of the manifest, and rows in the order of the manifest
 - a `handle_message` with one event and with a list of events
 - `ignore_message` events left out, and a topic with only ignored events left out
-- a bare `subscribe` in a module without the Subscriber
+- a `subscribe` call in a module without the Subscriber, which adds no row
 - a module with both `use` lines, which gets one section
 - `@moduledoc false`, no `@moduledoc`, and a user `@moduledoc` that comes first
 - a module with no pub/sub calls, which gets no section

@@ -6,16 +6,25 @@ defmodule VerifiedPubSub.PubSubDocsTest do
 
   @moduletag :tmp_dir
 
+  @alert_section """
+  ## PubSub
+
+  | Topic | Publishes | Subscribes |
+  | --- | --- | --- |
+  | `:system` (`"system"`) | `:alert` | |
+  """
+
   describe "use VerifiedPubSub with docs on" do
-    test "lists each published topic once, with its events", %{tmp_dir: tmp_dir} do
+    test "lists each published topic once, in the order of the manifest", %{tmp_dir: tmp_dir} do
       doc =
         moduledoc!(tmp_dir, """
         @moduledoc "Manages pets."
         use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
 
+        def bare, do: broadcast!(:typed_payloads, %{x: "1"}, :bare, %{id: "b1"})
+        def rehome(id), do: notify(id)
         def adopt(id), do: broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "p1"})
         def adopt_again(id), do: broadcast(:pets, %{owner_id: id}, :adopted, %{id: "p2"})
-        def rehome(id), do: notify(id)
         def alert, do: broadcast!(:system, :alert, %{text: "hi"})
         defp notify(id), do: broadcast_from(self(), :pets, %{owner_id: id}, :rehomed, %{id: "p1"})
         """)
@@ -25,8 +34,11 @@ defmodule VerifiedPubSub.PubSubDocsTest do
 
              ## PubSub
 
-               * Publishes to `"owners:<owner_id>:pets"` for `:adopted` and `:rehomed`.
-               * Publishes to `"system"` for `:alert`.
+             | Topic | Publishes | Subscribes |
+             | --- | --- | --- |
+             | `:pets` (`"owners:<owner_id>:pets"`) | `:adopted`, `:rehomed` | |
+             | `:system` (`"system"`) | `:alert` | |
+             | `:typed_payloads` (`"payloads:<x>"`) | `:bare` | |
              """
     end
 
@@ -42,7 +54,7 @@ defmodule VerifiedPubSub.PubSubDocsTest do
         \"\"\"
         """)
 
-      assert doc == "Alerts.\n\n## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n"
+      assert doc == "Alerts.\n\n" <> @alert_section
     end
 
     test "writes the section as the whole moduledoc when the module has none", %{
@@ -55,7 +67,7 @@ defmodule VerifiedPubSub.PubSubDocsTest do
         def alert, do: broadcast!(:system, :alert, %{text: "hi"})
         """)
 
-      assert doc == "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n"
+      assert doc == @alert_section
     end
 
     test "keeps the line of defmodule when the module has no moduledoc", %{tmp_dir: tmp_dir} do
@@ -114,7 +126,7 @@ defmodule VerifiedPubSub.PubSubDocsTest do
       """
 
       assert %{"en" => doc} = fetch_moduledoc!(tmp_dir, source)
-      assert doc =~ ~s(  * Publishes to `"bulk"` for `:"bulk-update"`.)
+      assert doc =~ ~s[| `:bulk` (`"bulk"`) | `:"bulk-update"` | |]
     end
   end
 
@@ -140,7 +152,7 @@ defmodule VerifiedPubSub.PubSubDocsTest do
         def alert, do: broadcast!(:system, :alert, %{text: "hi"})
         """)
 
-      assert doc == "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n"
+      assert doc == @alert_section
     end
 
     test "lets a use line turn the section off", %{tmp_dir: tmp_dir} do
@@ -194,12 +206,12 @@ defmodule VerifiedPubSub.PubSubDocsTest do
         moduledoc!(tmp_dir, """
         use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
 
-        handle_message :pets, [:adopted, :renamed], payload, state do
+        handle_message :pets, [:rehomed, :adopted], payload, state do
           broadcast!(:system, :alert, %{text: payload.id})
           {:noreply, state}
         end
 
-        handle_message :pets, :rehomed, _payload, state do
+        handle_message :pets, :renamed, _payload, state do
           {:noreply, state}
         end
 
@@ -209,8 +221,10 @@ defmodule VerifiedPubSub.PubSubDocsTest do
       assert doc == """
              ## PubSub
 
-               * Publishes to `"system"` for `:alert`.
-               * Subscribes to `"owners:<owner_id>:pets"` for `:adopted`, `:rehomed`, and `:renamed`.
+             | Topic | Publishes | Subscribes |
+             | --- | --- | --- |
+             | `:pets` (`"owners:<owner_id>:pets"`) | | `:adopted`, `:renamed`, `:rehomed` |
+             | `:system` (`"system"`) | `:alert` | |
              """
     end
 
@@ -231,22 +245,28 @@ defmodule VerifiedPubSub.PubSubDocsTest do
   end
 
   describe "use VerifiedPubSub with docs on and a subscribe call" do
-    test "lists each subscribed topic with no events", %{tmp_dir: tmp_dir} do
-      doc =
-        moduledoc!(tmp_dir, """
-        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+    test "adds no row for the subscribed topic", %{tmp_dir: tmp_dir} do
+      assert :none ==
+               fetch_moduledoc!(
+                 tmp_dir,
+                 module_source("""
+                 use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
 
-        def join, do: subscribe(:system)
-        def join(id), do: subscribe(:pets, %{owner_id: id})
-        """)
-
-      assert doc ==
-               "## PubSub\n\n  * Subscribes to `\"owners:<owner_id>:pets\"`.\n  * Subscribes to `\"system\"`.\n"
+                 def join, do: subscribe(:system)
+                 def join(id), do: subscribe(:pets, %{owner_id: id})
+                 """)
+               )
     end
   end
 
   describe "a module with both use lines" do
-    @both_expected "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n  * Subscribes to `\"system\"` for `:alert`.\n"
+    @both_expected """
+    ## PubSub
+
+    | Topic | Publishes | Subscribes |
+    | --- | --- | --- |
+    | `:system` (`"system"`) | `:alert` | `:alert` |
+    """
 
     @handlers """
     handle_message :system, :alert, payload, state do
@@ -304,7 +324,7 @@ defmodule VerifiedPubSub.PubSubDocsTest do
         def alert, do: broadcast!(:system, :alert, %{text: "hi"})
         """)
 
-      assert doc == "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n"
+      assert doc == @alert_section
     end
   end
 

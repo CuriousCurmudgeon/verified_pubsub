@@ -30,14 +30,16 @@ defmodule VerifiedPubSub.Subscriber do
   ## Docs
 
   With `docs: true`, the module gets a `## PubSub` section at the end of its `@moduledoc`.
-  The section lists each topic that the module handles, with the events of its
-  `handle_message/5` calls. An event of `ignore_message/2` does not appear. The section
-  also lists the broadcasts of the module, as `VerifiedPubSub` describes.
+  Its Subscribes column lists the events of the `handle_message/5` calls of the module.
+  An event of `ignore_message/2` does not appear. The Publishes column lists the
+  broadcasts of the module, as `VerifiedPubSub` describes.
 
   ```markdown
   ## PubSub
 
-    * Subscribes to `"owners:<owner_id>:pets"` for `:adopted`.
+  | Topic | Publishes | Subscribes |
+  | --- | --- | --- |
+  | `:pets` (`"owners:<owner_id>:pets"`) | | `:adopted` |
   ```
 
   ## Generated code

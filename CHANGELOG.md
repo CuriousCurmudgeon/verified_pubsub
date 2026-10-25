@@ -3,9 +3,9 @@
 ## v0.3.0 (unreleased)
 
 - A `docs` option adds a `## PubSub` section to the `@moduledoc` of a module. The section
-  lists each topic that the module publishes to or handles, with its events. Set
-  `docs: true` on the manifest for each module that uses it, or on one `use` line. The
-  option is off by default.
+  is a table with one row for each topic that the module publishes to or handles, with
+  its events in the order of the manifest. Set `docs: true` on the manifest for each
+  module that uses it, or on one `use` line. The option is off by default.
 
 ## v0.2.0 (2026-10-24)
 

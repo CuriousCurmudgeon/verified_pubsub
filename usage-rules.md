@@ -171,7 +171,7 @@ end
   Remove a hand-written list when you turn the section on.
 - The section shows only the macro calls in the module itself. A broadcast in another
   module that this module calls does not appear. An event of `ignore_message` does not
-  appear.
+  appear. A `subscribe` call in a module without `VerifiedPubSub.Subscriber` adds no row.
 
 ## Change the manifest
 
