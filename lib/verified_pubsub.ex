@@ -158,7 +158,9 @@ defmodule VerifiedPubSub do
   ## Docs
 
   With `docs: true`, a module gets a `## PubSub` section at the end of its `@moduledoc`.
-  The section lists each topic that the module broadcasts to, with its events:
+  The section lists each topic that the module broadcasts to, with its events. It also
+  lists each topic of a `subscribe/2` call, with no events, because the module handles
+  the messages itself:
 
       use VerifiedPubSub, manifest: MyApp.Topics, docs: true
 
@@ -166,7 +168,10 @@ defmodule VerifiedPubSub do
   ## PubSub
 
     * Publishes to `"owners:<owner_id>:pets"` for `:adopted` and `:rehomed`.
+    * Subscribes to `"system"`.
   ```
+
+  `VerifiedPubSub.Subscriber` lists the events that its handlers receive.
 
   The macro calls of the module give the section, so the section agrees with the code. It
   shows only the calls in the module itself. `@moduledoc false` keeps the module hidden.

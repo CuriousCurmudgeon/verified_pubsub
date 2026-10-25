@@ -96,26 +96,35 @@ defmodule VerifiedPubSub.Docs do
   defp pubsub_section(module) do
     manifest = Module.get_attribute(module, :verified_pubsub_manifest)
 
-    case publish_bullets(manifest, Module.get_attribute(module, :verified_pubsub_broadcasts)) do
+    published =
+      module
+      |> Module.get_attribute(:verified_pubsub_broadcasts)
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+
+    bullets =
+      bullets(manifest, "Publishes to", published) ++
+        bullets(manifest, "Subscribes to", subscribed_topic_events(module))
+
+    case bullets do
       [] -> nil
       bullets -> "## PubSub\n\n" <> Enum.join(bullets, "\n")
     end
   end
 
-  defp publish_bullets(manifest, broadcasts) do
-    broadcasts
-    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+  defp bullets(manifest, verb, topic_events) do
+    topic_events
     |> Enum.map(fn {topic, events} -> {wire_pattern(manifest, topic), events} end)
     |> Enum.sort()
-    |> Enum.map(fn {pattern, events} ->
-      "  * Publishes to `#{pattern}` for #{event_list(events)}."
-    end)
+    |> Enum.map(fn {pattern, events} -> bullet(verb, pattern, events) end)
   end
 
   defp wire_pattern(manifest, topic) do
     topic_struct = VerifiedPubSub.Info.topic!(manifest, topic)
     inspect(VerifiedPubSub.Topic.pattern(topic_struct.segments))
   end
+
+  defp bullet(verb, pattern, []), do: "  * #{verb} `#{pattern}`."
+  defp bullet(verb, pattern, events), do: "  * #{verb} `#{pattern}` for #{event_list(events)}."
 
   defp event_list(events) do
     events
@@ -132,6 +141,22 @@ defmodule VerifiedPubSub.Docs do
       events ->
         {init, [last]} = Enum.split(events, -1)
         Enum.join(init, ", ") <> ", and " <> last
+    end
+  end
+
+  # In a subscriber, the handlers say which events the module receives, so the handlers
+  # give the topics, and an ignored event never appears. A module without the Subscriber
+  # has its own handle_info/2, so only its subscribe calls show its topics, with no events.
+  defp subscribed_topic_events(module) do
+    if Module.has_attribute?(module, :verified_pubsub_clauses) do
+      module
+      |> Module.get_attribute(:verified_pubsub_clauses)
+      |> Enum.flat_map(fn clause -> Enum.map(clause.events, &{clause.topic, &1}) end)
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    else
+      module
+      |> Module.get_attribute(:verified_pubsub_subscriptions)
+      |> Map.new(&{&1, []})
     end
   end
 end

@@ -62,6 +62,7 @@ defmodule VerifiedPubSub.Api do
   defmacro subscribe(topic, params \\ quote(do: %{})) do
     {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
+    Module.put_attribute(__CALLER__.module, :verified_pubsub_subscriptions, topic_struct.name)
 
     quote do
       unquote(bind_topic(manifest, topic_struct, params))

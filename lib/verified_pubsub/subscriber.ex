@@ -27,6 +27,19 @@ defmodule VerifiedPubSub.Subscriber do
   `broadcast!/4`, and the other macros without a separate
   `use VerifiedPubSub, manifest: ...`.
 
+  ## Docs
+
+  With `docs: true`, the module gets a `## PubSub` section at the end of its `@moduledoc`.
+  The section lists each topic that the module handles, with the events of its
+  `handle_message/5` calls. An event of `ignore_message/2` does not appear. The section
+  also lists the broadcasts of the module, as `VerifiedPubSub` describes.
+
+  ```markdown
+  ## PubSub
+
+    * Subscribes to `"owners:<owner_id>:pets"` for `:adopted`.
+  ```
+
   ## Generated code
 
   `use` generates two `handle_info/2` clauses at the `use` site. The first clause matches
@@ -97,7 +110,7 @@ defmodule VerifiedPubSub.Subscriber do
       def handle_info(_other, state), do: {:noreply, state}
   """
 
-  @options [:manifest]
+  @options [:docs, :manifest]
 
   defmacro __using__(opts) do
     manifest =
@@ -132,6 +145,7 @@ defmodule VerifiedPubSub.Subscriber do
     end
 
     VerifiedPubSub.bind_manifest!(module, manifest)
+    VerifiedPubSub.bind_docs!(module, Keyword.get(opts, :docs))
 
     # Register these attributes here, during expansion, not inside the quote below.
     # Elixir expands the macros of a module body before the runtime calls of the body
@@ -259,8 +273,11 @@ defmodule VerifiedPubSub.Subscriber do
 
     dispatch = Enum.map(clauses, &dispatch_clause/1) ++ Enum.map(ignored, &ignored_clause/1)
 
+    # The moduledoc goes last. A `broadcast!` in a `handle_message` body expands only inside
+    # the dispatch clauses above, so an earlier write would not see it.
     quote do
       (unquote_splicing(no_handlers_fallback(dispatch) ++ dispatch))
+      VerifiedPubSub.Docs.put_moduledoc(__MODULE__)
     end
   end
 

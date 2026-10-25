@@ -137,6 +137,112 @@ defmodule VerifiedPubSub.PubSubDocsTest do
     end
   end
 
+  describe "use VerifiedPubSub.Subscriber with docs on" do
+    test "lists the handled events, and leaves out the ignored events", %{tmp_dir: tmp_dir} do
+      doc =
+        moduledoc!(tmp_dir, """
+        use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+
+        handle_message :pets, [:adopted, :renamed], payload, state do
+          broadcast!(:system, :alert, %{text: payload.id})
+          {:noreply, state}
+        end
+
+        handle_message :pets, :rehomed, _payload, state do
+          {:noreply, state}
+        end
+
+        ignore_message :system, :alert
+        """)
+
+      assert doc == """
+             ## PubSub
+
+               * Publishes to `"system"` for `:alert`.
+               * Subscribes to `"owners:<owner_id>:pets"` for `:adopted`, `:rehomed`, and `:renamed`.
+             """
+    end
+
+    test "lists no topic for a subscribe call", %{tmp_dir: tmp_dir} do
+      assert :none ==
+               fetch_moduledoc!(
+                 tmp_dir,
+                 module_source("""
+                 use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+
+                 def join, do: subscribe(:system)
+
+                 ignore_message :pets, [:adopted, :renamed, :rehomed]
+                 ignore_message :system, :alert
+                 """)
+               )
+    end
+  end
+
+  describe "use VerifiedPubSub with docs on and a subscribe call" do
+    test "lists each subscribed topic with no events", %{tmp_dir: tmp_dir} do
+      doc =
+        moduledoc!(tmp_dir, """
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+
+        def join, do: subscribe(:system)
+        def join(id), do: subscribe(:pets, %{owner_id: id})
+        """)
+
+      assert doc ==
+               "## PubSub\n\n  * Subscribes to `\"owners:<owner_id>:pets\"`.\n  * Subscribes to `\"system\"`.\n"
+    end
+  end
+
+  describe "a module with both use lines" do
+    @both_expected "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n  * Subscribes to `\"system\"` for `:alert`.\n"
+
+    @handlers """
+    handle_message :system, :alert, payload, state do
+      broadcast!(:system, :alert, payload)
+      {:noreply, state}
+    end
+
+    ignore_message :pets, [:adopted, :renamed, :rehomed]
+    """
+
+    test "gets one section when use VerifiedPubSub comes first", %{tmp_dir: tmp_dir} do
+      doc =
+        moduledoc!(tmp_dir, """
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+        use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
+
+        #{@handlers}
+        """)
+
+      assert doc == @both_expected
+    end
+
+    test "gets one section when use VerifiedPubSub.Subscriber comes first", %{tmp_dir: tmp_dir} do
+      doc =
+        moduledoc!(tmp_dir, """
+        use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
+
+        #{@handlers}
+        """)
+
+      assert doc == @both_expected
+    end
+
+    test "gets one section when use VerifiedPubSub appears twice", %{tmp_dir: tmp_dir} do
+      doc =
+        moduledoc!(tmp_dir, """
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+
+        def alert, do: broadcast!(:system, :alert, %{text: "hi"})
+        """)
+
+      assert doc == "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n"
+    end
+  end
+
   defp moduledoc!(tmp_dir, body) do
     %{"en" => doc} = fetch_moduledoc!(tmp_dir, module_source(body))
     String.trim_trailing(doc) <> "\n"
