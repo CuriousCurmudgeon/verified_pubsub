@@ -155,6 +155,22 @@ defmodule VerifiedPubSub do
   same wire topic. Together, these checks make sure that a wire topic built from params is
   always the topic that its call site names. See `VerifiedPubSub.Topic`.
 
+  ## Docs
+
+  With `docs: true`, a module gets a `## PubSub` section at the end of its `@moduledoc`.
+  The section lists each topic that the module broadcasts to, with its events:
+
+      use VerifiedPubSub, manifest: MyApp.Topics, docs: true
+
+  ```markdown
+  ## PubSub
+
+    * Publishes to `"owners:<owner_id>:pets"` for `:adopted` and `:rehomed`.
+  ```
+
+  The macro calls of the module give the section, so the section agrees with the code. It
+  shows only the calls in the module itself. `@moduledoc false` keeps the module hidden.
+
   ## Transport
 
   Broadcasts and subscriptions go through `Phoenix.PubSub`, so `:pubsub` names a
@@ -178,9 +194,22 @@ defmodule VerifiedPubSub do
       |> Macro.expand(__CALLER__)
 
     bind_manifest!(__CALLER__.module, manifest)
+    bind_docs!(__CALLER__.module, Keyword.get(opts, :docs))
 
     quote do
       import VerifiedPubSub.Api
+
+      @before_compile VerifiedPubSub
+    end
+  end
+
+  @doc false
+  # The section must see each macro call of the module, so the moduledoc is written by code
+  # that this hook returns. A module can register this hook more than once, so the write
+  # can run more than once.
+  defmacro __before_compile__(_env) do
+    quote do
+      VerifiedPubSub.Docs.put_moduledoc(__MODULE__)
     end
   end
 
@@ -198,6 +227,8 @@ defmodule VerifiedPubSub do
     case Module.get_attribute(module, :verified_pubsub_manifest) do
       nil ->
         Module.put_attribute(module, :verified_pubsub_manifest, manifest)
+        Module.register_attribute(module, :verified_pubsub_broadcasts, accumulate: true)
+        Module.register_attribute(module, :verified_pubsub_subscriptions, accumulate: true)
 
       ^manifest ->
         :ok
@@ -207,5 +238,29 @@ defmodule VerifiedPubSub do
               "#{inspect(module)} is already bound to manifest #{inspect(other)}, " <>
                 "cannot also bind #{inspect(manifest)}"
     end
+  end
+
+  @doc false
+  # Records the `docs` option of one `use` line. `nil` means that the line gives no value.
+  # A module with two `use` lines takes one value, so two different values raise.
+  @spec bind_docs!(module(), boolean() | nil) :: :ok
+  def bind_docs!(_module, nil), do: :ok
+
+  def bind_docs!(module, docs) when is_boolean(docs) do
+    case Module.get_attribute(module, :verified_pubsub_docs) do
+      nil ->
+        Module.put_attribute(module, :verified_pubsub_docs, docs)
+
+      ^docs ->
+        :ok
+
+      _other ->
+        raise ArgumentError,
+              "#{inspect(module)} sets both docs: true and docs: false. Give one value."
+    end
+  end
+
+  def bind_docs!(_module, docs) do
+    raise ArgumentError, "expected a boolean for :docs, got: #{inspect(docs)}"
   end
 end

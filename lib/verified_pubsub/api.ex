@@ -280,6 +280,7 @@ defmodule VerifiedPubSub.Api do
     event = validate_event!(caller, manifest, topic_struct, event)
     validate_params!(caller, topic_struct, params)
     validate_literal_payload!(caller, topic_struct, event, payload)
+    Module.put_attribute(caller.module, :verified_pubsub_broadcasts, {topic_struct.name, event})
 
     call =
       if from do

@@ -158,22 +158,8 @@ defmodule VerifiedPubSub.DocsTest do
     String.trim_trailing(doc) <> "\n"
   end
 
-  # Compiles a manifest with docs on, and returns its moduledoc entry. This function reads
-  # the docs from the .beam, because Code.fetch_docs/1 cannot read a module that exists
-  # only in memory.
   defp docs!(tmp_dir, body) do
     name = unique_module("VerifiedPubSub.DocsTest.Manifest")
-    previous = Code.get_compiler_option(:docs)
-    Code.put_compiler_option(:docs, true)
-
-    try do
-      [{module, binary} | _] = Code.compile_string("defmodule #{name} do\n#{body}\nend")
-      path = Path.join(tmp_dir, "#{inspect(module)}.beam")
-      File.write!(path, binary)
-      {:docs_v1, _anno, _language, _format, moduledoc, _metadata, _docs} = Code.fetch_docs(path)
-      moduledoc
-    after
-      Code.put_compiler_option(:docs, previous)
-    end
+    fetch_moduledoc!(tmp_dir, "defmodule #{name} do\n#{body}\nend")
   end
 end

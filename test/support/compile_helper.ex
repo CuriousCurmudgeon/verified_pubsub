@@ -38,6 +38,33 @@ defmodule VerifiedPubSub.CompileHelper do
   """
   def unique_owner_id, do: "owner#{System.unique_integer([:positive])}"
 
+  @doc """
+  Compiles `source` with docs on, and returns the moduledoc entry of the last module that
+  it defines.
+
+  The entry is `%{"en" => doc}`, `:none`, or `:hidden`. This function reads the docs from
+  a `.beam` in `tmp_dir`, because `Code.fetch_docs/1` cannot read a module that exists only
+  in memory. The test env turns docs off, so this function turns them on and then back.
+  """
+  def fetch_moduledoc!(tmp_dir, source) do
+    previous = Code.get_compiler_option(:docs)
+    Code.put_compiler_option(:docs, true)
+
+    try do
+      {module, binary} =
+        source
+        |> Code.compile_string()
+        |> List.last()
+
+      path = Path.join(tmp_dir, "#{inspect(module)}.beam")
+      File.write!(path, binary)
+      {:docs_v1, _anno, _language, _format, moduledoc, _metadata, _docs} = Code.fetch_docs(path)
+      moduledoc
+    after
+      Code.put_compiler_option(:docs, previous)
+    end
+  end
+
   @doc "A unique module name, so that generated test modules never collide."
   def unique_module(prefix) do
     "#{prefix}#{System.unique_integer([:positive])}"
