@@ -212,9 +212,9 @@ defmodule VerifiedPubSub do
   # The section must see each macro call of the module, so the moduledoc is written by code
   # that this hook returns. A module can register this hook more than once, so the write
   # can run more than once.
-  defmacro __before_compile__(_env) do
+  defmacro __before_compile__(env) do
     quote do
-      VerifiedPubSub.Docs.put_moduledoc(__MODULE__)
+      VerifiedPubSub.Docs.put_moduledoc(__MODULE__, unquote(env.line))
     end
   end
 

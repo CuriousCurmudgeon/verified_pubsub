@@ -277,7 +277,7 @@ defmodule VerifiedPubSub.Subscriber do
     # the dispatch clauses above, so an earlier write would not see it.
     quote do
       (unquote_splicing(no_handlers_fallback(dispatch) ++ dispatch))
-      VerifiedPubSub.Docs.put_moduledoc(__MODULE__)
+      VerifiedPubSub.Docs.put_moduledoc(__MODULE__, unquote(env.line))
     end
   end
 

@@ -47,6 +47,17 @@ defmodule VerifiedPubSub.CompileHelper do
   in memory. The test env turns docs off, so this function turns them on and then back.
   """
   def fetch_moduledoc!(tmp_dir, source) do
+    {:docs_v1, _anno, _language, _format, moduledoc, _metadata, _docs} =
+      fetch_docs!(tmp_dir, source)
+
+    moduledoc
+  end
+
+  @doc """
+  Compiles `source` with docs on, and returns the `:docs_v1` chunk of the last module that
+  it defines. See `fetch_moduledoc!/2`.
+  """
+  def fetch_docs!(tmp_dir, source) do
     previous = Code.get_compiler_option(:docs)
     Code.put_compiler_option(:docs, true)
 
@@ -58,8 +69,7 @@ defmodule VerifiedPubSub.CompileHelper do
 
       path = Path.join(tmp_dir, "#{inspect(module)}.beam")
       File.write!(path, binary)
-      {:docs_v1, _anno, _language, _format, moduledoc, _metadata, _docs} = Code.fetch_docs(path)
-      moduledoc
+      Code.fetch_docs(path)
     after
       Code.put_compiler_option(:docs, previous)
     end

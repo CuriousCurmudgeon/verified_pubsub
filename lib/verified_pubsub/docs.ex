@@ -60,11 +60,12 @@ defmodule VerifiedPubSub.Docs do
   # Adds the `## PubSub` section to the end of the moduledoc of `module`, when docs are on.
   # A module can run this more than once. The first run saves the moduledoc of the user,
   # and each run builds the result from that saved value, so the section appears once. The
-  # last run sees the most macro calls, so its section wins.
-  @spec put_moduledoc(module()) :: :ok
-  def put_moduledoc(module) do
+  # last run sees the most macro calls, so its section wins. A module with no moduledoc
+  # gets `line`, the line of its `defmodule`, as Elixir gives it without this section.
+  @spec put_moduledoc(module(), pos_integer()) :: :ok
+  def put_moduledoc(module, line) do
     if docs?(module) do
-      case moduledoc(user_moduledoc(module), pubsub_section(module)) do
+      case moduledoc(user_moduledoc(module), pubsub_section(module), line) do
         nil -> :ok
         moduledoc -> Module.put_attribute(module, :moduledoc, moduledoc)
       end
@@ -81,11 +82,11 @@ defmodule VerifiedPubSub.Docs do
     end
   end
 
-  defp moduledoc(user_moduledoc, nil), do: user_moduledoc
-  defp moduledoc({_line, false} = user_moduledoc, _section), do: user_moduledoc
-  defp moduledoc(nil, section), do: {1, section}
+  defp moduledoc(user_moduledoc, nil, _module_line), do: user_moduledoc
+  defp moduledoc({_, false} = user_moduledoc, _section, _module_line), do: user_moduledoc
+  defp moduledoc(nil, section, line), do: {line, section}
 
-  defp moduledoc({line, doc}, section) do
+  defp moduledoc({line, doc}, section, _module_line) do
     {line, String.trim_trailing(doc) <> "\n\n" <> section}
   end
 

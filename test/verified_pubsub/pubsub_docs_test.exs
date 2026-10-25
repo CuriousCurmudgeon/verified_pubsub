@@ -58,6 +58,19 @@ defmodule VerifiedPubSub.PubSubDocsTest do
       assert doc == "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n"
     end
 
+    test "keeps the line of defmodule when the module has no moduledoc", %{tmp_dir: tmp_dir} do
+      source =
+        "\n\n" <>
+          module_source("""
+          use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+
+          def alert, do: broadcast!(:system, :alert, %{text: "hi"})
+          """)
+
+      assert {:docs_v1, anno, _, _, %{"en" => _}, _, _} = fetch_docs!(tmp_dir, source)
+      assert :erl_anno.line(anno) == 3
+    end
+
     test "keeps a module with @moduledoc false hidden", %{tmp_dir: tmp_dir} do
       assert :hidden ==
                fetch_moduledoc!(
