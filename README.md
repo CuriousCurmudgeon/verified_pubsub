@@ -110,6 +110,34 @@ end
 A `@moduledoc` that you write stays first. `@moduledoc false` keeps the manifest out of the
 docs.
 
+## Document your modules
+
+A module can also list what it publishes and handles. Add `docs: true` to the manifest, so
+that each module that uses it gets a `## PubSub` section at the end of its `@moduledoc`:
+
+```elixir
+use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub, docs: true
+```
+
+The `MyApp.Pets` and `MyAppWeb.PetsLive` modules below then get these sections:
+
+```markdown
+## PubSub
+
+  * Publishes to `"owners:<owner_id>:pets"` for `:adopted`.
+```
+
+```markdown
+## PubSub
+
+  * Subscribes to `"owners:<owner_id>:pets"` for `:adopted`.
+```
+
+The macro calls of the module give the section, so it always agrees with the code. An
+event of `ignore_message` does not appear. The section shows only the calls in the module
+itself, not the calls of other modules that it calls. To turn the section on or off for
+one module, add `docs: true` or `docs: false` to its `use` line.
+
 ## Broadcast
 
 ```elixir

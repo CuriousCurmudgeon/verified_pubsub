@@ -70,6 +70,10 @@ defmodule VerifiedPubSub.Manifest do
 
         message :rehomed, description: "The pet moved to a new owner."
       end
+
+  `docs: true` turns on a `## PubSub` section for each module that binds the manifest. The
+  section lists the topics and events that the module publishes and handles. The `docs`
+  option of a `use` line overrides the manifest for one module. See `VerifiedPubSub`.
   """
 
   use Spark.Dsl,
@@ -79,6 +83,12 @@ defmodule VerifiedPubSub.Manifest do
         type: :atom,
         required: true,
         doc: "The name of the `Phoenix.PubSub` process that broadcasts and subscriptions use."
+      ],
+      docs: [
+        type: :boolean,
+        default: false,
+        doc:
+          "Adds a `## PubSub` section to the moduledoc of each module that binds this manifest."
       ]
     ]
 
@@ -87,6 +97,9 @@ defmodule VerifiedPubSub.Manifest do
     quote do
       @doc false
       def __verified_pubsub_name__, do: unquote(opts[:pubsub])
+
+      @doc false
+      def __verified_pubsub_docs__, do: unquote(Keyword.get(opts, :docs, false))
     end
   end
 end

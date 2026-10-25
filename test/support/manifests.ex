@@ -49,6 +49,17 @@ defmodule VerifiedPubSub.TestManifests do
     end
   end
 
+  # Turns on the PubSub section for each module that binds it.
+  defmodule Documented do
+    use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub, docs: true
+
+    topic :system, ["system"] do
+      message :alert do
+        field :text, :string
+      end
+    end
+  end
+
   # Two topics with different segment counts, so they are disjoint. But their wire topics
   # are the same when a param value can contain the separator.
   defmodule Adjacent do

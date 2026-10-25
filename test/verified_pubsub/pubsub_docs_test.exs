@@ -105,6 +105,44 @@ defmodule VerifiedPubSub.PubSubDocsTest do
     end
   end
 
+  describe "use VerifiedPubSub with an invalid docs value" do
+    test "is a compile error that names the value" do
+      error =
+        compile_error(
+          module_source("""
+          use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: :yes
+          """)
+        )
+
+      assert %ArgumentError{message: "expected a boolean for :docs, got: :yes"} = error
+    end
+  end
+
+  describe "use VerifiedPubSub.Manifest with docs on" do
+    test "turns on the section for each module that binds it", %{tmp_dir: tmp_dir} do
+      doc =
+        moduledoc!(tmp_dir, """
+        use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Documented
+
+        def alert, do: broadcast!(:system, :alert, %{text: "hi"})
+        """)
+
+      assert doc == "## PubSub\n\n  * Publishes to `\"system\"` for `:alert`.\n"
+    end
+
+    test "lets a use line turn the section off", %{tmp_dir: tmp_dir} do
+      assert :none ==
+               fetch_moduledoc!(
+                 tmp_dir,
+                 module_source("""
+                 use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Documented, docs: false
+
+                 def alert, do: broadcast!(:system, :alert, %{text: "hi"})
+                 """)
+               )
+    end
+  end
+
   describe "use VerifiedPubSub with docs off" do
     test "adds no section by default", %{tmp_dir: tmp_dir} do
       doc =
@@ -228,6 +266,20 @@ defmodule VerifiedPubSub.PubSubDocsTest do
         """)
 
       assert doc == @both_expected
+    end
+
+    test "is a compile error when the lines give different docs values" do
+      error =
+        compile_error(
+          module_source("""
+          use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic, docs: true
+          use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic, docs: false
+          """)
+        )
+
+      assert %ArgumentError{message: message} = error
+      assert message =~ "docs: true"
+      assert message =~ "docs: false"
     end
 
     test "gets one section when use VerifiedPubSub appears twice", %{tmp_dir: tmp_dir} do

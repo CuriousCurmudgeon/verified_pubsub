@@ -160,6 +160,19 @@ end
 - When you match on literal param values, end with a clause that matches any value.
   Otherwise a message with a different value raises `FunctionClauseError`.
 
+## Document modules
+
+- To list what each module publishes and handles, add `docs: true` to the manifest:
+  `use VerifiedPubSub.Manifest, pubsub: MyApp.PubSub, docs: true`. Each module that binds
+  the manifest then gets a `## PubSub` section at the end of its `@moduledoc`.
+- To turn the section on or off for one module, add `docs: true` or `docs: false` to its
+  `use` line. A module with two `use` lines must not give them different values.
+- Do not list topics or events by hand in the `@moduledoc` of a module with the section.
+  Remove a hand-written list when you turn the section on.
+- The section shows only the macro calls in the module itself. A broadcast in another
+  module that this module calls does not appear. An event of `ignore_message` does not
+  appear.
+
 ## Change the manifest
 
 A new event on a topic stops the compile of each module that handles that topic. This is

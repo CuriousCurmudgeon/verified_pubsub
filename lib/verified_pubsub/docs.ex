@@ -73,7 +73,13 @@ defmodule VerifiedPubSub.Docs do
     :ok
   end
 
-  defp docs?(module), do: Module.get_attribute(module, :verified_pubsub_docs) == true
+  # The `docs` option of a `use` line wins. Without one, the manifest gives the default.
+  defp docs?(module) do
+    case Module.get_attribute(module, :verified_pubsub_docs) do
+      nil -> Module.get_attribute(module, :verified_pubsub_manifest).__verified_pubsub_docs__()
+      docs -> docs
+    end
+  end
 
   defp moduledoc(user_moduledoc, nil), do: user_moduledoc
   defp moduledoc({_line, false} = user_moduledoc, _section), do: user_moduledoc
