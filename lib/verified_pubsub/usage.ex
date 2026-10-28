@@ -1,8 +1,8 @@
 defmodule VerifiedPubSub.Usage do
   @moduledoc false
 
-  # Records each call site of a topic in the module that makes the call. The macros call
-  # `record!/5` while they expand, and the entries persist in the `.beam` of the module.
+  # Records each call site of a topic in the module that makes the call. `record!/5` runs at
+  # expansion, and the entries persist in the `.beam` of the module.
 
   alias VerifiedPubSub.Usage.Entry
 
