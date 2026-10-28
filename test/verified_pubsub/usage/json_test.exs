@@ -62,6 +62,31 @@ defmodule VerifiedPubSub.Usage.JsonTest do
              ]
     end
 
+    test "writes the keys of each object in a fixed order, with the name first" do
+      assert {:ok, json} = Json.render(report(:detail))
+
+      assert json =~ ~s({"manifests":[{"module":"MyApp.Topics","topics":[)
+      assert json =~ ~s({"name":"pets","wire":"owners:<owner_id>:pets","counts":{)
+
+      assert json =~
+               ~s("counts":{"broadcast":2,"handle":1,"ignore":0,"subscribe":1},"subscribes":[)
+
+      assert json =~
+               ~s({"name":"adopted","counts":{"broadcast":2,"handle":1,"ignore":0},"call_sites":[)
+
+      assert json =~
+               ~s({"kind":"broadcast","file":"lib/my_app/pets.ex","line":12,"module":"MyApp.Pets"})
+    end
+
+    test "writes the keys of the summary in the same order" do
+      assert {:ok, json} = Json.render(report(:summary))
+
+      assert json =~ ~s({"name":"pets","wire":"owners:<owner_id>:pets","counts":{)
+
+      assert json =~
+               ~s(,"events":[{"name":"adopted","counts":{"broadcast":2,"handle":1,"ignore":0}}])
+    end
+
     test "writes a module without the Elixir prefix and a name without the colon" do
       assert {:ok, json} = Json.render(report(:detail))
       refute json =~ "Elixir."

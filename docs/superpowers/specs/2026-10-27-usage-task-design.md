@@ -234,6 +234,14 @@ same filters apply. A sketch of the shape:
 ```
 
 - Module names are strings without the `Elixir.` prefix. Topic and event names are strings without the colon.
+- The output is compact, on one line. A reader who wants indentation pipes it to `jq`. The user chose this, because the
+  main reader is a program or an LLM, and the `JSON` module of Elixir does not indent.
+- The keys of each object come in a fixed order, so that a reader sees what an object is before its contents:
+  - a manifest: `module`, `topics`
+  - a topic: `name`, `wire`, `counts`, `subscribes`, `events`
+  - an event: `name`, `counts`, `call_sites`
+  - a call site: `kind`, `file`, `line`, `module`
+  - the counts: `broadcast`, `handle`, `ignore`, `subscribe`
 - The summary in JSON holds the counts of each topic and each event, and leaves out `call_sites` and `subscribes`.
 - An event has no `subscribe` count. A subscribe names a topic and no event, so the count would always be 0.
 - The library needs Elixir 1.16 or later, and the `JSON` module arrives in Elixir 1.18. On an older Elixir,
