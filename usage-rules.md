@@ -166,6 +166,8 @@ end
   `mix verified_pubsub.topics TOPIC --format json`. It gives each `broadcast`, `handle_message`,
   `ignore_message`, and `subscribe` call of the topic, with its file and line.
 - Add the event to get only that event: `mix verified_pubsub.topics pets adopted --format json`.
+- Without a topic, the task prints each call site of each topic. Add `--summary` to get
+  only the counts of each topic.
 - Before you change or remove an event, read its call sites. Each broadcast and handler
   changes with it.
 - The task runs in the current `MIX_ENV`. Run it with `MIX_ENV=test` to include the call

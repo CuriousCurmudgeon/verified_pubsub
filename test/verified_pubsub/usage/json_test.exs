@@ -8,8 +8,8 @@ defmodule VerifiedPubSub.Usage.JsonTest do
   @moduletag :json
 
   describe "render/1" do
-    test "renders the overview with counts and no call sites" do
-      assert decode(report(:overview)) == %{
+    test "renders the summary with counts and no call sites" do
+      assert decode(report(:summary)) == %{
                "manifests" => [
                  %{
                    "module" => "MyApp.Topics",
@@ -40,8 +40,8 @@ defmodule VerifiedPubSub.Usage.JsonTest do
              }
     end
 
-    test "renders a topic with its subscribes and the call sites of each event" do
-      assert %{"manifests" => [%{"topics" => [topic]}]} = decode(report(:topic))
+    test "renders the detail with the subscribes and the call sites of each event" do
+      assert %{"manifests" => [%{"topics" => [topic]}]} = decode(report(:detail))
 
       assert topic["subscribes"] == [
                %{
@@ -62,14 +62,8 @@ defmodule VerifiedPubSub.Usage.JsonTest do
              ]
     end
 
-    test "renders one event" do
-      assert %{"manifests" => [%{"topics" => [topic]}]} = decode(report(:event))
-      assert Map.has_key?(topic, "subscribes")
-      assert [%{"call_sites" => [_, _, _]}] = topic["events"]
-    end
-
     test "writes a module without the Elixir prefix and a name without the colon" do
-      assert {:ok, json} = Json.render(report(:topic))
+      assert {:ok, json} = Json.render(report(:detail))
       refute json =~ "Elixir."
 
       assert %{"manifests" => [%{"module" => "MyApp.Topics", "topics" => [topic]}]} =

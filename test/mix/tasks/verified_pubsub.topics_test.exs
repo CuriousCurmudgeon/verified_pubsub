@@ -13,8 +13,18 @@ defmodule Mix.Tasks.VerifiedPubsub.TopicsTest do
   end
 
   describe "mix verified_pubsub.topics" do
-    test "prints the overview of the manifest" do
+    test "prints each call site of each topic by default" do
       output = run(@manifest)
+
+      assert output =~ ":kennel  kennels:<kennel_id>  (VerifiedPubSub.UsageFixtures.Topics)"
+      assert output =~ ":walks  walks  (VerifiedPubSub.UsageFixtures.Topics)"
+
+      assert output =~
+               ~r/broadcast\s+test\/support\/usage_fixtures.ex:\d+\s+VerifiedPubSub.UsageFixtures.Kennel/
+    end
+
+    test "prints the summary table with --summary" do
+      output = run(["--summary" | @manifest])
 
       assert output =~ "VerifiedPubSub.UsageFixtures.Topics\n"
       assert output =~ ~r/^:kennel\s+kennels:<kennel_id>\s+2\s+1\s+1\s+1$/m
@@ -36,6 +46,19 @@ defmodule Mix.Tasks.VerifiedPubsub.TopicsTest do
                ~r/handle_message\s+test\/support\/usage_fixtures.ex:\d+\s+VerifiedPubSub.UsageFixtures.Board/
 
       assert output =~ ":checked_out  0 broadcasts, 1 ignore  (no broadcast)"
+    end
+
+    test "prints the row of one topic with --summary" do
+      output = run(["kennel", "--summary" | @manifest])
+
+      assert output =~ ~r/^:kennel\s+kennels:<kennel_id>\s+2\s+1\s+1\s+1$/m
+      refute output =~ ":walks"
+    end
+
+    test "prints the counts of one event in the row of its topic with --summary" do
+      output = run(["kennel", "checked_out", "--summary" | @manifest])
+
+      assert output =~ ~r/^:kennel\s+kennels:<kennel_id>\s+1\s+0\s+0\s+1$/m
     end
 
     test "prints one event" do

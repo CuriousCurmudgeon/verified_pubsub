@@ -57,8 +57,8 @@ defmodule VerifiedPubSub.Usage.Json do
     |> Map.new(fn {key, count} -> {Atom.to_string(key), count} end)
   end
 
-  # The overview holds only the counts. A caller asks for one topic to get the call sites.
-  defp put_detail(map, :overview, _key, _entries), do: map
+  # The summary holds only the counts.
+  defp put_detail(map, :summary, _key, _entries), do: map
 
   defp put_detail(map, _view, key, entries) do
     Map.put(map, key, Enum.map(entries, &call_site/1))

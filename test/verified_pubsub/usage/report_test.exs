@@ -15,7 +15,7 @@ defmodule VerifiedPubSub.Usage.ReportTest do
     test "lists each manifest with its topics and events in the order of the manifest", %{
       caller: caller
     } do
-      assert {:ok, %Report{view: :overview, manifests: [manifest]}} =
+      assert {:ok, %Report{view: :detail, manifests: [manifest]}} =
                Report.build([Basic, caller], [])
 
       assert manifest.module == Basic
@@ -74,9 +74,22 @@ defmodule VerifiedPubSub.Usage.ReportTest do
     end
   end
 
+  describe "build/2 with summary" do
+    test "gives the :summary view", %{caller: caller} do
+      assert {:ok, %Report{view: :summary}} = Report.build([Basic, caller], summary: true)
+    end
+
+    test "keeps the filters of the topic and the event", %{caller: caller} do
+      assert {:ok, %Report{view: :summary} = report} =
+               Report.build([Basic, caller], summary: true, topic: "pets", event: "adopted")
+
+      assert Enum.map(pets(report).events, & &1.name) == [:adopted]
+    end
+  end
+
   describe "build/2 with a topic" do
-    test "keeps only the topic, in the :topic view", %{caller: caller} do
-      assert {:ok, %Report{view: :topic, manifests: [manifest]}} =
+    test "keeps only the topic", %{caller: caller} do
+      assert {:ok, %Report{manifests: [manifest]}} =
                Report.build([Basic, caller], topic: "pets")
 
       assert Enum.map(manifest.topics, & &1.name) == [:pets]
@@ -108,10 +121,10 @@ defmodule VerifiedPubSub.Usage.ReportTest do
   end
 
   describe "build/2 with a topic and an event" do
-    test "keeps only the event and the subscribes of the topic, in the :event view", %{
+    test "keeps only the event and the subscribes of the topic", %{
       caller: caller
     } do
-      assert {:ok, %Report{view: :event} = report} =
+      assert {:ok, report} =
                Report.build([Basic, caller], topic: "pets", event: "adopted")
 
       topic = pets(report)

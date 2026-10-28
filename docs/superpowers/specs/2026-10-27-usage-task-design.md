@@ -23,9 +23,9 @@ The task answers three questions:
 
 1. Each call of a VerifiedPubSub macro that names a topic records one entry for each event, with its `file:line`.
 2. The entries persist in the `.beam` of the module that makes the call.
-3. `mix verified_pubsub.topics` prints an overview with counts for each topic of each manifest.
-4. A topic argument prints each call site of that topic, grouped by event.
-5. A topic argument and an event argument print the call sites of that one event.
+3. `mix verified_pubsub.topics` prints each call site of each topic of each manifest, grouped by event.
+4. A topic argument limits the output to that topic. A topic argument and an event argument limit it to that event.
+5. `--summary` prints the counts of each topic in the place of the call sites. The arguments limit it in the same way.
 6. `--format json` prints the same data in a form that a program or an LLM can parse.
 
 ## Non-goals
@@ -118,14 +118,18 @@ serve modules in another app, so a report for each app alone gives counts that a
 ### Arguments and options
 
 ```text
-mix verified_pubsub.topics [TOPIC [EVENT]] [--manifest MODULE] [--format text|json]
+mix verified_pubsub.topics [TOPIC [EVENT]] [--summary] [--manifest MODULE] [--format text|json]
 ```
+
+The arguments choose what the output holds, and `--summary` chooses how much detail it gives. The user chose this,
+so that each filter works in each view, as `mix phx.routes` prints each route by default.
 
 - `TOPIC` is the name of a topic without the colon, as `pets`.
 - `EVENT` is the name of an event on that topic, as `adopted`. An event is an argument and not an option, because two
   topics can declare events with the same name. (My call.)
 - `--manifest` limits the output to one manifest. When `TOPIC` matches topics in more than one manifest, the task
   prints each match.
+- `--summary` prints the summary table. Without it, the task prints the detail view.
 - `--format` defaults to `text`.
 
 The task compares each argument with `Atom.to_string/1` of each declared name. It must not call `String.to_atom/1` on
@@ -134,9 +138,9 @@ an argument.
 An unknown topic or event is an error. The message lists the valid names, as the compile errors of the macros do. The
 task exits with a non-zero status.
 
-### Text output: the overview
+### Text output: the summary
 
-The overview prints one table for each manifest, with one row for each topic, in the order of the manifest. Each
+The summary prints one table for each manifest, with one row for each topic, in the order of the manifest. Each
 count is a number of call sites.
 
 ```text
@@ -150,9 +154,14 @@ Topic     Wire topic                  Events  Broadcasts  Handlers  Subscribes
 - `Broadcasts` counts the entries of `:broadcast` and `:broadcast_from` on the topic.
 - `Handlers` counts the entries of `:handle` on the topic.
 - `Subscribes` counts the entries of `:subscribe` on the topic.
-- `:ignore` and `:unsubscribe` entries do not show in the overview. (My call. They show in the detail views.)
+- `:ignore` and `:unsubscribe` entries do not show in the summary. (My call. They show in the detail view.)
+- A topic argument keeps only the row of that topic. An event argument also limits the counts of that row to the
+  event and the subscribes of the topic.
 
-### Text output: one topic
+### Text output: the detail view
+
+The detail view prints each topic that the arguments keep, as this example of one topic shows. A blank line separates
+two topics.
 
 ```text
 :pets  owners:<owner_id>:pets  (MyApp.Topics)
@@ -215,8 +224,8 @@ same filters apply. A sketch of the shape:
 ```
 
 - Module names are strings without the `Elixir.` prefix. Topic and event names are strings without the colon.
-- The overview in JSON holds the counts of each topic and each event, and leaves out `call_sites` and `subscribes`.
-  (My call. A caller asks for one topic to get the call sites.)
+- The summary in JSON holds the counts of each topic and each event, and leaves out `call_sites` and `subscribes`.
+- An event has no `subscribe` count. A subscribe names a topic and no event, so the count would always be 0.
 - The library needs Elixir 1.16 or later, and the `JSON` module arrives in Elixir 1.18. On an older Elixir,
   `--format json` is an error that names Elixir 1.18. The library adds no dependency for JSON. (My call.)
 
@@ -230,12 +239,13 @@ Cover at least:
 - a `handle_message` and an `ignore_message` with a list of events, which give one entry for each event
 - a `broadcast!` inside a `handle_message` body, with the line of the source
 - a module with both `use` lines
-- the overview counts, and the order of the manifest
+- the summary counts, and the order of the manifest
+- the detail view of each topic without an argument, and `--summary` with a topic and an event
 - one topic, one event, and an event with no broadcast
 - an event name that two topics share
 - `--manifest`, and a topic name in two manifests
 - an unknown topic and an unknown event, which exit non-zero and list the valid names
-- `--format json` for the overview, one topic, and one event
+- `--format json` for the summary and the detail view
 - a manifest with no call sites
 
 ## Docs to update

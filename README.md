@@ -191,25 +191,11 @@ end
 ## Find where a topic is in use
 
 The macros record each call site of a topic in the compiled module. `mix verified_pubsub.topics`
-reads these records. It prints the number of broadcasts, handlers, and subscribes of each
-topic:
+reads these records. It prints each call site as `file:line`, grouped by topic and event.
+Give a topic, or a topic and an event, to see only those:
 
 ```sh
 mix verified_pubsub.topics
-```
-
-```
-MyApp.Topics
-
-Topic    Wire topic                Events  Broadcasts  Handlers  Subscribes
-:pets    owners:<owner_id>:pets         2           3         2           1
-:treats  owners:<owner_id>:treats       1           1         0           1
-```
-
-Give a topic to get each call site as `file:line`, and add an event to get only that
-event:
-
-```sh
 mix verified_pubsub.topics pets
 mix verified_pubsub.topics pets adopted
 ```
@@ -226,6 +212,21 @@ Subscribes (1)
 
 :rehomed  0 broadcasts, 1 ignore  (no broadcast)
   ignore_message   lib/my_app_web/live/pets_live.ex:40  MyAppWeb.PetsLive
+```
+
+`--summary` prints the number of broadcasts, handlers, and subscribes of each topic in the
+place of the call sites:
+
+```sh
+mix verified_pubsub.topics --summary
+```
+
+```
+MyApp.Topics
+
+Topic    Wire topic                Events  Broadcasts  Handlers  Subscribes
+:pets    owners:<owner_id>:pets         2           3         2           1
+:treats  owners:<owner_id>:treats       1           1         0           1
 ```
 
 `--format json` prints the same data as JSON. It needs Elixir 1.18 or later. The task runs

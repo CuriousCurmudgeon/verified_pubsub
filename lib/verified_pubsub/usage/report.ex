@@ -63,16 +63,15 @@ defmodule VerifiedPubSub.Usage.Report do
   @typedoc """
   The view of a report:
 
-  * `:overview` - each topic of each manifest
-  * `:topic` - one topic
-  * `:event` - one event of one topic
+  * `:detail` - each call site of each topic
+  * `:summary` - the counts of each topic
   """
-  @type view :: :overview | :topic | :event
+  @type view :: :detail | :summary
 
   @typedoc """
   A report:
 
-  * `:view` - the view that the filters give
+  * `:view` - the view that the `:summary` option gives
   * `:manifests` - the manifests, sorted by name
   """
   @type t :: %__MODULE__{view: view(), manifests: [Manifest.t()]}
@@ -258,11 +257,7 @@ defmodule VerifiedPubSub.Usage.Report do
   end
 
   defp view(opts) do
-    cond do
-      opts[:event] -> :event
-      opts[:topic] -> :topic
-      true -> :overview
-    end
+    if opts[:summary], do: :summary, else: :detail
   end
 
   @doc false

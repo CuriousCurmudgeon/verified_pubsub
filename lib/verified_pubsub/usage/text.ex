@@ -11,12 +11,12 @@ defmodule VerifiedPubSub.Usage.Text do
 
   @doc false
   @spec render(Report.t()) :: String.t()
-  def render(%Report{view: :overview, manifests: []}) do
+  def render(%Report{manifests: []}) do
     "No VerifiedPubSub manifest is in this project."
   end
 
-  def render(%Report{view: :overview, manifests: manifests}) do
-    Enum.map_join(manifests, "\n\n", &render_overview_manifest/1)
+  def render(%Report{view: :summary, manifests: manifests}) do
+    Enum.map_join(manifests, "\n\n", &render_summary_manifest/1)
   end
 
   def render(%Report{manifests: manifests}) do
@@ -32,7 +32,7 @@ defmodule VerifiedPubSub.Usage.Text do
     Enum.map_join(topics, "\n\n", fn {manifest, topic} -> render_topic(manifest, topic, width) end)
   end
 
-  defp render_overview_manifest(%Manifest{} = manifest) do
+  defp render_summary_manifest(%Manifest{} = manifest) do
     rows =
       Enum.map(manifest.topics, fn topic ->
         counts = Report.counts(topic_entries(topic))

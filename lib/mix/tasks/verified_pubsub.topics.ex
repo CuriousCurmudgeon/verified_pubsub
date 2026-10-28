@@ -4,24 +4,25 @@ defmodule Mix.Tasks.VerifiedPubsub.Topics do
   @moduledoc """
   #{@shortdoc}.
 
-      mix verified_pubsub.topics [TOPIC [EVENT]] [--manifest MODULE] [--format text|json]
+      mix verified_pubsub.topics [TOPIC [EVENT]] [--summary] [--manifest MODULE] [--format text|json]
 
-  With no argument, the task prints a table for each manifest. The table gives each topic,
-  its wire pattern, and the number of its events, broadcasts, handlers, and subscribes.
+  The task prints each call site of each topic, as `file:line`, grouped by event. A call
+  site is a `subscribe`, `unsubscribe`, `broadcast`, `broadcast_from`, `handle_message`, or
+  `ignore_message` call. An event that no call broadcasts gets the flag `(no broadcast)`.
 
       mix verified_pubsub.topics
 
-  With a topic, the task prints each call site of the topic, as `file:line`, grouped by
-  event. A call site is a `subscribe`, `unsubscribe`, `broadcast`, `broadcast_from`,
-  `handle_message`, or `ignore_message` call. An event that no call broadcasts gets the flag
-  `(no broadcast)`.
-
-      mix verified_pubsub.topics pets
-
-  With a topic and an event, the task prints the call sites of that event, and the
+  A topic limits the output to that topic. An event limits it to that event, and the
   subscribes of its topic.
 
+      mix verified_pubsub.topics pets
       mix verified_pubsub.topics pets adopted
+
+  `--summary` prints a table for each manifest in the place of the call sites. The table
+  gives each topic, its wire pattern, and the number of its events, broadcasts, handlers,
+  and subscribes. A topic and an event limit the table in the same way.
+
+      mix verified_pubsub.topics --summary
 
   The task compiles the project first. It reads the call sites that the macros record in
   each compiled module, so it does not start the application. It runs in the current
@@ -30,6 +31,7 @@ defmodule Mix.Tasks.VerifiedPubsub.Topics do
 
   ## Options
 
+    * `--summary` - print the counts of each topic, not the call sites.
     * `--manifest` - the manifest to report, as `MyApp.Topics`. Defaults to each manifest.
     * `--format` - `text` or `json`. Defaults to `text`. `json` needs Elixir 1.18 or later.
   """
@@ -38,12 +40,15 @@ defmodule Mix.Tasks.VerifiedPubsub.Topics do
 
   alias VerifiedPubSub.Usage.{Json, Report, Text}
 
-  @usage "mix verified_pubsub.topics [TOPIC [EVENT]] [--manifest MODULE] [--format text|json]"
+  @usage "mix verified_pubsub.topics [TOPIC [EVENT]] [--summary] [--manifest MODULE] " <>
+           "[--format text|json]"
 
   @impl Mix.Task
   def run(args) do
-    {opts, positional} = OptionParser.parse!(args, strict: [manifest: :string, format: :string])
-    filters = [manifest: opts[:manifest]] ++ filters(positional)
+    {opts, positional} =
+      OptionParser.parse!(args, strict: [manifest: :string, format: :string, summary: :boolean])
+
+    filters = [manifest: opts[:manifest], summary: opts[:summary]] ++ filters(positional)
 
     format = Keyword.get(opts, :format, "text")
     quietly(format, fn -> Mix.Task.run("compile") end)

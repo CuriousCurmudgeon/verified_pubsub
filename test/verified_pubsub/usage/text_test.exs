@@ -5,9 +5,9 @@ defmodule VerifiedPubSub.Usage.TextTest do
   alias VerifiedPubSub.Usage.Report.{Event, Manifest, Topic}
 
   describe "render/1" do
-    test "renders the overview as one table for each manifest" do
+    test "renders the summary as one table for each manifest" do
       report = %Report{
-        view: :overview,
+        view: :summary,
         manifests: [
           %Manifest{module: MyApp.Topics, topics: [pets(), treats()]},
           %Manifest{
@@ -39,13 +39,43 @@ defmodule VerifiedPubSub.Usage.TextTest do
     end
 
     test "renders a line that says the project has no manifest" do
-      assert Text.render(%Report{view: :overview, manifests: []}) ==
-               "No VerifiedPubSub manifest is in this project."
+      for view <- [:summary, :detail] do
+        assert Text.render(%Report{view: view, manifests: []}) ==
+                 "No VerifiedPubSub manifest is in this project."
+      end
+    end
+
+    test "renders each topic of each manifest in the detail view" do
+      report = %Report{
+        view: :detail,
+        manifests: [
+          %Manifest{module: MyApp.Topics, topics: [treats()]},
+          %Manifest{module: Other.Topics, topics: [treats()]}
+        ]
+      }
+
+      assert Text.render(report) <> "\n" == """
+             :treats  owners:<owner_id>:treats  (MyApp.Topics)
+
+             Subscribes (1)
+               subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
+
+             :given  1 broadcast
+               broadcast        lib/my_app/treats.ex:8     MyApp.Treats
+
+             :treats  owners:<owner_id>:treats  (Other.Topics)
+
+             Subscribes (1)
+               subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
+
+             :given  1 broadcast
+               broadcast        lib/my_app/treats.ex:8     MyApp.Treats
+             """
     end
 
     test "renders a topic with its subscribes and each event" do
       report = %Report{
-        view: :topic,
+        view: :detail,
         manifests: [%Manifest{module: MyApp.Topics, topics: [pets()]}]
       }
 
@@ -73,7 +103,7 @@ defmodule VerifiedPubSub.Usage.TextTest do
       topic = treats()
 
       report = %Report{
-        view: :event,
+        view: :detail,
         manifests: [%Manifest{module: MyApp.Topics, topics: [topic]}]
       }
 
@@ -97,7 +127,7 @@ defmodule VerifiedPubSub.Usage.TextTest do
       }
 
       report = %Report{
-        view: :topic,
+        view: :detail,
         manifests: [%Manifest{module: MyApp.Topics, topics: [topic]}]
       }
 
@@ -128,7 +158,7 @@ defmodule VerifiedPubSub.Usage.TextTest do
       }
 
       report = %Report{
-        view: :topic,
+        view: :detail,
         manifests: [%Manifest{module: MyApp.Topics, topics: [topic]}]
       }
 
