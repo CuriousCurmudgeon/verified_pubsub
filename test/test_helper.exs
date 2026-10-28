@@ -7,4 +7,7 @@
     strategy: :one_for_one
   )
 
-ExUnit.start()
+# The JSON module of Elixir arrives in 1.18. CI also runs Elixir 1.16.
+exclude = if Code.ensure_loaded?(JSON), do: [], else: [:json]
+
+ExUnit.start(exclude: exclude)
