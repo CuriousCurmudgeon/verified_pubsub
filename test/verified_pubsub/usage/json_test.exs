@@ -117,3 +117,23 @@ defmodule VerifiedPubSub.Usage.JsonTest do
     }
   end
 end
+
+defmodule VerifiedPubSub.Usage.JsonVersionTest do
+  # This module has no :json tag, so it runs on each version of Elixir.
+  use ExUnit.Case, async: true
+
+  alias VerifiedPubSub.Usage.Json
+
+  describe "supported?/1" do
+    test "is true from Elixir 1.18, which has the JSON module" do
+      assert Json.supported?("1.18.0")
+      assert Json.supported?("1.18.0-rc.0")
+      assert Json.supported?("1.20.4")
+    end
+
+    test "is false before Elixir 1.18, where a JSON module can only come from a dependency" do
+      refute Json.supported?("1.17.3")
+      refute Json.supported?("1.16.0")
+    end
+  end
+end

@@ -7,7 +7,7 @@ defmodule VerifiedPubSub.Usage.Json do
   @doc false
   @spec render(Report.t()) :: {:ok, String.t()} | {:error, String.t()}
   def render(%Report{} = report) do
-    if Code.ensure_loaded?(JSON) do
+    if supported?(System.version()) do
       # The library supports Elixir 1.16, which has no JSON module. A call through a
       # variable is not a remote call that the compiler checks, so 1.16 gives no warning.
       json = JSON
@@ -71,5 +71,16 @@ defmodule VerifiedPubSub.Usage.Json do
       "file" => entry.file,
       "line" => entry.line
     }
+  end
+
+  @doc false
+  # The JSON module of Elixir arrives in 1.18. Before that, a module with the name `JSON`
+  # can only come from a dependency, such as the `json` Hex package, with another API. So
+  # the check reads the version of Elixir, not whether a `JSON` module loads.
+  @spec supported?(String.t()) :: boolean()
+  def supported?(version) do
+    # A release candidate of 1.18 has the module, but semver orders it before 1.18.0.
+    %Version{major: major, minor: minor} = Version.parse!(version)
+    {major, minor} >= {1, 18}
   end
 end
