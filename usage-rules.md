@@ -160,6 +160,19 @@ end
 - When you match on literal param values, end with a clause that matches any value.
   Otherwise a message with a different value raises `FunctionClauseError`.
 
+## Find where a topic is in use
+
+- Before you grep for a topic or an event, run
+  `mix verified_pubsub.topics TOPIC --format json`. It gives each `broadcast`, `handle_message`,
+  `ignore_message`, and `subscribe` call of the topic, with its file and line.
+- Add the event to get only that event: `mix verified_pubsub.topics pets adopted --format json`.
+- Before you change or remove an event, read its call sites. Each broadcast and handler
+  changes with it.
+- The task runs in the current `MIX_ENV`. Run it with `MIX_ENV=test` to include the call
+  sites in `test/support`. It does not read `.exs` files, so grep the tests too.
+- A direct `Phoenix.PubSub` call does not show. Only the macros of VerifiedPubSub record a
+  call site.
+
 ## Change the manifest
 
 A new event on a topic stops the compile of each module that handles that topic. This is

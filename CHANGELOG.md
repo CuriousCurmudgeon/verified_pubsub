@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `mix verified_pubsub.topics` prints where each topic and event is in use. With no
+  argument, it prints the number of broadcasts, handlers, and subscribes of each topic.
+  With a topic, and with an event, it prints each call site as `file:line`. `--format json`
+  prints the same data as JSON on Elixir 1.18 or later.
+- The macros record each call site of a topic in the compiled module of the caller.
+
 ## v0.2.0 (2026-10-24)
 
 - `handle_message` takes a list of events in the place of one event, as `ignore_message`

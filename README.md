@@ -188,6 +188,50 @@ handle_message :pets, [:adopted, :renamed], %VerifiedPubSub.Message{event: event
 end
 ```
 
+## Find where a topic is in use
+
+The macros record each call site of a topic in the compiled module. `mix verified_pubsub.topics`
+reads these records. It prints the number of broadcasts, handlers, and subscribes of each
+topic:
+
+```sh
+mix verified_pubsub.topics
+```
+
+```
+MyApp.Topics
+
+Topic    Wire topic                Events  Broadcasts  Handlers  Subscribes
+:pets    owners:<owner_id>:pets         2           3         2           1
+:treats  owners:<owner_id>:treats       1           1         0           1
+```
+
+Give a topic to get each call site as `file:line`, and add an event to get only that
+event:
+
+```sh
+mix verified_pubsub.topics pets
+mix verified_pubsub.topics pets adopted
+```
+
+```
+:pets  owners:<owner_id>:pets  (MyApp.Topics)
+
+Subscribes (1)
+  subscribe        lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive
+
+:adopted  3 broadcasts, 2 handlers
+  broadcast        lib/my_app/pets.ex:12                MyApp.Pets
+  ...
+
+:rehomed  0 broadcasts, 1 ignore  (no broadcast)
+  ignore_message   lib/my_app_web/live/pets_live.ex:40  MyAppWeb.PetsLive
+```
+
+`--format json` prints the same data as JSON. It needs Elixir 1.18 or later. The task runs
+in the current `MIX_ENV`, so run it with `MIX_ENV=test` to include the call sites in
+`test/support`.
+
 ## Compile-time errors
 
 An event with a typo:
