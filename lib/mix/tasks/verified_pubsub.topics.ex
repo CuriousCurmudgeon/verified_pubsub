@@ -45,10 +45,11 @@ defmodule Mix.Tasks.VerifiedPubsub.Topics do
     {opts, positional} = OptionParser.parse!(args, strict: [manifest: :string, format: :string])
     filters = [manifest: opts[:manifest]] ++ filters(positional)
 
-    Mix.Task.run("compile")
+    format = Keyword.get(opts, :format, "text")
+    quietly(format, fn -> Mix.Task.run("compile") end)
 
     case Report.build(project_modules(), filters) do
-      {:ok, report} -> print(report, Keyword.get(opts, :format, "text"))
+      {:ok, report} -> print(report, format)
       {:error, message} -> Mix.raise(message)
     end
   end
@@ -86,4 +87,22 @@ defmodule Mix.Tasks.VerifiedPubsub.Topics do
   defp print(_report, format) do
     Mix.raise("unknown format #{inspect(format)}. Use text or json.")
   end
+
+  @doc false
+  # The compile prints its progress, as `Compiling 2 files (.ex)`, to stdout through the
+  # Mix shell. That text would come before the JSON, and a parser would reject the output.
+  # Compiler warnings and errors go to stderr, so they still show.
+  @spec quietly(String.t(), (-> result)) :: result when result: term()
+  def quietly("json", fun) do
+    shell = Mix.shell()
+    Mix.shell(Mix.Shell.Quiet)
+
+    try do
+      fun.()
+    after
+      Mix.shell(shell)
+    end
+  end
+
+  def quietly(_format, fun), do: fun.()
 end

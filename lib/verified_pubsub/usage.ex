@@ -34,9 +34,18 @@ defmodule VerifiedPubSub.Usage do
   @spec entries(module()) :: [Entry.t()]
   # The entries follow the order of expansion, not the order of the source. Elixir expands
   # the body of a `def` after the calls at the top level of the module.
+  #
+  # The module list of an `.app` file can name a module that no longer exists, after a
+  # source file is deleted, so a module that does not load has no entries. Only an Elixir
+  # module defines `__info__/1`, so the function reads `module_info/1`, which each BEAM
+  # module defines.
   def entries(module) do
-    module.__info__(:attributes)
-    |> Keyword.get_values(@attribute)
-    |> List.flatten()
+    if Code.ensure_loaded?(module) do
+      module.module_info(:attributes)
+      |> Keyword.get_values(@attribute)
+      |> List.flatten()
+    else
+      []
+    end
   end
 end

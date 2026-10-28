@@ -56,6 +56,14 @@ defmodule Mix.Tasks.VerifiedPubsub.TopicsTest do
       assert Enum.map(events, & &1["name"]) == ["checked_in", "checked_out"]
     end
 
+    test "keeps the output of the compile out of --format json" do
+      Topics.quietly("json", fn -> Mix.shell().info("Compiling 1 file (.ex)") end)
+      refute_received {:mix_shell, :info, _}
+
+      Topics.quietly("text", fn -> Mix.shell().info("Compiling 1 file (.ex)") end)
+      assert_received {:mix_shell, :info, ["Compiling 1 file (.ex)"]}
+    end
+
     test "raises for an unknown topic" do
       assert_raise Mix.Error, ~r/unknown topic :petz/, fn -> run(["petz" | @manifest]) end
     end

@@ -199,6 +199,14 @@ defmodule VerifiedPubSub.UsageTest do
     test "returns an empty list for a module that binds no manifest" do
       assert Usage.entries(Enum) == []
     end
+
+    test "returns an empty list for a module that does not exist" do
+      assert Usage.entries(VPTest.UsageDeleted) == []
+    end
+
+    test "returns an empty list for an Erlang module" do
+      assert Usage.entries(:lists) == []
+    end
   end
 
   defp compile_body(body) do
