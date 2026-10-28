@@ -168,34 +168,34 @@ defmodule VerifiedPubSub.UsageTest do
 
   describe "a broadcast in a shared __using__" do
     test "records one entry for each module that uses it" do
-      helper = unique_module("VPTest.UsageHelper")
+      helper = compile_helper(:quote)
 
-      compile!("""
-      defmodule #{helper} do
-        defmacro __using__(_opts) do
-          quote do
-            use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
-            def alert, do: broadcast!(:system, :alert, %{text: "x"})
-          end
-        end
+      [one, two] = Enum.map(["lib/one.ex", "lib/two.ex"], &use_helper(helper, &1, 2))
+
+      assert [%Entry{kind: :broadcast, topic: :system, event: :alert}] = one
+      assert [%Entry{kind: :broadcast, topic: :system, event: :alert}] = two
+      assert hd(one).module != hd(two).module
+    end
+
+    test "records the use line of each module" do
+      helper = compile_helper(:quote)
+
+      assert [%Entry{file: "lib/one.ex", line: 2}] = use_helper(helper, "lib/one.ex", 2)
+      assert [%Entry{file: "lib/two.ex", line: 4}] = use_helper(helper, "lib/two.ex", 4)
+    end
+
+    test "records the line in the helper when the quote keeps its location" do
+      helper = compile_helper(:keep)
+
+      # Elixir gives a kept location an absolute path.
+      for file <- ["lib/one.ex", "lib/two.ex"] do
+        assert [%Entry{file: path, line: 5}] = use_helper(helper, file, 2)
+        assert Path.relative_to_cwd(path) == "lib/helper.ex"
       end
-      """)
-
-      [first, second] =
-        Enum.map(1..2, fn _index ->
-          "defmodule #{unique_module("VPTest.Usage")} do\n  use #{helper}\nend\n"
-          |> compile_file!()
-          |> Usage.entries()
-        end)
-
-      assert [%Entry{kind: :broadcast, topic: :system, event: :alert} = one] = first
-      assert [%Entry{kind: :broadcast, topic: :system, event: :alert} = two] = second
-      assert {one.file, one.line} == {two.file, two.line}
-      assert one.module != two.module
     end
   end
 
-  describe "VerifiedPubSub.Usage.entries/1" do
+  describe "entries/1" do
     test "returns an empty list for a module that binds no manifest" do
       assert Usage.entries(Enum) == []
     end
@@ -231,6 +231,37 @@ defmodule VerifiedPubSub.UsageTest do
     """
 
     {compile_file!(source), source}
+  end
+
+  # The broadcast is on line 5 of the helper.
+  defp compile_helper(location) do
+    quote_line = if location == :keep, do: "quote location: :keep do", else: "quote do"
+    helper = unique_module("VPTest.UsageHelper")
+
+    Code.compile_string(
+      """
+      defmodule #{helper} do
+        defmacro __using__(_opts) do
+          #{quote_line}
+            use VerifiedPubSub, manifest: VerifiedPubSub.TestManifests.Basic
+            def alert, do: broadcast!(:system, :alert, %{text: "x"})
+          end
+        end
+      end
+      """,
+      "lib/helper.ex"
+    )
+
+    helper
+  end
+
+  # Compiles a module in `file` that uses `helper` on line `line`.
+  defp use_helper(helper, file, line) do
+    blank_lines = String.duplicate("\n", line - 2)
+    source = "defmodule #{unique_module("VPTest.Usage")} do\n#{blank_lines}  use #{helper}\nend\n"
+    [{module, _bin} | _] = Code.compile_string(source, file)
+
+    Usage.entries(module)
   end
 
   defp compile_file!(source) do

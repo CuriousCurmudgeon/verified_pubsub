@@ -85,8 +85,8 @@ The task reads the attribute from each compiled module. It does not need to star
 how to read it, from `module.__info__(:attributes)` or from the `:attributes` chunk of the `.beam`.
 
 A macro call inside a shared `__using__`, as `use MyAppWeb, :live_view`, or inside a user macro, expands once in
-each module that uses it. Each expansion records its own entry, with its own `module`. So the same `file:line` can
-show more than once, once for each module. A count is a number of entries, not of distinct source lines. A
+each module that uses it. Each expansion records its own entry, with its own `module`. The entry points at the `use`
+line of each module. When the quote has `location: :keep`, each entry points at the same line in the helper. A count is a number of entries, not of distinct source lines. A
 `handle_message` with a list of two events also counts two. The count then measures how many places receive or send
 the event. (My call.)
 
