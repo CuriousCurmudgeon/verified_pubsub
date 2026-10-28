@@ -192,6 +192,8 @@ Subscribes (2)
   line.
 - An event with no broadcast gets the flag `(no broadcast)`. A handler of that event never runs. (My call.)
 - The header of an event leaves out a kind with a count of zero, except for broadcasts. (My call.)
+- Each topic pads its `file:line` column to its own longest location. One long path then widens only its own topic.
+  The user chose this.
 - When ANSI is on, the text has color, and in a pipe it has none. The user asked for color:
   - The name of a manifest, the name of an event, and the header row of the summary are bold. The name of a topic is
     cyan.

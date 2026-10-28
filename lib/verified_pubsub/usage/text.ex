@@ -24,15 +24,8 @@ defmodule VerifiedPubSub.Usage.Text do
   end
 
   def render(%Report{manifests: manifests}) do
-    width =
-      manifests
-      |> Enum.flat_map(& &1.topics)
-      |> Enum.flat_map(&topic_entries/1)
-      |> Enum.map(&String.length(location(&1)))
-      |> Enum.max(fn -> 0 end)
-
     manifests
-    |> Enum.map(&render_detail_manifest(&1, width))
+    |> Enum.map(&render_detail_manifest/1)
     |> Enum.intersperse("\n\n")
   end
 
@@ -100,21 +93,29 @@ defmodule VerifiedPubSub.Usage.Text do
     Enum.join([String.pad_trailing(wire, wire_width) | cells], "  ")
   end
 
-  defp location(%Entry{} = entry), do: "#{entry.file}:#{entry.line}"
-
-  defp render_detail_manifest(%Manifest{} = manifest, width) do
-    topics = Enum.map(manifest.topics, &render_topic(&1, width))
+  defp render_detail_manifest(%Manifest{} = manifest) do
+    topics = Enum.map(manifest.topics, &render_topic/1)
 
     Enum.intersperse([style(inspect(manifest.module), [:bright]) | topics], "\n\n")
   end
 
-  defp render_topic(%Topic{} = topic, width) do
+  # Each topic pads its locations to its own longest one. One long path then widens only
+  # its own topic.
+  defp render_topic(%Topic{} = topic) do
+    width =
+      topic
+      |> topic_entries()
+      |> Enum.map(&String.length(location(&1)))
+      |> Enum.max(fn -> 0 end)
+
     header = [style(inspect(topic.name), [:bright, :cyan]), "  ", topic.wire]
     subscribes = render_subscribes(topic.subscribes, width)
     events = Enum.map(topic.events, &render_event(&1, width))
 
     Enum.intersperse([header, subscribes | events], "\n\n")
   end
+
+  defp location(%Entry{} = entry), do: "#{entry.file}:#{entry.line}"
 
   defp render_subscribes([], _width), do: "Subscribes: none"
 

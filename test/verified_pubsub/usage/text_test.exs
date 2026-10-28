@@ -83,6 +83,18 @@ defmodule VerifiedPubSub.Usage.TextTest do
              """
     end
 
+    test "pads the locations of each topic to the longest location of that topic" do
+      report = %Report{
+        view: :detail,
+        manifests: [%Manifest{module: MyApp.Topics, topics: [pets(), treats()]}]
+      }
+
+      output = plain(report)
+
+      assert output =~ "\n  broadcast        lib/my_app/pets.ex:12                MyApp.Pets\n"
+      assert output =~ "\n  broadcast        lib/my_app/treats.ex:8     MyApp.Treats"
+    end
+
     test "renders one line for a topic with no subscribe" do
       report = %Report{
         view: :detail,
