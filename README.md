@@ -201,7 +201,9 @@ mix verified_pubsub.topics pets adopted
 ```
 
 ```
-:pets  owners:<owner_id>:pets  (MyApp.Topics)
+MyApp.Topics
+
+:pets  owners:<owner_id>:pets
 
 Subscribes (1)
   subscribe        lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive

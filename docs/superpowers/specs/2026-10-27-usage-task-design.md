@@ -160,11 +160,14 @@ Topic     Wire topic                  Events  Broadcasts  Handlers  Subscribes
 
 ### Text output: the detail view
 
-The detail view prints each topic that the arguments keep, as this example of one topic shows. A blank line separates
-two topics.
+The detail view prints the name of each manifest, then each topic that the arguments keep, as this example of one
+topic shows. A blank line separates two topics, and two manifests. The user chose to group the topics under their
+manifest, as the summary does.
 
 ```text
-:pets  owners:<owner_id>:pets  (MyApp.Topics)
+MyApp.Topics
+
+:pets  owners:<owner_id>:pets
 
 Subscribes (2)
   subscribe        lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive
@@ -182,7 +185,8 @@ Subscribes (2)
   ignore_message   lib/my_app_web/live/pets_live.ex:40  MyAppWeb.PetsLive
 ```
 
-- The `Subscribes` group lists the `:subscribe` and `:unsubscribe` entries of the topic.
+- The `Subscribes` group lists the `:subscribe` and `:unsubscribe` entries of the topic. A topic with no entry there
+  gets the one line `Subscribes: none`.
 - The events follow the order of the manifest. Each event shows, also an event with no entries.
 - Within an event, broadcasts come first, then handlers, then ignores. Within each kind, entries sort by file and
   line.

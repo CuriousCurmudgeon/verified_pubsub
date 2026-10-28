@@ -16,8 +16,8 @@ defmodule Mix.Tasks.VerifiedPubsub.TopicsTest do
     test "prints each call site of each topic by default" do
       output = run(@manifest)
 
-      assert output =~ ":kennel  kennels:<kennel_id>  (VerifiedPubSub.UsageFixtures.Topics)"
-      assert output =~ ":walks  walks  (VerifiedPubSub.UsageFixtures.Topics)"
+      assert output =~ "VerifiedPubSub.UsageFixtures.Topics\n\n:kennel  kennels:<kennel_id>\n"
+      assert output =~ "\n:walks  walks\n\nSubscribes: none\n"
 
       assert output =~
                ~r/broadcast\s+test\/support\/usage_fixtures.ex:\d+\s+VerifiedPubSub.UsageFixtures.Kennel/
@@ -34,7 +34,7 @@ defmodule Mix.Tasks.VerifiedPubsub.TopicsTest do
     test "prints each call site of a topic" do
       output = run(["kennel" | @manifest])
 
-      assert output =~ ":kennel  kennels:<kennel_id>  (VerifiedPubSub.UsageFixtures.Topics)"
+      assert output =~ "VerifiedPubSub.UsageFixtures.Topics\n\n:kennel  kennels:<kennel_id>\n"
 
       assert output =~
                ~r/subscribe\s+test\/support\/usage_fixtures.ex:\d+\s+VerifiedPubSub.UsageFixtures.Board/

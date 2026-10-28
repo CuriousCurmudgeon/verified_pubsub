@@ -20,16 +20,14 @@ defmodule VerifiedPubSub.Usage.Text do
   end
 
   def render(%Report{manifests: manifests}) do
-    topics =
-      Enum.flat_map(manifests, fn manifest -> Enum.map(manifest.topics, &{manifest, &1}) end)
-
     width =
-      topics
-      |> Enum.flat_map(fn {_manifest, topic} -> topic_entries(topic) end)
+      manifests
+      |> Enum.flat_map(& &1.topics)
+      |> Enum.flat_map(&topic_entries/1)
       |> Enum.map(&String.length(location(&1)))
       |> Enum.max(fn -> 0 end)
 
-    Enum.map_join(topics, "\n\n", fn {manifest, topic} -> render_topic(manifest, topic, width) end)
+    Enum.map_join(manifests, "\n\n", &render_detail_manifest(&1, width))
   end
 
   defp render_summary_manifest(%Manifest{} = manifest) do
@@ -82,19 +80,27 @@ defmodule VerifiedPubSub.Usage.Text do
 
   defp location(%Entry{} = entry), do: "#{entry.file}:#{entry.line}"
 
-  defp render_topic(%Manifest{} = manifest, %Topic{} = topic, width) do
-    header = "#{inspect(topic.name)}  #{topic.wire}  (#{inspect(manifest.module)})"
+  defp render_detail_manifest(%Manifest{} = manifest, width) do
+    topics = Enum.map(manifest.topics, &render_topic(&1, width))
 
-    subscribes =
-      [
-        "Subscribes (#{length(topic.subscribes)})"
-        | Enum.map(topic.subscribes, &render_entry(&1, width))
-      ]
-      |> Enum.join("\n")
+    Enum.join([inspect(manifest.module) | topics], "\n\n")
+  end
 
+  defp render_topic(%Topic{} = topic, width) do
+    header = "#{inspect(topic.name)}  #{topic.wire}"
+    subscribes = render_subscribes(topic.subscribes, width)
     events = Enum.map(topic.events, &render_event(&1, width))
 
     Enum.join([header, subscribes | events], "\n\n")
+  end
+
+  defp render_subscribes([], _width), do: "Subscribes: none"
+
+  defp render_subscribes(subscribes, width) do
+    Enum.join(
+      ["Subscribes (#{length(subscribes)})" | Enum.map(subscribes, &render_entry(&1, width))],
+      "\n"
+    )
   end
 
   defp render_entry(%Entry{} = entry, width) do

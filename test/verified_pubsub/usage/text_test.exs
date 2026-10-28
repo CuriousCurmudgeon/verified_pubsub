@@ -45,17 +45,19 @@ defmodule VerifiedPubSub.Usage.TextTest do
       end
     end
 
-    test "renders each topic of each manifest in the detail view" do
+    test "groups the topics of the detail view under the name of each manifest" do
       report = %Report{
         view: :detail,
         manifests: [
-          %Manifest{module: MyApp.Topics, topics: [treats()]},
+          %Manifest{module: MyApp.Topics, topics: [treats(), system()]},
           %Manifest{module: Other.Topics, topics: [treats()]}
         ]
       }
 
       assert Text.render(report) <> "\n" == """
-             :treats  owners:<owner_id>:treats  (MyApp.Topics)
+             MyApp.Topics
+
+             :treats  owners:<owner_id>:treats
 
              Subscribes (1)
                subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
@@ -63,7 +65,15 @@ defmodule VerifiedPubSub.Usage.TextTest do
              :given  1 broadcast
                broadcast        lib/my_app/treats.ex:8     MyApp.Treats
 
-             :treats  owners:<owner_id>:treats  (Other.Topics)
+             :system  system
+
+             Subscribes: none
+
+             :alert  0 broadcasts  (no broadcast)
+
+             Other.Topics
+
+             :treats  owners:<owner_id>:treats
 
              Subscribes (1)
                subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
@@ -73,6 +83,15 @@ defmodule VerifiedPubSub.Usage.TextTest do
              """
     end
 
+    test "renders one line for a topic with no subscribe" do
+      report = %Report{
+        view: :detail,
+        manifests: [%Manifest{module: MyApp.Topics, topics: [system()]}]
+      }
+
+      assert Text.render(report) =~ "\n:system  system\n\nSubscribes: none\n\n:alert"
+    end
+
     test "renders a topic with its subscribes and each event" do
       report = %Report{
         view: :detail,
@@ -80,7 +99,9 @@ defmodule VerifiedPubSub.Usage.TextTest do
       }
 
       assert Text.render(report) <> "\n" == """
-             :pets  owners:<owner_id>:pets  (MyApp.Topics)
+             MyApp.Topics
+
+             :pets  owners:<owner_id>:pets
 
              Subscribes (2)
                subscribe        lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive
@@ -108,7 +129,9 @@ defmodule VerifiedPubSub.Usage.TextTest do
       }
 
       assert Text.render(report) <> "\n" == """
-             :treats  owners:<owner_id>:treats  (MyApp.Topics)
+             MyApp.Topics
+
+             :treats  owners:<owner_id>:treats
 
              Subscribes (1)
                subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
@@ -132,9 +155,11 @@ defmodule VerifiedPubSub.Usage.TextTest do
       }
 
       assert Text.render(report) <> "\n" == """
-             :system  system  (MyApp.Topics)
+             MyApp.Topics
 
-             Subscribes (0)
+             :system  system
+
+             Subscribes: none
 
              :alert  0 broadcasts  (no broadcast)
              """
@@ -193,6 +218,15 @@ defmodule VerifiedPubSub.Usage.TextTest do
           ]
         }
       ]
+    }
+  end
+
+  defp system do
+    %Topic{
+      name: :system,
+      wire: "system",
+      subscribes: [],
+      events: [%Event{name: :alert, entries: []}]
     }
   end
 
