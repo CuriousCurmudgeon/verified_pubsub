@@ -39,8 +39,15 @@ defmodule VerifiedPubSub.Usage.Json do
     |> put_detail(view, "subscribes", topic.subscribes)
   end
 
+  # A subscribe names a topic and no event, so an event has no subscribe count. A count of
+  # 0 would say that no process receives the event.
   defp event(%Event{} = event, view) do
-    %{"name" => Atom.to_string(event.name), "counts" => counts(event.entries)}
+    counts =
+      event.entries
+      |> counts()
+      |> Map.delete("subscribe")
+
+    %{"name" => Atom.to_string(event.name), "counts" => counts}
     |> put_detail(view, "call_sites", event.entries)
   end
 

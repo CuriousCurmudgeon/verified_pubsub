@@ -29,8 +29,7 @@ defmodule VerifiedPubSub.Usage.JsonTest do
                            "counts" => %{
                              "broadcast" => 2,
                              "handle" => 1,
-                             "ignore" => 0,
-                             "subscribe" => 0
+                             "ignore" => 0
                            }
                          }
                        ]
