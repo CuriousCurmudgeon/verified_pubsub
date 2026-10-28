@@ -6,6 +6,7 @@
   site as `file:line`. A topic, or a topic and an event, limits the output. `--summary`
   prints the number of broadcasts, handlers, and subscribes of each topic in the place of
   the call sites. `--format json` prints the same data as JSON on Elixir 1.18 or later.
+  The text output has color when ANSI is on, and none in a pipe.
 - The macros record each call site of a topic in the compiled module of the caller.
 
 ## v0.2.0 (2026-10-24)

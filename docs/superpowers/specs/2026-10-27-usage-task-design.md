@@ -192,6 +192,12 @@ Subscribes (2)
   line.
 - An event with no broadcast gets the flag `(no broadcast)`. A handler of that event never runs. (My call.)
 - The header of an event leaves out a kind with a count of zero, except for broadcasts. (My call.)
+- When ANSI is on, the text has color, and in a pipe it has none. The user asked for color:
+  - The name of a manifest, the name of an event, and the header row of the summary are bold. The name of a topic is
+    cyan.
+  - A send (`broadcast`, `broadcast_from`) is green, and a receive (`handle_message`, `subscribe`) is magenta.
+    `ignore_message` and `unsubscribe` are faint.
+  - `(no broadcast)` is yellow. A `file:line` has no color, so that a reader can copy it.
 
 ### Text output: one event
 

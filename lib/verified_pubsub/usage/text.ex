@@ -10,13 +10,17 @@ defmodule VerifiedPubSub.Usage.Text do
   @macro_width 15
 
   @doc false
-  @spec render(Report.t()) :: String.t()
+  # Returns ANSI data, not a string. `Mix.shell().info/1` gives it color when ANSI is on,
+  # and drops the codes when ANSI is off, as in a pipe.
+  @spec render(Report.t()) :: IO.ANSI.ansidata()
   def render(%Report{manifests: []}) do
     "No VerifiedPubSub manifest is in this project."
   end
 
   def render(%Report{view: :summary, manifests: manifests}) do
-    Enum.map_join(manifests, "\n\n", &render_summary_manifest/1)
+    manifests
+    |> Enum.map(&render_summary_manifest/1)
+    |> Enum.intersperse("\n\n")
   end
 
   def render(%Report{manifests: manifests}) do
@@ -27,7 +31,9 @@ defmodule VerifiedPubSub.Usage.Text do
       |> Enum.map(&String.length(location(&1)))
       |> Enum.max(fn -> 0 end)
 
-    Enum.map_join(manifests, "\n\n", &render_detail_manifest(&1, width))
+    manifests
+    |> Enum.map(&render_detail_manifest(&1, width))
+    |> Enum.intersperse("\n\n")
   end
 
   defp render_summary_manifest(%Manifest{} = manifest) do
@@ -45,12 +51,14 @@ defmodule VerifiedPubSub.Usage.Text do
         ]
       end)
 
-    inspect(manifest.module) <> "\n\n" <> render_table(rows)
+    [style(inspect(manifest.module), [:bright]), "\n\n", render_table(rows)]
   end
 
   defp topic_entries(%Topic{} = topic) do
     topic.subscribes ++ Enum.flat_map(topic.events, & &1.entries)
   end
+
+  defp style(text, codes), do: codes ++ [text, :reset]
 
   defp render_table(rows) do
     [name_width, wire_width] =
@@ -60,22 +68,36 @@ defmodule VerifiedPubSub.Usage.Text do
         |> Enum.max()
       end)
 
-    [@headers | rows]
-    |> Enum.map_join("\n", fn [name, wire | numbers] ->
-      cells =
-        numbers
-        |> Enum.zip(Enum.drop(@headers, 2))
-        |> Enum.map(fn {number, header} ->
-          number
-          |> to_string()
-          |> String.pad_leading(String.length(header))
-        end)
+    [name_header | cell_headers] = @headers
 
-      Enum.join(
-        [String.pad_trailing(name, name_width), String.pad_trailing(wire, wire_width) | cells],
-        "  "
-      )
-    end)
+    header_text =
+      String.pad_trailing(name_header, name_width) <>
+        "  " <> render_cells(cell_headers, wire_width)
+
+    header = style(header_text, [:bright])
+
+    lines =
+      Enum.map(rows, fn [name | cells] ->
+        # The padding goes after the color, so that the color covers only the name.
+        padding = String.duplicate(" ", name_width - String.length(name))
+        [style(name, [:cyan]), padding, "  ", render_cells(cells, wire_width)]
+      end)
+
+    Enum.intersperse([header | lines], "\n")
+  end
+
+  # The cells after the name: the wire pattern, then each count under its header.
+  defp render_cells([wire | numbers], wire_width) do
+    cells =
+      numbers
+      |> Enum.zip(Enum.drop(@headers, 2))
+      |> Enum.map(fn {number, header} ->
+        number
+        |> to_string()
+        |> String.pad_leading(String.length(header))
+      end)
+
+    Enum.join([String.pad_trailing(wire, wire_width) | cells], "  ")
   end
 
   defp location(%Entry{} = entry), do: "#{entry.file}:#{entry.line}"
@@ -83,35 +105,45 @@ defmodule VerifiedPubSub.Usage.Text do
   defp render_detail_manifest(%Manifest{} = manifest, width) do
     topics = Enum.map(manifest.topics, &render_topic(&1, width))
 
-    Enum.join([inspect(manifest.module) | topics], "\n\n")
+    Enum.intersperse([style(inspect(manifest.module), [:bright]) | topics], "\n\n")
   end
 
   defp render_topic(%Topic{} = topic, width) do
-    header = "#{inspect(topic.name)}  #{topic.wire}"
+    header = [style(inspect(topic.name), [:bright, :cyan]), "  ", topic.wire]
     subscribes = render_subscribes(topic.subscribes, width)
     events = Enum.map(topic.events, &render_event(&1, width))
 
-    Enum.join([header, subscribes | events], "\n\n")
+    Enum.intersperse([header, subscribes | events], "\n\n")
   end
 
   defp render_subscribes([], _width), do: "Subscribes: none"
 
   defp render_subscribes(subscribes, width) do
-    Enum.join(
+    Enum.intersperse(
       ["Subscribes (#{length(subscribes)})" | Enum.map(subscribes, &render_entry(&1, width))],
       "\n"
     )
   end
 
   defp render_entry(%Entry{} = entry, width) do
-    "  " <>
-      String.pad_trailing(macro(entry.kind), @macro_width) <>
-      "  " <> String.pad_trailing(location(entry), width) <> "  " <> inspect(entry.module)
+    [
+      "  ",
+      style(String.pad_trailing(macro(entry.kind), @macro_width), [kind_color(entry.kind)]),
+      "  ",
+      String.pad_trailing(location(entry), width),
+      "  ",
+      inspect(entry.module)
+    ]
   end
 
   defp macro(:handle), do: "handle_message"
   defp macro(:ignore), do: "ignore_message"
   defp macro(kind), do: Atom.to_string(kind)
+
+  # A send and a receive get two colors, so that a reader tells them apart at a glance.
+  defp kind_color(kind) when kind in [:broadcast, :broadcast_from], do: :green
+  defp kind_color(kind) when kind in [:handle, :subscribe], do: :magenta
+  defp kind_color(kind) when kind in [:ignore, :unsubscribe], do: :faint
 
   defp render_event(%Event{} = event, width) do
     counts = Report.counts(event.entries)
@@ -125,15 +157,10 @@ defmodule VerifiedPubSub.Usage.Text do
       |> Enum.filter(& &1)
       |> Enum.join(", ")
 
-    flag = if counts.broadcast == 0, do: "  (no broadcast)", else: ""
+    flag = if counts.broadcast == 0, do: ["  ", style("(no broadcast)", [:yellow])], else: []
+    line = [style(inspect(event.name), [:bright]), "  ", header, flag]
 
-    Enum.join(
-      [
-        "#{inspect(event.name)}  #{header}#{flag}"
-        | Enum.map(event.entries, &render_entry(&1, width))
-      ],
-      "\n"
-    )
+    Enum.intersperse([line | Enum.map(event.entries, &render_entry(&1, width))], "\n")
   end
 
   defp count(1, noun), do: "1 #{noun}"
