@@ -197,6 +197,7 @@ defmodule VerifiedPubSub do
   def bind_manifest!(module, manifest) do
     case Module.get_attribute(module, :verified_pubsub_manifest) do
       nil ->
+        VerifiedPubSub.Usage.register!(module)
         Module.put_attribute(module, :verified_pubsub_manifest, manifest)
 
       ^manifest ->

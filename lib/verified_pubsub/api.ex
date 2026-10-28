@@ -56,12 +56,13 @@ defmodule VerifiedPubSub.Api do
   process that started the request.
   """
 
-  alias VerifiedPubSub.{Info, Topic}
+  alias VerifiedPubSub.{Info, Topic, Usage}
 
   @doc "Subscribes the current process to a topic."
   defmacro subscribe(topic, params \\ quote(do: %{})) do
     {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
+    Usage.record!(__CALLER__, manifest, topic_struct.name, nil, :subscribe)
 
     quote do
       unquote(bind_topic(manifest, topic_struct, params))
@@ -73,6 +74,7 @@ defmodule VerifiedPubSub.Api do
   defmacro unsubscribe(topic, params \\ quote(do: %{})) do
     {manifest, topic_struct} = resolve!(__CALLER__, topic)
     validate_params!(__CALLER__, topic_struct, params)
+    Usage.record!(__CALLER__, manifest, topic_struct.name, nil, :unsubscribe)
 
     quote do
       unquote(bind_topic(manifest, topic_struct, params))
@@ -280,6 +282,8 @@ defmodule VerifiedPubSub.Api do
     event = validate_event!(caller, manifest, topic_struct, event)
     validate_params!(caller, topic_struct, params)
     validate_literal_payload!(caller, topic_struct, event, payload)
+    kind = if from, do: :broadcast_from, else: :broadcast
+    Usage.record!(caller, manifest, topic_struct.name, event, kind)
 
     call =
       if from do

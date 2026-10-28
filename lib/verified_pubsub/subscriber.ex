@@ -237,8 +237,11 @@ defmodule VerifiedPubSub.Subscriber do
   defmacro ignore_message(topic, event_or_events) do
     topic = literal_atom!(topic, :topic)
 
+    manifest = Module.get_attribute(__CALLER__.module, :verified_pubsub_manifest)
+
     Enum.each(literal_events!(:ignore_message, topic, event_or_events), fn event ->
       Module.put_attribute(__CALLER__.module, :verified_pubsub_ignored, {topic, event})
+      VerifiedPubSub.Usage.record!(__CALLER__, manifest, topic, event, :ignore)
     end)
 
     nil
@@ -354,6 +357,9 @@ defmodule VerifiedPubSub.Subscriber do
     if !whole_message? do
       Enum.each(events, &validate_payload_pattern!(caller, topic, &1, pattern))
     end
+
+    manifest = Module.get_attribute(caller.module, :verified_pubsub_manifest)
+    Enum.each(events, &VerifiedPubSub.Usage.record!(caller, manifest, topic, &1, :handle))
 
     Module.put_attribute(caller.module, :verified_pubsub_clauses, %{
       topic: topic,
