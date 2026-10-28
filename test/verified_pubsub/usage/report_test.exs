@@ -95,6 +95,11 @@ defmodule VerifiedPubSub.Usage.ReportTest do
       assert Enum.all?(manifests, &match?([%Report.Topic{name: :pets}], &1.topics))
     end
 
+    test "returns an error that says no manifest exists when the list has no manifest" do
+      assert Report.build([Enum], topic: "pets") ==
+               {:error, "unknown topic :pets. No VerifiedPubSub manifest is in this project."}
+    end
+
     test "returns an error that lists the declared topics for an unknown topic" do
       assert {:error, message} = Report.build([Basic], topic: "petz")
       assert message =~ "unknown topic :petz"
@@ -152,6 +157,12 @@ defmodule VerifiedPubSub.Usage.ReportTest do
                Report.build([Basic, CollideA], manifest: "VerifiedPubSub.TestManifests.Basic")
 
       assert manifest.module == Basic
+    end
+
+    test "returns an error that says no manifest exists when the list has no manifest" do
+      assert Report.build([Enum], manifest: "MyApp.Topics") ==
+               {:error,
+                "unknown manifest MyApp.Topics. No VerifiedPubSub manifest is in this project."}
     end
 
     test "returns an error that lists the manifests for an unknown manifest" do

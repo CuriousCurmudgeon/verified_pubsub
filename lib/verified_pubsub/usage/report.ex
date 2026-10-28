@@ -95,6 +95,8 @@ defmodule VerifiedPubSub.Usage.Report do
   @enforce_keys [:view, :manifests]
   defstruct @enforce_keys
 
+  @no_manifest "No VerifiedPubSub manifest is in this project."
+
   @kinds [:broadcast, :broadcast_from, :handle, :ignore, :subscribe, :unsubscribe]
 
   @doc false
@@ -132,6 +134,10 @@ defmodule VerifiedPubSub.Usage.Report do
   end
 
   defp select_manifests(manifests, nil), do: {:ok, manifests}
+
+  defp select_manifests([], name) do
+    {:error, "unknown manifest #{name}. #{@no_manifest}"}
+  end
 
   defp select_manifests(manifests, name) do
     case Enum.filter(manifests, &(inspect(&1) == name)) do
@@ -204,6 +210,8 @@ defmodule VerifiedPubSub.Usage.Report do
   # A caller can write a name with its colon, as `:pets`, or without it.
   defp bare_name(":" <> name), do: name
   defp bare_name(name), do: name
+
+  defp unknown_topic_message([], name), do: "unknown topic :#{name}. #{@no_manifest}"
 
   defp unknown_topic_message(manifests, name) do
     listings =
