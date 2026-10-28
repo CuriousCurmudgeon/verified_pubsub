@@ -201,6 +201,10 @@ defmodule VerifiedPubSub.Usage.Report do
     end
   end
 
+  # A caller can write a name with its colon, as `:pets`, or without it.
+  defp bare_name(":" <> name), do: name
+  defp bare_name(name), do: name
+
   defp unknown_topic_message(manifests, name) do
     listings =
       Enum.map_join(manifests, "\n\n", fn manifest ->
@@ -267,8 +271,4 @@ defmodule VerifiedPubSub.Usage.Report do
   defp count_key(:broadcast_from), do: :broadcast
   defp count_key(:unsubscribe), do: nil
   defp count_key(kind), do: kind
-
-  # A caller can write a name with its colon, as `:pets`, or without it.
-  defp bare_name(":" <> name), do: name
-  defp bare_name(name), do: name
 end
