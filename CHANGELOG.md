@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 (2026-10-31)
 
 - `handle_message` is now `handle_broadcast`, and `ignore_message` is now `ignore_broadcast`.
   The old names are gone. Every process message is a message on the BEAM, so the old names

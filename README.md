@@ -33,7 +33,7 @@ To install by hand, add the dependency:
 ```elixir
 def deps do
   [
-    {:verified_pubsub, "~> 0.2.0"}
+    {:verified_pubsub, "~> 0.3.0"}
   ]
 end
 ```
