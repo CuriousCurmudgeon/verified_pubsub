@@ -12,7 +12,7 @@ a topic that a manifest declares:
 - Do not call `Phoenix.PubSub.broadcast/3`, `subscribe/2` or a similar function on it
   directly. Do not build its wire topic by hand. Use the macros below.
 - Do not write `handle_info/2` clauses that match `%VerifiedPubSub.Message{}`. Use
-  `handle_message`.
+  `handle_broadcast`.
 - Do not send it a tuple like `{:adopted, pet}`. Broadcast a declared event with a payload
   map.
 
@@ -126,11 +126,11 @@ defmodule MyAppWeb.PetsLive do
     {:ok, stream(socket, :pets, [])}
   end
 
-  handle_message :pets, :adopted, payload, socket do
+  handle_broadcast :pets, :adopted, payload, socket do
     {:noreply, stream_insert(socket, :pets, payload.pet)}
   end
 
-  handle_message :pets, %{owner_id: owner_id}, :rehomed, %{id: id}, socket do
+  handle_broadcast :pets, %{owner_id: owner_id}, :rehomed, %{id: id}, socket do
     {:noreply, assign(socket, :last_rehomed, {owner_id, id})}
   end
 end
@@ -138,20 +138,20 @@ end
 
 - `use VerifiedPubSub.Subscriber` also imports the broadcast macros. Do not also add
   `use VerifiedPubSub`.
-- `handle_message` is a macro at module level, not a `def`. Use it in GenServers and in
+- `handle_broadcast` is a macro at module level, not a `def`. Use it in GenServers and in
   LiveViews. It takes `topic, event, payload_pattern, state`. With params, it takes
   `topic, params_pattern, event, payload_pattern, state`, the same order as `broadcast!`.
-- When many events have the same handler, give `handle_message` a list of events in the
-  place of the event: `handle_message :pets, [:adopted, :renamed], payload, socket`. Do not
+- When many events have the same handler, give `handle_broadcast` a list of events in the
+  place of the event: `handle_broadcast :pets, [:adopted, :renamed], payload, socket`. Do not
   write one identical clause for each event. A payload pattern must fit each event in the
   list. To read the event, match `%VerifiedPubSub.Message{event: event}`.
 - Put the params right after the topic, never in the payload pattern. A params pattern can
   name a subset of the params.
 - **The module must handle or ignore each event on each topic that it handles**, or the
   module does not compile. Ignore the events that the module does not need:
-  `ignore_message :pets, :rehomed` or `ignore_message :pets, [:adopted, :rehomed]`.
+  `ignore_broadcast :pets, :rehomed` or `ignore_broadcast :pets, [:adopted, :rehomed]`.
 - In a LiveView, subscribe only when `connected?(socket)`.
-- Your own `handle_info/2` clauses still work next to `handle_message`. They match after
+- Your own `handle_info/2` clauses still work next to `handle_broadcast`. They match after
   the generated clauses. So keep the existing clauses for topics that are not in the
   manifest.
 - A module with handlers loses the default `handle_info/2`. When the process receives other
@@ -163,8 +163,8 @@ end
 ## Find where a topic is in use
 
 - Before you grep for a topic or an event, run
-  `mix verified_pubsub.topics TOPIC --format json`. It gives each `broadcast`, `handle_message`,
-  `ignore_message`, and `subscribe` call of the topic, with its file and line.
+  `mix verified_pubsub.topics TOPIC --format json`. It gives each `broadcast`, `handle_broadcast`,
+  `ignore_broadcast`, and `subscribe` call of the topic, with its file and line.
 - Add the event to get only that event: `mix verified_pubsub.topics pets adopted --format json`.
 - Without a topic, the task prints each call site of each topic. Add `--summary` to get
   only the counts of each topic.
@@ -178,8 +178,8 @@ end
 ## Change the manifest
 
 A new event on a topic stops the compile of each module that handles that topic. This is
-intended. Fix each module that the compiler names with a `handle_message` or an
-`ignore_message`. When you rename or remove an event, each broadcast and handler that uses
+intended. Fix each module that the compiler names with a `handle_broadcast` or an
+`ignore_broadcast`. When you rename or remove an event, each broadcast and handler that uses
 it stops the compile. Update all of them. Do not make the manifest less strict.
 
 ## Move an existing topic into the manifest
@@ -205,8 +205,8 @@ that you do not convert stops matching, with no error.
 | `unknown topic` / `unknown event` | Use one of the names that the error lists, or declare it in the manifest. |
 | `wrong params for topic` | Pass exactly the params that the error lists. It shows the missing or unexpected keys. |
 | `invalid payload` (compile time) | Make the literal payload match the declared fields that the error shows. |
-| `... declares no :x` in a `handle_message` | The payload pattern names an undeclared key. When it is a param, move it right after the topic. |
-| `subscribes to topics with events it does not account for` | Add `handle_message` or `ignore_message` for each event in the list. |
+| `... declares no :x` in a `handle_broadcast` | The payload pattern names an undeclared key. When it is a param, move it right after the topic. |
+| `subscribes to topics with events it does not account for` | Add `handle_broadcast` or `ignore_broadcast` for each event in the list. |
 | `expected a literal atom for topic/event` | Write the atom inline. Do not use a variable or a module attribute. |
 | `no manifest is in scope` | Add `use VerifiedPubSub, manifest: MyApp.Topics`. |
 | `VerifiedPubSub.PayloadError` (runtime) | Build the payload with exactly the declared keys and types. |

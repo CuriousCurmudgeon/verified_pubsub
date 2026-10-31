@@ -220,10 +220,10 @@ defmodule VerifiedPubSub.Usage.ReportTest do
       def b, do: broadcast!(:pets, %{owner_id: "1"}, :adopted, %{id: "1"})
       def f, do: broadcast_from!(self(), :pets, %{owner_id: "1"}, :adopted, %{id: "1"})
       def c, do: broadcast!(:pets, %{owner_id: "1"}, :adopted, %{id: "1"})
-      handle_message :pets, :adopted, _payload, state do
+      handle_broadcast :pets, :adopted, _payload, state do
         {:noreply, state}
       end
-      ignore_message :pets, [:renamed, :rehomed]
+      ignore_broadcast :pets, [:renamed, :rehomed]
     end
     """
 

@@ -43,7 +43,7 @@ defmodule Mix.Tasks.VerifiedPubsub.TopicsTest do
                ~r/broadcast\s+test\/support\/usage_fixtures.ex:\d+\s+VerifiedPubSub.UsageFixtures.Kennel/
 
       assert output =~
-               ~r/handle_message\s+test\/support\/usage_fixtures.ex:\d+\s+VerifiedPubSub.UsageFixtures.Board/
+               ~r/handle_broadcast\s+test\/support\/usage_fixtures.ex:\d+\s+VerifiedPubSub.UsageFixtures.Board/
 
       assert output =~ ":checked_out  0 broadcasts, 1 ignore  (no broadcast)"
     end

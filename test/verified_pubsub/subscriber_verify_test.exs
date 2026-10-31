@@ -15,15 +15,15 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
 
   defp all_handled do
     """
-    handle_message :pets, :adopted, p, s do
+    handle_broadcast :pets, :adopted, p, s do
       {:noreply, {p, s}}
     end
 
-    handle_message :pets, :renamed, p, s do
+    handle_broadcast :pets, :renamed, p, s do
       {:noreply, {p, s}}
     end
 
-    handle_message :pets, :rehomed, p, s do
+    handle_broadcast :pets, :rehomed, p, s do
       {:noreply, {p, s}}
     end
     """
@@ -34,11 +34,11 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert is_atom(compile!(subscriber_source(all_handled())))
     end
 
-    test "a missing event is a compile error that names the event and ignore_message/2" do
+    test "a missing event is a compile error that names the event and ignore_broadcast/2" do
       error =
         compile_error(
           subscriber_source("""
-          handle_message :pets, :adopted, p, s do
+          handle_broadcast :pets, :adopted, p, s do
             {:noreply, {p, s}}
           end
           """)
@@ -48,19 +48,19 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       message = Exception.message(error)
       assert message =~ ":renamed"
       assert message =~ ":rehomed"
-      assert message =~ "ignore_message"
+      assert message =~ "ignore_broadcast"
     end
 
-    test "ignore_message/2 covers an event" do
+    test "ignore_broadcast/2 covers an event" do
       assert is_atom(
                compile!(
                  subscriber_source("""
-                 handle_message :pets, :adopted, p, s do
+                 handle_broadcast :pets, :adopted, p, s do
                    {:noreply, {p, s}}
                  end
 
-                 ignore_message :pets, :renamed
-                 ignore_message :pets, :rehomed
+                 ignore_broadcast :pets, :renamed
+                 ignore_broadcast :pets, :rehomed
                  """)
                )
              )
@@ -72,7 +72,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
           subscriber_source("""
           #{all_handled()}
 
-          handle_message :pets, :exploded, p, s do
+          handle_broadcast :pets, :exploded, p, s do
             {:noreply, {p, s}}
           end
           """)
@@ -89,7 +89,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
                  subscriber_source("""
                  #{all_handled()}
 
-                 handle_message :system, :alert, p, s do
+                 handle_broadcast :system, :alert, p, s do
                    {:noreply, {p, s}}
                  end
                  """)
@@ -103,11 +103,11 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
         defmodule #{unique_module("VPTest.TwoTopics")} do
           use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
-          handle_message :system, :alert, p, s do
+          handle_broadcast :system, :alert, p, s do
             {:noreply, {p, s}}
           end
 
-          handle_message :pets, :adopted, p, s do
+          handle_broadcast :pets, :adopted, p, s do
             {:noreply, {p, s}}
           end
         end
@@ -135,15 +135,15 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert message =~ "inferred"
     end
 
-    test "a handler and an ignore_message/2 for the same event are a compile error that names the event" do
+    test "a handler and an ignore_broadcast/2 for the same event are a compile error that names the event" do
       error =
         compile_error(
           subscriber_source("""
-          handle_message :pets, :adopted, p, s do
+          handle_broadcast :pets, :adopted, p, s do
             {:noreply, {p, s}}
           end
 
-          ignore_message :pets, [:adopted, :renamed, :rehomed]
+          ignore_broadcast :pets, [:adopted, :renamed, :rehomed]
           """)
         )
 
@@ -153,15 +153,15 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert message =~ ":adopted"
     end
 
-    test "ignore_message/2 with a list reports the events that the list leaves out" do
+    test "ignore_broadcast/2 with a list reports the events that the list leaves out" do
       error =
         compile_error(
           subscriber_source("""
-          handle_message :pets, :adopted, p, s do
+          handle_broadcast :pets, :adopted, p, s do
             {:noreply, {p, s}}
           end
 
-          ignore_message :pets, [:renamed]
+          ignore_broadcast :pets, [:renamed]
           """)
         )
 
@@ -175,16 +175,16 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert is_atom(
                compile!(
                  subscriber_source("""
-                 handle_message :pets, :adopted, %{id: "special"}, s do
+                 handle_broadcast :pets, :adopted, %{id: "special"}, s do
                    {:noreply, s}
                  end
 
-                 handle_message :pets, :adopted, p, s do
+                 handle_broadcast :pets, :adopted, p, s do
                    {:noreply, {p, s}}
                  end
 
-                 ignore_message :pets, :renamed
-                 ignore_message :pets, :rehomed
+                 ignore_broadcast :pets, :renamed
+                 ignore_broadcast :pets, :rehomed
                  """)
                )
              )
@@ -205,14 +205,14 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     end
   end
 
-  describe "handle_message/5" do
+  describe "handle_broadcast/5" do
     test "a misspelled topic is a compile error that names the declared topics" do
       error =
         compile_error("""
         defmodule #{unique_module("VPTest.TypoTopic")} do
           use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
-          handle_message :pet, :adopted, p, s do
+          handle_broadcast :pet, :adopted, p, s do
             {:noreply, {p, s}}
           end
         end
@@ -231,7 +231,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
         compile_error(
           subscriber_source("""
           @t :pets
-          handle_message @t, :adopted, p, s do
+          handle_broadcast @t, :adopted, p, s do
             {:noreply, {p, s}}
           end
           """)
@@ -242,12 +242,12 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     end
   end
 
-  describe "handle_message/5 with a list of events" do
+  describe "handle_broadcast/5 with a list of events" do
     test "a list covers each event in it" do
       assert is_atom(
                compile!(
                  subscriber_source("""
-                 handle_message :pets, [:adopted, :renamed, :rehomed], p, s do
+                 handle_broadcast :pets, [:adopted, :renamed, :rehomed], p, s do
                    {:noreply, {p, s}}
                  end
                  """)
@@ -259,7 +259,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       error =
         compile_error(
           subscriber_source("""
-          handle_message :pets, [:adopted, :renamed], p, s do
+          handle_broadcast :pets, [:adopted, :renamed], p, s do
             {:noreply, {p, s}}
           end
           """)
@@ -275,7 +275,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
           subscriber_source("""
           #{all_handled()}
 
-          handle_message :pets, [], p, s do
+          handle_broadcast :pets, [], p, s do
             {:noreply, {p, s}}
           end
           """)
@@ -290,7 +290,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
         compile_error(
           subscriber_source("""
           @e :renamed
-          handle_message :pets, [:adopted, @e, :rehomed], p, s do
+          handle_broadcast :pets, [:adopted, @e, :rehomed], p, s do
             {:noreply, {p, s}}
           end
           """)
@@ -304,7 +304,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       error =
         compile_error(
           subscriber_source("""
-          handle_message :pets, [:adopted, :renamed, :rehomed, :exploded], p, s do
+          handle_broadcast :pets, [:adopted, :renamed, :rehomed, :exploded], p, s do
             {:noreply, {p, s}}
           end
           """)
@@ -319,7 +319,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       error =
         compile_error(
           subscriber_source("""
-          handle_message :pets, [:adopted, :renamed, :rehomed], %{name: n}, s do
+          handle_broadcast :pets, [:adopted, :renamed, :rehomed], %{name: n}, s do
             {:noreply, {n, s}}
           end
           """)
@@ -329,15 +329,15 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
       assert Exception.message(error) =~ ":renamed on :pets declares no :name"
     end
 
-    test "a list and an ignore_message/2 for the same event are a compile error that names the event" do
+    test "a list and an ignore_broadcast/2 for the same event are a compile error that names the event" do
       error =
         compile_error(
           subscriber_source("""
-          handle_message :pets, [:adopted, :renamed], p, s do
+          handle_broadcast :pets, [:adopted, :renamed], p, s do
             {:noreply, {p, s}}
           end
 
-          ignore_message :pets, [:renamed, :rehomed]
+          ignore_broadcast :pets, [:renamed, :rehomed]
           """)
         )
 
@@ -348,12 +348,12 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     end
   end
 
-  describe "handle_message/6 with a list of events" do
+  describe "handle_broadcast/6 with a list of events" do
     test "a list covers each event in it" do
       assert is_atom(
                compile!(
                  subscriber_source("""
-                 handle_message :pets, %{owner_id: o}, [:adopted, :renamed, :rehomed], p, s do
+                 handle_broadcast :pets, %{owner_id: o}, [:adopted, :renamed, :rehomed], p, s do
                    {:noreply, {o, p, s}}
                  end
                  """)
@@ -362,16 +362,16 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
     end
   end
 
-  describe "ignore_message/2" do
+  describe "ignore_broadcast/2" do
     test "accepts a list of events" do
       assert is_atom(
                compile!(
                  subscriber_source("""
-                 handle_message :pets, :adopted, p, s do
+                 handle_broadcast :pets, :adopted, p, s do
                    {:noreply, {p, s}}
                  end
 
-                 ignore_message :pets, [:renamed, :rehomed]
+                 ignore_broadcast :pets, [:renamed, :rehomed]
                  """)
                )
              )
@@ -383,7 +383,7 @@ defmodule VerifiedPubSub.SubscriberVerifyTest do
           subscriber_source("""
           #{all_handled()}
 
-          ignore_message :pets, []
+          ignore_broadcast :pets, []
           """)
         )
 

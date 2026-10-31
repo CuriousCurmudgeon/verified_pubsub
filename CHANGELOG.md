@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `handle_message` is now `handle_broadcast`, and `ignore_message` is now `ignore_broadcast`.
+  The old names are gone. Every process message is a message on the BEAM, so the old names
+  did not say which messages the macros handle.
 - `mix verified_pubsub.topics` prints where each topic and event is in use, with each call
   site as `file:line`. A topic, or a topic and an event, limits the output. `--summary`
   prints the number of broadcasts, handlers, and subscribes of each topic in the place of

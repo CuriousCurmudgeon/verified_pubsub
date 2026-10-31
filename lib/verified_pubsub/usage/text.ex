@@ -6,8 +6,8 @@ defmodule VerifiedPubSub.Usage.Text do
 
   @headers ["Topic", "Wire topic", "Events", "Broadcasts", "Handlers", "Subscribes"]
 
-  # The longest macro name is `broadcast_from`, `handle_message`, or `ignore_message`.
-  @macro_width 15
+  # The longest macro names are `handle_broadcast` and `ignore_broadcast`.
+  @macro_width 17
 
   @doc false
   # Returns ANSI data, not a string. `Mix.shell().info/1` gives it color when ANSI is on,
@@ -137,8 +137,8 @@ defmodule VerifiedPubSub.Usage.Text do
     ]
   end
 
-  defp macro(:handle), do: "handle_message"
-  defp macro(:ignore), do: "ignore_message"
+  defp macro(:handle), do: "handle_broadcast"
+  defp macro(:ignore), do: "ignore_broadcast"
   defp macro(kind), do: Atom.to_string(kind)
 
   # A send and a receive get two colors, so that a reader tells them apart at a glance.

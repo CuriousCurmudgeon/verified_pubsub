@@ -12,14 +12,14 @@ defmodule VerifiedPubSub.Subscriber do
           {:ok, socket}
         end
 
-        handle_message :pets, :adopted, payload, socket do
+        handle_broadcast :pets, :adopted, payload, socket do
           {:noreply, stream_insert(socket, :pets, payload)}
         end
 
-        ignore_message :pets, :rehomed
+        ignore_broadcast :pets, :rehomed
       end
 
-  The `handle_message/5` and `ignore_message/2` calls of the module set the topics that it
+  The `handle_broadcast/5` and `ignore_broadcast/2` calls of the module set the topics that it
   subscribes to. You keep no separate list of topics. The module must handle or dismiss
   each event that those topics declare, or the module does not compile.
 
@@ -36,7 +36,7 @@ defmodule VerifiedPubSub.Subscriber do
   raises `VerifiedPubSub.ManifestMismatchError`. See "Messages from another manifest"
   below.
 
-  `handle_message/5` therefore generates no code of its own. It adds the clause to a
+  `handle_broadcast/5` therefore generates no code of its own. It adds the clause to a
   module attribute. The coverage check needs every clause, and the module has every
   clause only at `@before_compile`. The attribute does *not* exist to avoid the
   clause-grouping warning of Elixir, as an earlier version of this documentation said. A
@@ -89,7 +89,7 @@ defmodule VerifiedPubSub.Subscriber do
   When your process receives messages that are not verified, add your own catch-all
   clause:
 
-      handle_message :pets, :adopted, payload, state do
+      handle_broadcast :pets, :adopted, payload, state do
         {:noreply, state}
       end
 
@@ -108,7 +108,7 @@ defmodule VerifiedPubSub.Subscriber do
     if Keyword.has_key?(opts, :topics) do
       raise ArgumentError,
             "the :topics option was removed. The topics a module subscribes to are now " <>
-              "inferred from its handle_message/5 and ignore_message/2 calls."
+              "inferred from its handle_broadcast/5 and ignore_broadcast/2 calls."
     end
 
     case Keyword.keys(opts) -- @options do
@@ -136,9 +136,9 @@ defmodule VerifiedPubSub.Subscriber do
     # Register these attributes here, during expansion, not inside the quote below.
     # Elixir expands the macros of a module body before the runtime calls of the body
     # run. A `Module.register_attribute` call in the quote thus has no effect when
-    # `handle_message` expands. Each put would overwrite the last one, and the later
+    # `handle_broadcast` expands. Each put would overwrite the last one, and the later
     # registration would reset the attribute to []. A registration here makes the
-    # attribute accumulate before any `handle_message` in the body expands.
+    # attribute accumulate before any `handle_broadcast` in the body expands.
     Module.register_attribute(module, :verified_pubsub_clauses, accumulate: true)
     Module.register_attribute(module, :verified_pubsub_ignored, accumulate: true)
 
@@ -146,7 +146,7 @@ defmodule VerifiedPubSub.Subscriber do
       import VerifiedPubSub.Api
 
       import VerifiedPubSub.Subscriber,
-        only: [handle_message: 5, handle_message: 6, ignore_message: 2]
+        only: [handle_broadcast: 5, handle_broadcast: 6, ignore_broadcast: 2]
 
       @before_compile VerifiedPubSub.Subscriber
 
@@ -190,15 +190,15 @@ defmodule VerifiedPubSub.Subscriber do
 
   ## Usage
 
-      handle_message :pets, :adopted, payload, socket do
+      handle_broadcast :pets, :adopted, payload, socket do
         {:noreply, stream_insert(socket, :pets, payload)}
       end
 
-      handle_message :pets, [:adopted, :renamed], %{id: id}, socket do
+      handle_broadcast :pets, [:adopted, :renamed], %{id: id}, socket do
         {:noreply, assign(socket, :last_changed, id)}
       end
   """
-  defmacro handle_message(topic, event, pattern, state, do: body) do
+  defmacro handle_broadcast(topic, event, pattern, state, do: body) do
     put_clause!(__CALLER__, topic, nil, event, pattern, state, body)
   end
 
@@ -214,32 +214,32 @@ defmodule VerifiedPubSub.Subscriber do
   ## Usage
 
       broadcast!     :pets, %{owner_id: id},    :adopted, payload
-      handle_message :pets, %{owner_id: owner}, :adopted, payload, socket
+      handle_broadcast :pets, %{owner_id: owner}, :adopted, payload, socket
 
   The clause binds `owner` from the params, without a match on the whole message. A
   literal limits the clause to that value:
 
-      handle_message :pets, %{owner_id: "7"}, :adopted, payload, socket
+      handle_broadcast :pets, %{owner_id: "7"}, :adopted, payload, socket
   """
-  defmacro handle_message(topic, params, event, pattern, state, do: body) do
+  defmacro handle_broadcast(topic, params, event, pattern, state, do: body) do
     put_clause!(__CALLER__, topic, params, event, pattern, state, body)
   end
 
   @doc """
   Declares that this module does nothing with an event, or with a list of events.
 
-      ignore_message :pets, :rehomed
-      ignore_message :pets, [:renamed, :rehomed]
+      ignore_broadcast :pets, :rehomed
+      ignore_broadcast :pets, [:renamed, :rehomed]
 
   The call satisfies the coverage check without a handler. The generated clause returns
   `{:noreply, state}`, which is correct for both a GenServer and a LiveView.
   """
-  defmacro ignore_message(topic, event_or_events) do
+  defmacro ignore_broadcast(topic, event_or_events) do
     topic = literal_atom!(topic, :topic)
 
     manifest = Module.get_attribute(__CALLER__.module, :verified_pubsub_manifest)
 
-    Enum.each(literal_events!(:ignore_message, topic, event_or_events), fn event ->
+    Enum.each(literal_events!(:ignore_broadcast, topic, event_or_events), fn event ->
       Module.put_attribute(__CALLER__.module, :verified_pubsub_ignored, {topic, event})
       VerifiedPubSub.Usage.record!(__CALLER__, manifest, topic, event, :ignore)
     end)
@@ -316,7 +316,7 @@ defmodule VerifiedPubSub.Subscriber do
   end
 
   # The generated handle_info/2 always calls __verified_pubsub_dispatch__/4, so the
-  # function must exist even when the module has no handle_message or ignore_message
+  # function must exist even when the module has no handle_broadcast or ignore_broadcast
   # call. A raise is correct here: a verified message arrived, but this module declared
   # no interest in it.
   defp no_handlers_fallback([]) do
@@ -325,7 +325,7 @@ defmodule VerifiedPubSub.Subscriber do
         defp __verified_pubsub_dispatch__(topic, event, _message, _state) do
           raise """
           \#{inspect(__MODULE__)} received \#{inspect(event)} on \#{inspect(topic)} but \
-          defines no handle_message or ignore_message clauses.
+          defines no handle_broadcast or ignore_broadcast clauses.
           """
         end
       end
@@ -352,7 +352,7 @@ defmodule VerifiedPubSub.Subscriber do
     end
 
     if params, do: validate_params_pattern!(caller, topic, params)
-    events = literal_events!(:handle_message, topic, event)
+    events = literal_events!(:handle_broadcast, topic, event)
 
     if !whole_message? do
       Enum.each(events, &validate_payload_pattern!(caller, topic, &1, pattern))
@@ -494,7 +494,7 @@ defmodule VerifiedPubSub.Subscriber do
         of #{inspect(topic)}, not a payload field. To match on params, put them where \
         `broadcast!/4` takes them — right after the topic:
 
-            handle_message #{inspect(topic)}, %{#{Enum.map_join(params, ", ", &"#{&1}: ...")}}, \
+            handle_broadcast #{inspect(topic)}, %{#{Enum.map_join(params, ", ", &"#{&1}: ...")}}, \
         #{inspect(event)}, payload, state do
         """
       else

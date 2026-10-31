@@ -60,10 +60,10 @@ defmodule VerifiedPubSub.Usage.TextTest do
              :treats  owners:<owner_id>:treats
 
              Subscribes (1)
-               subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
+               subscribe          lib/my_app/notifier.ex:50  MyApp.Notifier
 
              :given  1 broadcast
-               broadcast        lib/my_app/treats.ex:8     MyApp.Treats
+               broadcast          lib/my_app/treats.ex:8     MyApp.Treats
 
              :system  system
 
@@ -76,10 +76,10 @@ defmodule VerifiedPubSub.Usage.TextTest do
              :treats  owners:<owner_id>:treats
 
              Subscribes (1)
-               subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
+               subscribe          lib/my_app/notifier.ex:50  MyApp.Notifier
 
              :given  1 broadcast
-               broadcast        lib/my_app/treats.ex:8     MyApp.Treats
+               broadcast          lib/my_app/treats.ex:8     MyApp.Treats
              """
     end
 
@@ -91,8 +91,8 @@ defmodule VerifiedPubSub.Usage.TextTest do
 
       output = plain(report)
 
-      assert output =~ "\n  broadcast        lib/my_app/pets.ex:12                MyApp.Pets\n"
-      assert output =~ "\n  broadcast        lib/my_app/treats.ex:8     MyApp.Treats"
+      assert output =~ "\n  broadcast          lib/my_app/pets.ex:12                MyApp.Pets\n"
+      assert output =~ "\n  broadcast          lib/my_app/treats.ex:8     MyApp.Treats"
     end
 
     test "renders one line for a topic with no subscribe" do
@@ -116,19 +116,19 @@ defmodule VerifiedPubSub.Usage.TextTest do
              :pets  owners:<owner_id>:pets
 
              Subscribes (2)
-               subscribe        lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive
-               subscribe        lib/my_app/notifier.ex:22            MyApp.Notifier
+               subscribe          lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive
+               subscribe          lib/my_app/notifier.ex:22            MyApp.Notifier
 
              :adopted  3 broadcasts, 2 handlers
-               broadcast        lib/my_app/pets.ex:12                MyApp.Pets
-               broadcast        lib/my_app/imports.ex:40             MyApp.Imports
-               broadcast_from   lib/my_app_web/live/pets_live.ex:51  MyAppWeb.PetsLive
-               handle_message   lib/my_app_web/live/pets_live.ex:30  MyAppWeb.PetsLive
-               handle_message   lib/my_app/notifier.ex:30            MyApp.Notifier
+               broadcast          lib/my_app/pets.ex:12                MyApp.Pets
+               broadcast          lib/my_app/imports.ex:40             MyApp.Imports
+               broadcast_from     lib/my_app_web/live/pets_live.ex:51  MyAppWeb.PetsLive
+               handle_broadcast   lib/my_app_web/live/pets_live.ex:30  MyAppWeb.PetsLive
+               handle_broadcast   lib/my_app/notifier.ex:30            MyApp.Notifier
 
              :rehomed  0 broadcasts, 1 handler, 1 ignore  (no broadcast)
-               handle_message   lib/my_app/notifier.ex:34            MyApp.Notifier
-               ignore_message   lib/my_app_web/live/pets_live.ex:40  MyAppWeb.PetsLive
+               handle_broadcast   lib/my_app/notifier.ex:34            MyApp.Notifier
+               ignore_broadcast   lib/my_app_web/live/pets_live.ex:40  MyAppWeb.PetsLive
              """
     end
 
@@ -146,10 +146,10 @@ defmodule VerifiedPubSub.Usage.TextTest do
              :treats  owners:<owner_id>:treats
 
              Subscribes (1)
-               subscribe        lib/my_app/notifier.ex:50  MyApp.Notifier
+               subscribe          lib/my_app/notifier.ex:50  MyApp.Notifier
 
              :given  1 broadcast
-               broadcast        lib/my_app/treats.ex:8     MyApp.Treats
+               broadcast          lib/my_app/treats.ex:8     MyApp.Treats
              """
     end
 
@@ -254,9 +254,9 @@ defmodule VerifiedPubSub.Usage.TextTest do
     test "colors a send green, a receive magenta, and an ignore faint", %{ansi: ansi} do
       assert ansi =~ IO.ANSI.green() <> "broadcast      "
       assert ansi =~ IO.ANSI.green() <> "broadcast_from "
-      assert ansi =~ IO.ANSI.magenta() <> "handle_message "
+      assert ansi =~ IO.ANSI.magenta() <> "handle_broadcast "
       assert ansi =~ IO.ANSI.magenta() <> "subscribe      "
-      assert ansi =~ IO.ANSI.faint() <> "ignore_message "
+      assert ansi =~ IO.ANSI.faint() <> "ignore_broadcast "
     end
 
     test "colors the flag of an event with no broadcast yellow", %{ansi: ansi} do

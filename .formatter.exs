@@ -8,9 +8,9 @@ locals_without_parens = [
   field: 3,
   description: 1,
   # VerifiedPubSub.Subscriber macros
-  handle_message: 5,
-  handle_message: 6,
-  ignore_message: 2
+  handle_broadcast: 5,
+  handle_broadcast: 6,
+  ignore_broadcast: 2
 ]
 
 [

@@ -28,12 +28,12 @@ defmodule VerifiedPubSub.LiveViewTest do
       broadcast!(:pets, %{owner_id: owner_id}, :adopted, payload)
     end
 
-    handle_message :pets, :adopted, payload, socket do
+    handle_broadcast :pets, :adopted, payload, socket do
       {:noreply, assign(socket, :pets, [payload | socket.assigns.pets])}
     end
 
-    ignore_message :pets, :renamed
-    ignore_message :pets, :rehomed
+    ignore_broadcast :pets, :renamed
+    ignore_broadcast :pets, :rehomed
   end
 
   defp message(event, payload) do

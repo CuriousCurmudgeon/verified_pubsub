@@ -18,7 +18,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :pets, :adopted, payload, state do
+    handle_broadcast :pets, :adopted, payload, state do
       send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
@@ -36,7 +36,7 @@ defmodule VerifiedPubSub.ManifestIsolationTest do
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :pets, :adopted, payload, state do
+    handle_broadcast :pets, :adopted, payload, state do
       send(state.owner, {:adopted, payload})
       {:noreply, state}
     end

@@ -7,8 +7,8 @@ defmodule VerifiedPubSub.Usage.Entry do
   * `:broadcast` - `broadcast/3`, `broadcast/4`, `broadcast!/3`, or `broadcast!/4`
   * `:broadcast_from` - `broadcast_from/4`, `broadcast_from/5`, `broadcast_from!/4`, or
     `broadcast_from!/5`
-  * `:handle` - `handle_message/5` or `handle_message/6`
-  * `:ignore` - `ignore_message/2`
+  * `:handle` - `handle_broadcast/5` or `handle_broadcast/6`
+  * `:ignore` - `ignore_broadcast/2`
   * `:subscribe` - `subscribe/1` or `subscribe/2`
   * `:unsubscribe` - `unsubscribe/1` or `unsubscribe/2`
   """

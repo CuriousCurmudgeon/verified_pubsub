@@ -70,23 +70,23 @@ defmodule VerifiedPubSub do
           {:ok, owner_id}
         end
 
-        handle_message :pets, :adopted, payload, state do
+        handle_broadcast :pets, :adopted, payload, state do
           {:noreply, state}
         end
 
-        ignore_message :pets, :rehomed
+        ignore_broadcast :pets, :rehomed
       end
 
   A subscriber must handle or explicitly ignore each event that a subscribed topic
   declares. Subscribers often need only some of the events of a topic, so
-  `ignore_message/2` exists. Without it, the coverage check would be too strict to use.
+  `ignore_broadcast/2` exists. Without it, the coverage check would be too strict to use.
 
   To match on topic params, put them where `broadcast!/4` takes them: right after the
   topic. The leading arguments are the same in both. A broadcast builds them, and a
   handler matches them:
 
       broadcast!     :pets, %{owner_id: id},    :adopted, payload
-      handle_message :pets, %{owner_id: owner}, :adopted, payload, state
+      handle_broadcast :pets, %{owner_id: owner}, :adopted, payload, state
 
   The params argument is optional, and a pattern can name a subset of the params. A
   pattern can also match the whole `%VerifiedPubSub.Message{}` in the payload position, to

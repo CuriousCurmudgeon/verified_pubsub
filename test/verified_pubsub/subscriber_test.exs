@@ -20,20 +20,20 @@ defmodule VerifiedPubSub.SubscriberTest do
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :pets, :adopted, payload, state do
+    handle_broadcast :pets, :adopted, payload, state do
       send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
 
-    handle_message :pets,
-                   :renamed,
-                   %Message{params: %{owner_id: owner_id}, payload: payload},
-                   state do
+    handle_broadcast :pets,
+                     :renamed,
+                     %Message{params: %{owner_id: owner_id}, payload: payload},
+                     state do
       send(state.owner, {:renamed, owner_id, payload})
       {:noreply, state}
     end
 
-    ignore_message :pets, :rehomed
+    ignore_broadcast :pets, :rehomed
   end
 
   defmodule WorkerWithOwnHandleInfo do
@@ -56,13 +56,13 @@ defmodule VerifiedPubSub.SubscriberTest do
       {:noreply, state}
     end
 
-    handle_message :pets, :adopted, payload, state do
+    handle_broadcast :pets, :adopted, payload, state do
       send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
 
-    ignore_message :pets, :renamed
-    ignore_message :pets, :rehomed
+    ignore_broadcast :pets, :renamed
+    ignore_broadcast :pets, :rehomed
   end
 
   defmodule WorkerWithCatchAll do
@@ -79,13 +79,13 @@ defmodule VerifiedPubSub.SubscriberTest do
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :pets, :adopted, payload, state do
+    handle_broadcast :pets, :adopted, payload, state do
       send(state.owner, {:adopted, payload})
       {:noreply, state}
     end
 
-    ignore_message :pets, :renamed
-    ignore_message :pets, :rehomed
+    ignore_broadcast :pets, :renamed
+    ignore_broadcast :pets, :rehomed
 
     @impl true
     def handle_info(other, state) do
@@ -108,12 +108,15 @@ defmodule VerifiedPubSub.SubscriberTest do
       {:ok, %{owner: opts[:owner]}}
     end
 
-    handle_message :pets, [:adopted, :renamed], %Message{event: event, payload: payload}, state do
+    handle_broadcast :pets,
+                     [:adopted, :renamed],
+                     %Message{event: event, payload: payload},
+                     state do
       send(state.owner, {event, payload})
       {:noreply, state}
     end
 
-    handle_message :pets, %{owner_id: owner_id}, [:rehomed], %{id: id}, state do
+    handle_broadcast :pets, %{owner_id: owner_id}, [:rehomed], %{id: id}, state do
       send(state.owner, {:rehomed, owner_id, id})
       {:noreply, state}
     end
@@ -187,7 +190,7 @@ defmodule VerifiedPubSub.SubscriberTest do
     assert Process.alive?(pid)
   end
 
-  describe "handle_message/5, handle_message/6 with a list of events" do
+  describe "handle_broadcast/5, handle_broadcast/6 with a list of events" do
     setup do
       id = unique_owner_id()
       start_supervised!({WorkerWithEventList, owner: self(), owner_id: id})

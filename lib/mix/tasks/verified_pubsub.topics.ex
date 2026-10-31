@@ -7,8 +7,8 @@ defmodule Mix.Tasks.VerifiedPubsub.Topics do
       mix verified_pubsub.topics [TOPIC [EVENT]] [--summary] [--manifest MODULE] [--format text|json]
 
   The task prints each call site of each topic, as `file:line`, grouped by event. A call
-  site is a `subscribe`, `unsubscribe`, `broadcast`, `broadcast_from`, `handle_message`, or
-  `ignore_message` call. An event that no call broadcasts gets the flag `(no broadcast)`.
+  site is a `subscribe`, `unsubscribe`, `broadcast`, `broadcast_from`, `handle_broadcast`, or
+  `ignore_broadcast` call. An event that no call broadcasts gets the flag `(no broadcast)`.
 
       mix verified_pubsub.topics
 

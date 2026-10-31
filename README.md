@@ -162,11 +162,11 @@ defmodule MyAppWeb.PetsLive do
     {:ok, stream(socket, :pets, [])}
   end
 
-  handle_message :pets, :adopted, payload, socket do
+  handle_broadcast :pets, :adopted, payload, socket do
     {:noreply, stream_insert(socket, :pets, payload)}
   end
 
-  ignore_message :pets, :rehomed
+  ignore_broadcast :pets, :rehomed
 end
 ```
 
@@ -174,16 +174,16 @@ The module must handle or ignore each event on a subscribed topic. To match on t
 of the topic, put them where a broadcast puts them:
 
 ```elixir
-handle_message :pets, %{owner_id: owner}, :adopted, payload, socket do
+handle_broadcast :pets, %{owner_id: owner}, :adopted, payload, socket do
   {:noreply, assign(socket, :owner_id, owner)}
 end
 ```
 
-When many events have the same handler, give `handle_message` a list of events. A payload
+When many events have the same handler, give `handle_broadcast` a list of events. A payload
 pattern must fit each event in the list. To read the event, match the whole message:
 
 ```elixir
-handle_message :pets, [:adopted, :renamed], %VerifiedPubSub.Message{event: event}, socket do
+handle_broadcast :pets, [:adopted, :renamed], %VerifiedPubSub.Message{event: event}, socket do
   {:noreply, assign(socket, :last_event, event)}
 end
 ```
@@ -206,14 +206,14 @@ MyApp.Topics
 :pets  owners:<owner_id>:pets
 
 Subscribes (1)
-  subscribe        lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive
+  subscribe          lib/my_app_web/live/pets_live.ex:14  MyAppWeb.PetsLive
 
 :adopted  3 broadcasts, 2 handlers
-  broadcast        lib/my_app/pets.ex:12                MyApp.Pets
+  broadcast          lib/my_app/pets.ex:12                MyApp.Pets
   ...
 
 :rehomed  0 broadcasts, 1 ignore  (no broadcast)
-  ignore_message   lib/my_app_web/live/pets_live.ex:40  MyAppWeb.PetsLive
+  ignore_broadcast   lib/my_app_web/live/pets_live.ex:40  MyAppWeb.PetsLive
 ```
 
 `--summary` prints the number of broadcasts, handlers, and subscribes of each topic in the
@@ -256,7 +256,7 @@ manifest error is also a diagnostic on the line that causes it, so an editor can
 A subscriber that does not handle or ignore each event:
 
 ```elixir
-handle_message :pets, :adopted, payload, socket do
+handle_broadcast :pets, :adopted, payload, socket do
   {:noreply, socket}
 end
 ```
@@ -267,9 +267,9 @@ account for:
 
   * :pets, :rehomed
 
-Add a `handle_message` clause for each, or dismiss it explicitly:
+Add a `handle_broadcast` clause for each, or dismiss it explicitly:
 
-    ignore_message :pets, :rehomed
+    ignore_broadcast :pets, :rehomed
 
 Manifest: MyApp.Topics
 ```

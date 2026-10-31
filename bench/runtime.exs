@@ -83,7 +83,7 @@ end
 defmodule Bench.Subscriber do
   use VerifiedPubSub.Subscriber, manifest: Bench.Topics
 
-  handle_message :pets, :adopted, %{id: _, name: _}, state do
+  handle_broadcast :pets, :adopted, %{id: _, name: _}, state do
     {:noreply, state}
   end
 end

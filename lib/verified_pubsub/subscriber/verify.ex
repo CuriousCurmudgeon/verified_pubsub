@@ -2,9 +2,9 @@ defmodule VerifiedPubSub.Subscriber.Verify do
   @moduledoc """
   Checks at compile time that a `VerifiedPubSub.Subscriber` covers each event.
 
-  The `handle_message/5` and `ignore_message/2` calls of the module set the topics that
+  The `handle_broadcast/5` and `ignore_broadcast/2` calls of the module set the topics that
   it subscribes to. The check then tracks coverage for each `{topic, event}` pair as a
-  **set**. An event can legally have many `handle_message` clauses, when they match
+  **set**. An event can legally have many `handle_broadcast` clauses, when they match
   different param values.
 
   ## Coverage of param values
@@ -87,7 +87,7 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
     #{detail}
 
-    An event can be handled by `handle_message` or dismissed by `ignore_message`, not
+    An event can be handled by `handle_broadcast` or dismissed by `ignore_broadcast`, not
     both. Remove whichever one you did not intend.
     """
   end
@@ -148,9 +148,9 @@ defmodule VerifiedPubSub.Subscriber.Verify do
 
     #{detail}
 
-    Add a `handle_message` clause for each, or dismiss it explicitly:
+    Add a `handle_broadcast` clause for each, or dismiss it explicitly:
 
-        ignore_message #{inspect(example_topic)}, #{inspect(example_event)}
+        ignore_broadcast #{inspect(example_topic)}, #{inspect(example_event)}
 
     Manifest: #{inspect(manifest)}
     """

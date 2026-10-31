@@ -85,31 +85,31 @@ defmodule VerifiedPubSub.UsageTest do
     end
   end
 
-  describe "handle_message/5" do
+  describe "handle_broadcast/5" do
     test "records one :handle entry for each event in the list" do
       {module, source} =
         compile_subscriber("""
-        handle_message :pets, [:adopted, :renamed], _payload, state do
+        handle_broadcast :pets, [:adopted, :renamed], _payload, state do
           {:noreply, state}
         end
 
-        ignore_message :pets, :rehomed
+        ignore_broadcast :pets, :rehomed
         """)
 
       handles = Enum.filter(Usage.entries(module), &(&1.kind == :handle))
 
       assert handles == [
-               entry(module, source, "handle_message", :pets, :adopted, :handle),
-               entry(module, source, "handle_message", :pets, :renamed, :handle)
+               entry(module, source, "handle_broadcast", :pets, :adopted, :handle),
+               entry(module, source, "handle_broadcast", :pets, :renamed, :handle)
              ]
     end
   end
 
-  describe "handle_message/5 with a broadcast in the body" do
+  describe "handle_broadcast/5 with a broadcast in the body" do
     test "records the broadcast with the line of the body" do
       {module, source} =
         compile_subscriber("""
-        handle_message :pets, [:adopted, :renamed, :rehomed], _payload, state do
+        handle_broadcast :pets, [:adopted, :renamed, :rehomed], _payload, state do
           broadcast!(:system, :alert, %{text: "x"})
           {:noreply, state}
         end
@@ -121,12 +121,12 @@ defmodule VerifiedPubSub.UsageTest do
     end
   end
 
-  describe "ignore_message/2" do
+  describe "ignore_broadcast/2" do
     test "records one :ignore entry for each event in the list" do
       {module, source} =
         compile_subscriber("""
-        ignore_message :pets, [:adopted, :renamed]
-        ignore_message :pets, :rehomed
+        ignore_broadcast :pets, [:adopted, :renamed]
+        ignore_broadcast :pets, :rehomed
         """)
 
       assert Usage.entries(module) == [
@@ -146,7 +146,7 @@ defmodule VerifiedPubSub.UsageTest do
 
         def a, do: broadcast!(:system, :alert, %{text: "x"})
 
-        handle_message :pets, [:adopted, :renamed, :rehomed], _payload, state do
+        handle_broadcast :pets, [:adopted, :renamed, :rehomed], _payload, state do
           {:noreply, state}
         end
       end

@@ -247,12 +247,12 @@ defmodule VerifiedPubSub.ApiTest do
                    broadcast!(:pets, %{owner_id: id}, :adopted, %{id: "x"})
                  end
 
-                 handle_message :pets, :adopted, p, s do
+                 handle_broadcast :pets, :adopted, p, s do
                    {:noreply, {p, s}}
                  end
 
-                 ignore_message :pets, :renamed
-                 ignore_message :pets, :rehomed
+                 ignore_broadcast :pets, :renamed
+                 ignore_broadcast :pets, :rehomed
                end
                """)
              )
@@ -266,11 +266,11 @@ defmodule VerifiedPubSub.ApiTest do
 
                  use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
-                 handle_message :pets, :adopted, p, s do
+                 handle_broadcast :pets, :adopted, p, s do
                    {:noreply, {p, s}}
                  end
 
-                 ignore_message :pets, [:renamed, :rehomed]
+                 ignore_broadcast :pets, [:renamed, :rehomed]
                end
                """)
              )

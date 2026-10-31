@@ -1,4 +1,4 @@
-defmodule VerifiedPubSub.HandleMessageParamsTest do
+defmodule VerifiedPubSub.HandleBroadcastParamsTest do
   use ExUnit.Case, async: true
 
   alias VerifiedPubSub.Message
@@ -9,16 +9,16 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     use VerifiedPubSub.Subscriber, manifest: VerifiedPubSub.TestManifests.Basic
 
     # Binds a value from the topic params, and does not destructure %Message{}.
-    handle_message :pets, %{owner_id: owner}, :adopted, payload, state do
+    handle_broadcast :pets, %{owner_id: owner}, :adopted, payload, state do
       {:noreply, [{:adopted, owner, payload.id} | state]}
     end
 
     # The form without params works in the same module.
-    handle_message :pets, :renamed, payload, state do
+    handle_broadcast :pets, :renamed, payload, state do
       {:noreply, [{:renamed, payload.id} | state]}
     end
 
-    ignore_message :pets, :rehomed
+    ignore_broadcast :pets, :rehomed
   end
 
   defmodule Narrowed do
@@ -26,15 +26,15 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
 
     # A literal narrows the clause to one param value. As with any clauses, the order
     # matters.
-    handle_message :pets, %{owner_id: "7"}, :adopted, payload, state do
+    handle_broadcast :pets, %{owner_id: "7"}, :adopted, payload, state do
       {:noreply, [{:seven, payload.id} | state]}
     end
 
-    handle_message :pets, %{owner_id: owner}, :adopted, payload, state do
+    handle_broadcast :pets, %{owner_id: owner}, :adopted, payload, state do
       {:noreply, [{:other, owner, payload.id} | state]}
     end
 
-    ignore_message :pets, [:renamed, :rehomed]
+    ignore_broadcast :pets, [:renamed, :rehomed]
   end
 
   defp message(event, owner_id, payload) do
@@ -56,7 +56,7 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     """
   end
 
-  describe "handle_message/6" do
+  describe "handle_broadcast/6" do
     test "a params pattern binds the param" do
       assert {:noreply, [{:adopted, "42", "c1"}]} =
                Listener.handle_info(message(:adopted, "42", %{id: "c1"}), [])
@@ -74,11 +74,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       error =
         compile_error(
           source("""
-          handle_message :pets, %{acount_id: a}, :adopted, p, s do
+          handle_broadcast :pets, %{acount_id: a}, :adopted, p, s do
             {:noreply, [a, p | s]}
           end
 
-          ignore_message :pets, [:renamed, :rehomed]
+          ignore_broadcast :pets, [:renamed, :rehomed]
           """)
         )
 
@@ -95,11 +95,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert is_atom(
                compile!(
                  source("""
-                 handle_message :pets, %{}, :adopted, p, s do
+                 handle_broadcast :pets, %{}, :adopted, p, s do
                    {:noreply, [p | s]}
                  end
 
-                 ignore_message :pets, [:renamed, :rehomed]
+                 ignore_broadcast :pets, [:renamed, :rehomed]
                  """)
                )
              )
@@ -109,12 +109,12 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       error =
         compile_error(
           source("""
-          handle_message :pets, %{owner_id: a}, :adopted,
+          handle_broadcast :pets, %{owner_id: a}, :adopted,
                          %VerifiedPubSub.Message{payload: p}, s do
             {:noreply, [a, p | s]}
           end
 
-          ignore_message :pets, [:renamed, :rehomed]
+          ignore_broadcast :pets, [:renamed, :rehomed]
           """)
         )
 
@@ -127,19 +127,19 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert is_atom(
                compile!(
                  source("""
-                 handle_message :pets, params, :adopted, p, s do
+                 handle_broadcast :pets, params, :adopted, p, s do
                    {:noreply, [params, p | s]}
                  end
 
-                 ignore_message :pets, [:renamed, :rehomed]
+                 ignore_broadcast :pets, [:renamed, :rehomed]
                  """)
                )
              )
     end
   end
 
-  describe "handle_message/5" do
-    test "works alongside handle_message/6 in one module" do
+  describe "handle_broadcast/5" do
+    test "works alongside handle_broadcast/6 in one module" do
       assert {:noreply, [{:renamed, "c2"}]} =
                Listener.handle_info(message(:renamed, "1", %{id: "c2"}), [])
     end
@@ -148,11 +148,11 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       error =
         compile_error(
           source("""
-          handle_message :pets, :adopted, %{nope: x}, s do
+          handle_broadcast :pets, :adopted, %{nope: x}, s do
             {:noreply, [x | s]}
           end
 
-          ignore_message :pets, [:renamed, :rehomed]
+          ignore_broadcast :pets, [:renamed, :rehomed]
           """)
         )
 
@@ -164,35 +164,35 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
     end
 
     test "the error for params in the payload slot names them and shows the correct order" do
-      # This mistake is likely once handle_message/6 exists: a call site writes the
+      # This mistake is likely once handle_broadcast/6 exists: a call site writes the
       # argument order of broadcast! but leaves out the params slot, so the params go in
       # the payload slot.
       error =
         compile_error(
           source("""
-          handle_message :pets, :adopted, %{owner_id: a}, s do
+          handle_broadcast :pets, :adopted, %{owner_id: a}, s do
             {:noreply, [a | s]}
           end
 
-          ignore_message :pets, [:renamed, :rehomed]
+          ignore_broadcast :pets, [:renamed, :rehomed]
           """)
         )
 
       assert %CompileError{} = error
       message = Exception.message(error)
       assert message =~ "is a param"
-      assert message =~ "handle_message :pets, %{owner_id: ...}, :adopted"
+      assert message =~ "handle_broadcast :pets, %{owner_id: ...}, :adopted"
     end
 
     test "a pattern can match a subset of the declared fields" do
       assert is_atom(
                compile!(
                  source("""
-                 handle_message :pets, :adopted, %{id: id}, s do
+                 handle_broadcast :pets, :adopted, %{id: id}, s do
                    {:noreply, [id | s]}
                  end
 
-                 ignore_message :pets, [:renamed, :rehomed]
+                 ignore_broadcast :pets, [:renamed, :rehomed]
                  """)
                )
              )
@@ -202,29 +202,29 @@ defmodule VerifiedPubSub.HandleMessageParamsTest do
       assert is_atom(
                compile!(
                  source("""
-                 handle_message :pets, :adopted, %{name: n}, s do
+                 handle_broadcast :pets, :adopted, %{name: n}, s do
                    {:noreply, [n | s]}
                  end
 
-                 ignore_message :pets, [:renamed, :rehomed]
+                 ignore_broadcast :pets, [:renamed, :rehomed]
                  """)
                )
              )
     end
   end
 
-  describe "ignore_message/2" do
-    test "works alongside handle_message/6" do
+  describe "ignore_broadcast/2" do
+    test "works alongside handle_broadcast/6" do
       assert {:noreply, []} = Listener.handle_info(message(:rehomed, "1", %{id: "c1"}), [])
     end
   end
 
   describe "use VerifiedPubSub.Subscriber" do
-    test "handle_message/6 does not change the coverage check" do
+    test "handle_broadcast/6 does not change the coverage check" do
       error =
         compile_error(
           source("""
-          handle_message :pets, %{owner_id: a}, :adopted, p, s do
+          handle_broadcast :pets, %{owner_id: a}, :adopted, p, s do
             {:noreply, [a, p | s]}
           end
           """)

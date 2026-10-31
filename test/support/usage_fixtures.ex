@@ -39,10 +39,10 @@ defmodule VerifiedPubSub.UsageFixtures do
 
     def watch(kennel_id), do: subscribe(:kennel, %{kennel_id: kennel_id})
 
-    handle_message :kennel, :checked_in, _payload, state do
+    handle_broadcast :kennel, :checked_in, _payload, state do
       {:noreply, state}
     end
 
-    ignore_message :kennel, :checked_out
+    ignore_broadcast :kennel, :checked_out
   end
 end

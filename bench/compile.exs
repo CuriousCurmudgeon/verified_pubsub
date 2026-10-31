@@ -3,7 +3,7 @@
 #     elixir bench/compile.exs [out_dir]
 #
 # This script generates Mix projects that do the same work in two ways. One way uses a
-# VerifiedPubSub manifest, broadcast!/4, and handle_message/5. The other way uses wire
+# VerifiedPubSub manifest, broadcast!/4, and handle_broadcast/5. The other way uses wire
 # topics built by hand, Phoenix.PubSub.broadcast!/3, and handle_info/2. The script times
 # a clean compile of each project. For each verified project, it also times an
 # incremental compile after an edit to the manifest.
@@ -307,7 +307,7 @@ defmodule Bench.Compile do
         :verified ->
           {"  use VerifiedPubSub.Subscriber, manifest: BenchApp.Topics\n\n",
            for e <- 1..shape.events do
-             "  handle_message :t#{topic}, :e#{e}, %{#{pattern}}, state do\n" <>
+             "  handle_broadcast :t#{topic}, :e#{e}, %{#{pattern}}, state do\n" <>
                "    {:noreply, state}\n  end\n"
            end}
 
