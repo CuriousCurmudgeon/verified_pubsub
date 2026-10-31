@@ -27,3 +27,6 @@ verified_pubsub-*.tar
 
 # Vim swap files (.swp, and .swo, .swn, ... when one already exists).
 .*.sw[a-p]
+
+# Design specs and plans of the superpowers skills.
+/docs/superpowers/
