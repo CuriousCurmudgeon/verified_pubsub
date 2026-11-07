@@ -15,21 +15,21 @@ real project, or the manifest numbers are too high.
 
 ## Results
 
-Apple M2 Max, Elixir 1.20.4 / OTP 29, 2026-10-11.
+Apple M2 Max, Elixir 1.20.4 / OTP 29, 2026-11-07.
 
 ### Runtime
 
-Spark 2.7.2 and 2.7.6 gave the same numbers, within noise, because Spark is not on the
-broadcast path. Fan-out changes by about ±10% between runs.
+Spark 2.7.2, 2.7.6, and 2.7.9 gave the same numbers, within noise, because Spark is not
+on the broadcast path. Fan-out changes by about ±10% between runs.
 
 | Scenario                                      | Plain   | Verified |
 | --------------------------------------------- | ------- | -------- |
-| broadcast, no subscribers, 2 fields           | 0.56 µs | 1.08 µs  |
-| broadcast, no subscribers, 20 fields          | 0.55 µs | 2.49 µs  |
-| round trip: broadcast, receive, handle_info/2 | 0.65 µs | 1.27 µs  |
-| broadcast to 100 subscribers                  | 96 µs   | 110 µs   |
-| `{:list, :string}` field, 1,000 elements      | 0.57 µs | 7.1 µs   |
-| `{:list, :string}` field, 100,000 elements    | 0.54 µs | 614 µs   |
+| broadcast, no subscribers, 2 fields           | 0.55 µs | 1.06 µs  |
+| broadcast, no subscribers, 20 fields          | 0.55 µs | 2.45 µs  |
+| round trip: broadcast, receive, handle_info/2 | 0.63 µs | 1.23 µs  |
+| broadcast to 100 subscribers                  | 94 µs   | 108 µs   |
+| `{:list, :string}` field, 1,000 elements      | 0.56 µs | 7.1 µs   |
+| `{:list, :string}` field, 100,000 elements    | 0.53 µs | 606 µs   |
 
 A message is 39 heap words and 182 bytes in external term format. A plain
 `{event, payload}` tuple is 17 heap words and 46 bytes.
@@ -39,6 +39,17 @@ A message is 39 heap words and 182 bytes in external term format. A plain
 Each topic has 5 events of 5 fields. The number of callers and subscribers grows with the
 number of topics. The `out_dir` path was about 150 characters, so the manifest compiles
 more slowly than in a typical project.
+
+Spark 2.7.9:
+
+| Topics | Plain  | Verified | Manifest alone | Manifest .beam | Files recompiled by a manifest edit |
+| ------ | ------ | -------- | -------------- | -------------- | ----------------------------------- |
+| 20     | 0.11 s | 0.38 s   | 0.26 s         | 299 KB         | 71 (0.36 s)                         |
+| 100    | 0.29 s | 4.4 s    | 3.8 s          | 1.4 MB         | 301 (4.4 s)                         |
+| 250    | 0.64 s | 23.1 s   | 22.3 s         | 3.6 MB         | 751 (23.5 s)                        |
+
+Spark 2.7.9 compiles in about the same time as 2.7.6. Its manifest .beam is about 10%
+larger.
 
 Spark 2.7.6:
 
