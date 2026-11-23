@@ -7,6 +7,11 @@ defmodule VerifiedPubSub.Dsl do
            describe: "A field of the payload that the event carries.",
            args: [:name, :type],
            identifier: :name,
+           # Without this option, the alias of a struct module in the type runs in the module
+           # body, and Mix records a compile-time dependency on the struct module. With it,
+           # Spark expands the alias with no lexical tracker, so the manifest keeps only the
+           # atom. See https://github.com/CuriousCurmudgeon/verified_pubsub/issues/3.
+           no_depend_modules: [:type],
            schema: [
              name: [type: :atom, required: true, doc: "The name of the field."],
              type: [

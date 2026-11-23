@@ -61,6 +61,8 @@ end
   separately.
 - Field types: `:string`, `:integer`, `:float`, `:boolean`, `:atom`, `:map`, `:list`,
   `:any`, `{:list, type}`, or a struct module.
+- A struct module in a field type is not a compile-time dependency of the manifest. Do not
+  move a struct out of the manifest to avoid a compile of the manifest again.
 - With `required: false`, the key can be absent or `nil`. A field is required by default.
 - `:pubsub` names a `Phoenix.PubSub` that the supervision tree starts.
 - Document a topic, an event, or a field with `description`. Put it inside the block, as
