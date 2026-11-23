@@ -101,6 +101,55 @@ defmodule VerifiedPubSub.DslTest do
     end
   end
 
+  describe "field" do
+    test "an aliased struct module in the type resolves to the full module name" do
+      manifest =
+        VerifiedPubSub.CompileHelper.compile!("""
+        defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.AliasedType")} do
+          use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
+
+          alias VerifiedPubSub.TestStructs.Point
+
+          topic :points, ["points"] do
+            message :moved do
+              field :point, Point
+              field :path, {:list, Point}
+            end
+          end
+        end
+        """)
+
+      assert [
+               %{name: :point, type: VerifiedPubSub.TestStructs.Point},
+               %{name: :path, type: {:list, VerifiedPubSub.TestStructs.Point}}
+             ] = manifest.__verified_pubsub_fields__(:points, :moved)
+    end
+
+    test "a struct module in the type is not a compile-time dependency of the manifest" do
+      # The lexical tracker of a file holds the references that Mix records for it. It stops
+      # at the end of the file, so the last expression of the file reads it.
+      VerifiedPubSub.CompileHelper.compile!("""
+      defmodule #{VerifiedPubSub.CompileHelper.unique_module("VPTest.StructType")} do
+        use VerifiedPubSub.Manifest, pubsub: VerifiedPubSub.TestPubSub
+
+        alias VerifiedPubSub.TestStructs.Point
+
+        topic :points, ["points"] do
+          message :moved do
+            field :point, Point
+            field :path, {:list, VerifiedPubSub.TestStructs.Point}
+          end
+        end
+      end
+
+      send(self(), {:references, Kernel.LexicalTracker.references(__ENV__.lexical_tracker)})
+      """)
+
+      assert_received {:references, {compile_references, _exports, _runtime, _compile_env}}
+      refute VerifiedPubSub.TestStructs.Point in compile_references
+    end
+  end
+
   describe "topic, message, field :description" do
     test "comes from a block or a keyword, on a topic, an event, and a field" do
       manifest =

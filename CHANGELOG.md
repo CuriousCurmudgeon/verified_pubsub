@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A struct module in the type of a `field` is no longer a compile-time dependency of the
+  manifest. A change to the struct then does not compile the manifest again, or each
+  module that uses the manifest.
+
 ## v0.3.0 (2026-10-31)
 
 - `handle_message` is now `handle_broadcast`, and `ignore_message` is now `ignore_broadcast`.

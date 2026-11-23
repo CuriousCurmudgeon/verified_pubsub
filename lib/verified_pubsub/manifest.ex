@@ -43,6 +43,9 @@ defmodule VerifiedPubSub.Manifest do
   An unknown type is a compile error. With `required: false`, the key can be absent, or
   present as `nil`.
 
+  The manifest keeps only the name of a struct module. The module is not a compile-time
+  dependency of the manifest, so a change to the struct does not compile the manifest again.
+
   **The payload is a map of exactly the declared fields.** A broadcast rejects an
   undeclared key, so the manifest stays an accurate description of the data on the wire.
   For the same reason, a struct cannot be the payload itself, because it carries

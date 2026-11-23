@@ -86,6 +86,10 @@ Each `message` declares one event on its topic. Its `field`s declare the keys th
 payload of that event must have. A payload is a map of exactly those fields. To make a
 field optional, add `required: false` to it.
 
+A field can have a struct module as its type, as `field :pet, MyApp.Pet`. The manifest
+keeps only the name of the module. So a change to `MyApp.Pet` does not compile the
+manifest again, or the modules that use the manifest.
+
 ## Document your topics
 
 The manifest writes its own docs. Its `@moduledoc` gets a `## Topics` section. The section
