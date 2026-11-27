@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.1 (2026-11-27)
 
 - A struct module in the type of a `field` is no longer a compile-time dependency of the
   manifest. A change to the struct then does not compile the manifest again, or each
